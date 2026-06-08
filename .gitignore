@@ -1,0 +1,16 @@
+# --- Quotagate-specific ---
+quotagate-spec.md
+*.local.json
+
+# --- Node / TypeScript ---
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+
+# --- Runtime / logs ---
+.quotagate/
+*.log
+
+# --- OS ---
+.DS_Store
