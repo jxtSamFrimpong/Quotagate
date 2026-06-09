@@ -26,12 +26,15 @@ Goal: `docs/active/` should hold only in-progress trackers (plus `TEMPLATE.md`).
 2. For each tracker, read its status to form a recommendation. A tracker _looks_ **done** when its
    own status says so — `✅`/`Complete`/`Signed-off`/`APPROVE`, all subtasks checked, the green gate
    verified, and no open/blocked work left.
-3. **Always ask the user before moving any tracker** — never archive one unprompted, even if it
-   clearly looks done. Present all candidates in **one** `AskUserQuestion` (multiSelect), each with
-   filename, status line, and your archive/keep recommendation. Only confirmed trackers get moved.
-4. Move each confirmed tracker. In a git repo: `git mv docs/active/<file> docs/archive/tasks/<file>`
-   (preserves history). Not a git repo: `mv docs/active/<file> docs/archive/tasks/<file>`.
-5. Never delete a tracker. Never archive one the user did not confirm.
+3. **Only prompt when there is genuine ambiguity.** If the situation is unambiguous — exactly one
+   tracker is clearly done and all others are clearly not started or in-progress — archive the done
+   one without asking. Only use `AskUserQuestion` (multiSelect) when: multiple trackers look done, or
+   a tracker's status is unclear (partial completion, no sign-off). Present ambiguous candidates with
+   filename, status line, and your archive/keep recommendation.
+4. Move each confirmed tracker (or the unambiguous done tracker). In a git repo:
+   `git mv docs/active/<file> docs/archive/tasks/<file>` (preserves history). Not a git repo:
+   `mv docs/active/<file> docs/archive/tasks/<file>`.
+5. Never delete a tracker. Never archive a tracker whose status is genuinely unclear without user confirmation.
 
 If `docs/active/` already holds only `TEMPLATE.md`, report "no trackers to archive" and skip the prompt.
 
