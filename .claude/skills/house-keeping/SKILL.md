@@ -23,7 +23,7 @@ move on — do not invent work.
 Goal: `docs/active/` should hold only in-progress trackers (plus `TEMPLATE.md`).
 
 1. List `docs/active/TASK_*.md` (ignore `TEMPLATE.md`).
-2. For each tracker, read its status to form a recommendation. A tracker *looks* **done** when its
+2. For each tracker, read its status to form a recommendation. A tracker _looks_ **done** when its
    own status says so — `✅`/`Complete`/`Signed-off`/`APPROVE`, all subtasks checked, the green gate
    verified, and no open/blocked work left.
 3. **Always ask the user before moving any tracker** — never archive one unprompted, even if it
@@ -43,7 +43,7 @@ Apply the **Decision Log Protocol** in `.claude/CLAUDE.md` (`## Decision Log Pro
 **Resolved/settled** decisions are eligible — never touch **Open decisions for user** or the
 **Inherited DECIDED architecture** pointer (those reference the spec and stay).
 
-**Scope:** "decisions" means *every settled decision and locked principle* leaving the inline body of
+**Scope:** "decisions" means _every settled decision and locked principle_ leaving the inline body of
 CLAUDE.md — both the explicit dated `Resolved-decision` blocks **and** any decision embedded in a
 "What was completed" entry that Step 4's fold is about to compact away. Whatever gets compacted out
 must first land in `docs/archive/decisions.md`, so nothing decision-bearing is lost. **Do this step

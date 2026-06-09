@@ -5,6 +5,7 @@
 > contracts, and success/quality gates. It is the bridge from phase goals to hour-sized tasks.
 
 ## Workstream Overview
+
 - **Parent Phase**: [Phase 1A — Claude Subprocess Adapter & Constraint](../phases/01a_transport_and_constraint.md)
 - **Timeframe**: ~2 days
 - **Status**: Proposed
@@ -39,6 +40,7 @@ WS_03 depends entirely on this workstream's output — it cannot run integration
 ## Locked Decisions
 
 ### WS_02-D1 — `build_constrained_prompt` Lives Inside the Adapter, Not the Translation Layer ✅ LOCKED (Architect, 2026-06-08)
+
 Inherits **D-1B-01** from the Phase 1B plan (stated here because the implementation lives in this workstream).
 
 **Decision**: `build_constrained_prompt` is a private function of `src/adapters/claude.ts`. The translation pipeline (`argumentBuilder.ts`, `validator.ts`, `responseBuilder.ts`) never injects constraint text. The adapter owns the constraint entirely.
@@ -48,6 +50,7 @@ Inherits **D-1B-01** from the Phase 1B plan (stated here because the implementat
 **Rejected alternative — inject constraint in `argumentBuilder.ts`**: Forces `argumentBuilder` to be adapter-aware, breaking the clean pipeline abstraction and requiring a rework when Phase 2 adds Gemini/Codex adapters.
 
 ### WS_02-D2 — `sanitised_env()` Allowlist Determined Empirically; Recorded in Decision Log ✅ LOCKED (Architect, 2026-06-08)
+
 Inherits **D-1A-07** from the parent phase plan.
 
 **Decision**: The allowlist for `sanitised_env()` is not assumed from documentation — it is determined by running `claude --print` with progressively stripped environments and confirming that subscription authentication still holds. The resulting allowlist is recorded as a resolved decision (WS_02-D2-allowlist) in the CLAUDE.md Decision Log before WS_02 is signed off.
@@ -57,6 +60,7 @@ Inherits **D-1A-07** from the parent phase plan.
 **Rejected alternative — strip all env vars**: Risks silently breaking `claude --print` subscription auth, making Phase 1 transport unusable with no obvious root cause.
 
 ### WS_02-D3 — `install()` Is a No-Op Stub in Phase 1 ✅ LOCKED (Architect, 2026-06-08)
+
 **Decision**: `ClaudeAdapter.install()` throws `new Error("install() not implemented in Phase 1 — MCP registration is Phase 2")` or returns immediately with a log line. It satisfies the `CLIAdapter` interface without doing any real work.
 
 **Rationale**: `install()` in the full design (spec §3.7) writes `~/.quotagate/CLAUDE.md` and runs `claude mcp add` — both Phase 2 MCP concerns (D-SEQ-01). The interface requires the method; the stub makes the omission explicit and loud rather than silently missing.
@@ -67,23 +71,25 @@ Inherits **D-1A-07** from the parent phase plan.
 
 ## Task Breakdown
 
-| Task ID | Description | Est. Duration | Status | Task Tracker Link |
-|---------|-------------|---------------|--------|-------------------|
-| T1 | Author `src/adapters/base.ts`: `CLIAdapter` interface with typed `complete()`, `healthCheck()`, `install()` signatures. Unit test: a minimal stub class satisfies the interface (TypeScript structural check). | ~45 min | ⬚ Not started | `../../active/TASK_WS02_T1.md` |
-| T2 | Author `build_constrained_prompt(messages, tools, toolChoice)` in `src/adapters/claude.ts`. Unit tests: constraint instructions present in output; caller messages serialized faithfully (no mutation, no reordering); `tools: undefined` produces a valid prompt; `tools: [...]` serializes schemas into the prompt. | ~1.5 hours | ⬚ Not started | `../../active/TASK_WS02_T2.md` |
-| T3 | Empirically determine `sanitised_env()` allowlist: run `claude --print` with progressively stripped environments; record which vars are required for auth. Author `sanitised_env()` with the confirmed allowlist. Unit tests: stripped vars absent; required auth vars present; output is a plain `Record<string,string>`. Record the allowlist as WS_02-D2-allowlist in the Decision Log. | ~1.5 hours | ⬚ Not started | `../../active/TASK_WS02_T3.md` |
-| T4 | Author `ClaudeAdapter` class: `_complete_via_subprocess()` (spawns `claude --print`, passes constrained prompt via stdin, reads stdout, returns `AdapterResponse`), `healthCheck()` (verifies `claude` on PATH + authenticated), `install()` stub. Wire `complete()` to delegate to `_complete_via_subprocess()`. Green gate passes. | ~1.5 hours | ⬚ Not started | `../../active/TASK_WS02_T4.md` |
+| Task ID | Description                                                                                                                                                                                                                                                                                                                                                                                | Est. Duration | Status        | Task Tracker Link              |
+| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------- | ------------- | ------------------------------ |
+| T1      | Author `src/adapters/base.ts`: `CLIAdapter` interface with typed `complete()`, `healthCheck()`, `install()` signatures. Unit test: a minimal stub class satisfies the interface (TypeScript structural check).                                                                                                                                                                             | ~45 min       | ⬚ Not started | `../../active/TASK_WS02_T1.md` |
+| T2      | Author `build_constrained_prompt(messages, tools, toolChoice)` in `src/adapters/claude.ts`. Unit tests: constraint instructions present in output; caller messages serialized faithfully (no mutation, no reordering); `tools: undefined` produces a valid prompt; `tools: [...]` serializes schemas into the prompt.                                                                      | ~1.5 hours    | ⬚ Not started | `../../active/TASK_WS02_T2.md` |
+| T3      | Empirically determine `sanitised_env()` allowlist: run `claude --print` with progressively stripped environments; record which vars are required for auth. Author `sanitised_env()` with the confirmed allowlist. Unit tests: stripped vars absent; required auth vars present; output is a plain `Record<string,string>`. Record the allowlist as WS_02-D2-allowlist in the Decision Log. | ~1.5 hours    | ⬚ Not started | `../../active/TASK_WS02_T3.md` |
+| T4      | Author `ClaudeAdapter` class: `_complete_via_subprocess()` (spawns `claude --print`, passes constrained prompt via stdin, reads stdout, returns `AdapterResponse`), `healthCheck()` (verifies `claude` on PATH + authenticated), `install()` stub. Wire `complete()` to delegate to `_complete_via_subprocess()`. Green gate passes.                                                       | ~1.5 hours    | ⬚ Not started | `../../active/TASK_WS02_T4.md` |
 
-*Status: `✅ Completed` | `🔄 In Progress` | `⬚ Not started` | `❌ Blocked`*
+_Status: `✅ Completed` | `🔄 In Progress` | `⬚ Not started` | `❌ Blocked`_
 
-*T1 is a prerequisite for T4 (interface must exist before the class implements it). T2 and T3 are independent of each other and can run in parallel. T4 depends on T2 and T3 (it consumes `build_constrained_prompt` and `sanitised_env`).*
+_T1 is a prerequisite for T4 (interface must exist before the class implements it). T2 and T3 are independent of each other and can run in parallel. T4 depends on T2 and T3 (it consumes `build_constrained_prompt` and `sanitised_env`)._
 
 ---
 
 ## Cross-Task Contracts
 
 ### `CLIAdapter` interface (owned by T1 → consumed by T4, WS_05, WS_08)
+
 Defined in `src/adapters/base.ts`. Signature:
+
 ```typescript
 interface CLIAdapter {
   readonly name: string;
@@ -92,27 +98,35 @@ interface CLIAdapter {
   install(): Promise<void>;
 }
 ```
+
 `proxy.ts` and `router.ts` hold a `CLIAdapter` reference — they never import `ClaudeAdapter` directly. This is the adapter-agnosticism invariant (#4). Consumers must not narrow the type to `ClaudeAdapter`.
 
 ### `build_constrained_prompt` (owned by T2 → consumed by T4)
+
 Private to `src/adapters/claude.ts`. Signature:
+
 ```typescript
 function buildConstrainedPrompt(
   messages: OpenAIMessage[],
   tools: OpenAITool[] | undefined,
-  toolChoice: string
-): string
+  toolChoice: string,
+): string;
 ```
+
 T4's `_complete_via_subprocess()` calls this to produce the stdin string. The constraint text is part of this function's output — T4 must not add additional constraint instructions at the call site (that would duplicate the constraint and make it harder to tune).
 
 ### `sanitised_env()` (owned by T3 → consumed by T4)
+
 Private to `src/adapters/claude.ts`. Signature:
+
 ```typescript
-function sanitisedEnv(): NodeJS.ProcessEnv
+function sanitisedEnv(): NodeJS.ProcessEnv;
 ```
+
 Returns a `Record<string, string>` safe to pass as `env` to `child_process.spawn`. T4 passes this directly to the subprocess spawn options — it does not further modify the returned object.
 
 ### `AdapterResponse` (inherited from WS_01 T3 → produced by T4, consumed by WS_03, WS_04)
+
 `{ raw: string, backend: "claude-subprocess" }`. T4's `_complete_via_subprocess()` sets `backend: "claude-subprocess"`. WS_04's `validator.ts` reads `raw` and ignores `backend` (transport-agnostic). Do not add fields to `AdapterResponse` without a Decision Log entry — it is a cross-phase contract.
 
 ---

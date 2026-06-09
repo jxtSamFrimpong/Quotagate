@@ -5,6 +5,7 @@
 > contracts, and success/quality gates. It is the bridge from phase goals to hour-sized tasks.
 
 ## Workstream Overview
+
 - **Parent Phase**: [Phase 1C — Tool Calling & Acceptance](../phases/01c_tool_calling_and_acceptance.md)
 - **Timeframe**: ~2 days
 - **Status**: Proposed
@@ -38,6 +39,7 @@ WS_07 and WS_08 are independent of each other. They can proceed in parallel afte
 ## Locked Decisions
 
 ### WS_07-D1 — `{type:"tool_call"}` Validator Branch Added to Existing `validator.ts`; No New File ✅ LOCKED (Architect, 2026-06-08)
+
 **Decision**: The tool-call Zod branch is added to the existing `validate()` function in `src/validator.ts` — it is a new arm of the existing discriminated union parse, not a separate function or file. The `QuotagateCompleteResult` Zod schema already defines both branches (WS_01-D3); `validate()` now exercises both.
 
 **Rationale**: The validator's job is to parse any `QuotagateCompleteResult` shape — the routing decision (which branch was returned) is determined by the Zod parse result, not by separate entry points. A separate function would duplicate the retry loop logic, creating a drift risk between the two paths.
@@ -45,6 +47,7 @@ WS_07 and WS_08 are independent of each other. They can proceed in parallel afte
 **Rejected alternative — a separate `validateToolCall()` function**: Duplicates the retry loop. The retry behavior is identical for both branches — only the Zod schema differs. Keeping one `validate()` entry point that routes internally is cleaner and less error-prone.
 
 ### WS_07-D2 — `responseBuilder.ts` Tool-Call Branch: `arguments` Is a JSON String, Not an Object ✅ LOCKED (Architect, 2026-06-08)
+
 **Decision**: In the OpenAI `tool_calls` array, `function.arguments` must be a **serialized JSON string** — `JSON.stringify(result.arguments)` — not the raw `Record<string,unknown>` object. This is the OpenAI API contract (spec §4.3, step 6). The test asserts `JSON.parse(tool_calls[0].function.arguments)` succeeds and produces the expected object.
 
 **Rationale**: The OpenAI API specification defines `function.arguments` as a string. The `openai` TypeScript package types it as `string`. A caller using the standard SDK pattern — `JSON.parse(toolCall.function.arguments)` — would throw if the value were already an object. This is a subtle but load-bearing distinction that has caused real-world bugs in proxy implementations.
@@ -52,6 +55,7 @@ WS_07 and WS_08 are independent of each other. They can proceed in parallel afte
 **Rejected alternative — pass `result.arguments` (the object) directly**: Violates the OpenAI response contract (invariant #5). The TypeScript type is `string`; passing an object would produce a type error if strict checks are applied.
 
 ### WS_07-D3 — Invariant #1 Asserted via Absence-of-Side-Effect, Not a Spy ✅ LOCKED (Architect, 2026-06-08)
+
 Inherits **D-1C-03** from the parent phase plan.
 
 **Decision**: The tool-call integration test asserts invariant #1 ("the proxy never executes tool calls") by:
@@ -64,7 +68,8 @@ There is no `executeTool()` function inside Quotagate to spy on — invariant #1
 
 **Rejected alternative — mock a "tool execution layer" and assert it was not called**: There is no such layer to mock. The test would be asserting on an invented fixture, not on the actual behavior. The absence-of-side-effect test is grounded in the real world.
 
-### WS_07-D4 — Tool-Call `id` Format Is `call_<uuid>` ✅ LOCKED (Architect, 2026-06-08)
+### WS*07-D4 — Tool-Call `id` Format Is `call*<uuid>` ✅ LOCKED (Architect, 2026-06-08)
+
 **Decision**: The `tool_calls[0].id` in the response builder output uses the format `"call_" + crypto.randomUUID()`. The unit test asserts the id matches `/^call_/`.
 
 **Rationale**: The OpenAI API uses `call_` prefixed ids for tool call objects. Matching this prefix makes Quotagate's responses indistinguishable from the real API (invariant #5). The full id is non-deterministic (UUID) — the test asserts the prefix, not the full value.
@@ -75,31 +80,35 @@ There is no `executeTool()` function inside Quotagate to spy on — invariant #1
 
 ## Task Breakdown
 
-| Task ID | Description | Est. Duration | Status | Task Tracker Link |
-|---------|-------------|---------------|--------|-------------------|
-| T1 | Add `{type:"tool_call"}` Zod branch to `src/validator.ts`. Unit tests: valid tool-call fixture parses; missing `name` triggers retry; non-object `arguments` triggers retry; `type: "tool_call"` missing `arguments` triggers retry; both text and tool-call branches parse correctly from the same `validate()` entry point. | ~1 hour | ⬚ Not started | `../../active/TASK_WS07_T1.md` |
-| T2 | Add `{type:"tool_call"}` branch to `src/responseBuilder.ts`. Produces: `finish_reason: "tool_calls"`, `content: null`, `tool_calls: [{id: "call_<uuid>", type: "function", function: {name, arguments: JSON.stringify(args)}}]`. Unit tests: `finish_reason === "tool_calls"`; `content === null`; `tool_calls[0].function.name` correct; `JSON.parse(tool_calls[0].function.arguments)` round-trips the input `arguments`; id matches `/^call_/`; TypeScript type-checks as valid `ChatCompletion`. | ~1 hour | ⬚ Not started | `../../active/TASK_WS07_T2.md` |
-| T3 | Author `tests/integration/e2e.toolCall.test.ts`: (a) `get_weather` tool call — assert `finish_reason: "tool_calls"`, `tool_calls[0].function.name === "get_weather"`, `arguments` parseable JSON. (b) `write_file` absence-of-side-effect — assert file NOT created. Use `beforeAll`/`afterAll` server fixture (same pattern as WS_06). Guard with `healthCheck()` skip. | ~1 hour | ⬚ Not started | `../../active/TASK_WS07_T3.md` |
-| T4 | Green-gate close-out: run the full suite (`npm test`, `typecheck`, `lint`, `format`). Fix any issues from the live tool-call run (constraint wording for tool calls, `arguments` serialization edge cases). Confirm the `write_file` absence-of-side-effect test is not brittle (no file created at the temp path regardless of test run order). | ~45 min | ⬚ Not started | `../../active/TASK_WS07_T4.md` |
+| Task ID | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | Est. Duration | Status        | Task Tracker Link              |
+| ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- | ------------- | ------------------------------ |
+| T1      | Add `{type:"tool_call"}` Zod branch to `src/validator.ts`. Unit tests: valid tool-call fixture parses; missing `name` triggers retry; non-object `arguments` triggers retry; `type: "tool_call"` missing `arguments` triggers retry; both text and tool-call branches parse correctly from the same `validate()` entry point.                                                                                                                                                                        | ~1 hour       | ⬚ Not started | `../../active/TASK_WS07_T1.md` |
+| T2      | Add `{type:"tool_call"}` branch to `src/responseBuilder.ts`. Produces: `finish_reason: "tool_calls"`, `content: null`, `tool_calls: [{id: "call_<uuid>", type: "function", function: {name, arguments: JSON.stringify(args)}}]`. Unit tests: `finish_reason === "tool_calls"`; `content === null`; `tool_calls[0].function.name` correct; `JSON.parse(tool_calls[0].function.arguments)` round-trips the input `arguments`; id matches `/^call_/`; TypeScript type-checks as valid `ChatCompletion`. | ~1 hour       | ⬚ Not started | `../../active/TASK_WS07_T2.md` |
+| T3      | Author `tests/integration/e2e.toolCall.test.ts`: (a) `get_weather` tool call — assert `finish_reason: "tool_calls"`, `tool_calls[0].function.name === "get_weather"`, `arguments` parseable JSON. (b) `write_file` absence-of-side-effect — assert file NOT created. Use `beforeAll`/`afterAll` server fixture (same pattern as WS_06). Guard with `healthCheck()` skip.                                                                                                                             | ~1 hour       | ⬚ Not started | `../../active/TASK_WS07_T3.md` |
+| T4      | Green-gate close-out: run the full suite (`npm test`, `typecheck`, `lint`, `format`). Fix any issues from the live tool-call run (constraint wording for tool calls, `arguments` serialization edge cases). Confirm the `write_file` absence-of-side-effect test is not brittle (no file created at the temp path regardless of test run order).                                                                                                                                                     | ~45 min       | ⬚ Not started | `../../active/TASK_WS07_T4.md` |
 
-*Status: `✅ Completed` | `🔄 In Progress` | `⬚ Not started` | `❌ Blocked`*
+_Status: `✅ Completed` | `🔄 In Progress` | `⬚ Not started` | `❌ Blocked`_
 
-*T1 and T2 are independent and can run in parallel. T3 depends on T1 and T2 (the integration test exercises both). T4 depends on T3. If constraint wording issues are found in T3, the fix is in `adapters/claude.ts` (WS_02 — no changes to T1/T2 needed).*
+_T1 and T2 are independent and can run in parallel. T3 depends on T1 and T2 (the integration test exercises both). T4 depends on T3. If constraint wording issues are found in T3, the fix is in `adapters/claude.ts` (WS_02 — no changes to T1/T2 needed)._
 
 ---
 
 ## Cross-Task Contracts
 
 ### `validate()` with tool-call branch (extended by T1 → consumed by T3, WS_05 T3, WS_09)
+
 `validate()` in `src/validator.ts` now handles both `{type:"text"}` and `{type:"tool_call"}` via the `QuotagateCompleteResult` discriminated union. The function signature does not change (owned by WS_04-T2/T3). The `invoker` callback and retry loop are identical for both branches. Consumers (WS_05's `proxy.ts`, WS_09's acceptance tests) do not need to change their call site — the validator routes internally based on the parsed `type` field.
 
 ### `buildChatCompletion()` with tool-call branch (extended by T2 → consumed by T3, WS_05, WS_09)
+
 `buildChatCompletion()` in `src/responseBuilder.ts` now handles both branches. The function signature does not change. `proxy.ts` (WS_05) calls it unconditionally; the branching is internal. The return type is still `ChatCompletion` — the OpenAI package's TypeScript type accommodates both `finish_reason: "stop"` and `finish_reason: "tool_calls"` in the `choices[0]` discriminated union.
 
 ### `write_file` absence-of-side-effect test (T3 → WS_09 scope note)
+
 The `write_file` test in T3 generates a temp path (e.g. `/tmp/quotagate-test-<uuid>`). The test asserts the file does not exist after the request. This path should be unique per test run to avoid cross-run interference. WS_09 does not re-run this specific assertion — WS_07 T3 owns the invariant #1 proof.
 
 ### `QuotagateCompleteResult` `{type:"tool_call"}` branch (inherited from WS_01 T3)
+
 The Zod schema for `{type:"tool_call", name: string, arguments: Record<string,unknown>}` is already defined in `src/types.ts`. T1 and T2 import it from `src/types.ts` — they do not redefine it. Any change to the `tool_call` branch of `QuotagateCompleteResult` is a breaking contract change requiring a Decision Log entry.
 
 ---

@@ -5,6 +5,7 @@
 > contracts, and success/quality gates. It is the bridge from phase goals to hour-sized tasks.
 
 ## Workstream Overview
+
 - **Parent Phase**: [Phase 1C — Tool Calling & Acceptance](../phases/01c_tool_calling_and_acceptance.md)
 - **Timeframe**: ~1 day
 - **Status**: Proposed
@@ -29,7 +30,7 @@
 
 ## Why This Workstream Matters
 
-The contamination tests are the proof that the spec's core safety guarantee — "no state leaks across requests" (invariant #10) — holds in practice, not just in theory. On the subprocess transport, this guarantee is free (fresh OS process per request), but "free by construction" is only safe if a test is there to catch the day the construction changes. Phase 2's MCP upgrade is exactly such a construction change: when a persistent MCP session is introduced, invariants #10 and #11 must be *re-earned* by the `_mcp_lock`. These contamination tests are the regression guard that the MCP upgrade must keep green. If WS_09 is not written, Phase 2's MCP work has no automated proof that it preserved the isolation guarantee.
+The contamination tests are the proof that the spec's core safety guarantee — "no state leaks across requests" (invariant #10) — holds in practice, not just in theory. On the subprocess transport, this guarantee is free (fresh OS process per request), but "free by construction" is only safe if a test is there to catch the day the construction changes. Phase 2's MCP upgrade is exactly such a construction change: when a persistent MCP session is introduced, invariants #10 and #11 must be _re-earned_ by the `_mcp_lock`. These contamination tests are the regression guard that the MCP upgrade must keep green. If WS_09 is not written, Phase 2's MCP work has no automated proof that it preserved the isolation guarantee.
 
 The concurrent sub-case (D-1C-04) uses real OpenAI SDK concurrency because the spec frames the test as "fire A and B in parallel as an OpenAI SDK client would." Testing only at the adapter layer would miss the Fastify request-handling layer — the actual concurrency surface in production is HTTP, not a `Promise.all` inside a test.
 
@@ -40,6 +41,7 @@ WS_09 is the formal close of Phase 1. Nothing in Phase 2 begins until WS_09 is s
 ## Locked Decisions
 
 ### WS_09-D1 — Contamination Tests Satisfy Invariant #10 via Fresh-Process Isolation; `_mcp_lock` Is Not Phase 1 ✅ LOCKED (Architect, 2026-06-08)
+
 Inherits **D-SEQ-01** from CLAUDE.md and the parent phase plan.
 
 **Decision**: On the `claude --print` subprocess transport, contamination isolation holds by construction — each request is a fresh OS process that exits after one response. The three contamination sub-cases pass because of this construction, not because of any serialization mechanism built by Quotagate. The `_mcp_lock` (invariant #11) and the persistent MCP session are not in Phase 1 and are not tested here.
@@ -51,6 +53,7 @@ Inherits **D-SEQ-01** from CLAUDE.md and the parent phase plan.
 **Rejected alternative — implement `_mcp_lock` now to pass the contamination tests "properly"**: Anti-overengineering. There is no MCP session in Phase 1, so there is nothing to serialize. The tests pass correctly without the lock. Implementing the lock against a non-existent session would be dead code that cannot be tested.
 
 ### WS_09-D2 — Concurrent Test Uses Real OpenAI SDK Concurrency; Not `Promise.all` at the Adapter Layer ✅ LOCKED (Architect, 2026-06-08)
+
 Inherits **D-1C-04** from the parent phase plan.
 
 **Decision**: The concurrent contamination test fires two simultaneous `client.chat.completions.create()` calls using the `openai` npm SDK against the running Fastify server. Both are in flight at the HTTP level. `Promise.all([createA, createB])` at the test level is the mechanism — this is real HTTP-level concurrency because the Fastify server receives two HTTP requests nearly simultaneously and dispatches them to two separate subprocess invocations.
@@ -60,6 +63,7 @@ Inherits **D-1C-04** from the parent phase plan.
 **Rejected alternative — test at the adapter layer with `Promise.all`**: Skips the HTTP layer. The Fastify concurrency handling is part of the system under test; a test that bypasses it cannot prove isolation under real-world concurrency.
 
 ### WS_09-D3 — Sequential Contamination Sub-Case Migrated to Full HTTP Path ✅ LOCKED (Architect, 2026-06-08)
+
 **Decision**: `tests/integration/contamination.sequential.test.ts`, authored in WS_03 at the adapter level (calling `adapter.complete()` directly), is extended in WS_09 to run through the full HTTP path (OpenAI SDK → Fastify → adapter → subprocess). The adapter-level version is kept as a regression guard for the adapter in isolation; the HTTP-path version is the Phase 1C acceptance criterion.
 
 **Rationale**: The WS_03 sequential test proved the adapter is stateless. WS_09 proves the full proxy stack is stateless. The additional layer (Fastify, `proxy.ts`, `router.ts`) could theoretically introduce state — for example, a request cache, a connection pool, or a shared variable — that the adapter-level test would not catch. The HTTP-path version catches those.
@@ -67,6 +71,7 @@ Inherits **D-1C-04** from the parent phase plan.
 **Rejected alternative — rely on the WS_03 adapter-level sequential test as the Phase 1C criterion**: Insufficient. The Phase 1C contamination criterion is explicitly about the full proxy path, not just the adapter.
 
 ### WS_09-D4 — Retry-Path Contamination Test Uses the Same `vi.fn()` Double Pattern as WS_08-D1 ✅ LOCKED (Architect, 2026-06-08)
+
 Inherits **D-1C-02** from the parent phase plan.
 
 **Decision**: The retry-path contamination test in WS_09 uses a `vi.fn()` double to inject a malformed first response for request A (triggering the retry loop). Request B is sent concurrently or immediately after. The double is wired at the adapter boundary so the full proxy path is exercised. The assertion is on request B's response content — it must contain no trace of the correction context from A's retry.
@@ -79,35 +84,40 @@ Inherits **D-1C-02** from the parent phase plan.
 
 ## Task Breakdown
 
-| Task ID | Description | Est. Duration | Status | Task Tracker Link |
-|---------|-------------|---------------|--------|-------------------|
-| T1 | Extend `tests/integration/contamination.sequential.test.ts` to run through the full HTTP path (OpenAI SDK → Fastify → subprocess). Call A: distinctive UUID token. Call B: probe. Assert B's response has no trace of A's token through the HTTP path. Guard with `healthCheck()` skip. | ~45 min | ⬚ Not started | `../../active/TASK_WS09_T1.md` |
-| T2 | Author `tests/integration/contamination.concurrent.test.ts`: `Promise.all` of two simultaneous `client.chat.completions.create()` calls (A with a distinctive UUID token, B with a different prompt). Assert neither response contains the other's token or content. Document in the test: "isolation holds on subprocess because each HTTP request spawns a separate OS process; this test is the regression guard for Phase 2's MCP `_mcp_lock`." | ~1 hour | ⬚ Not started | `../../active/TASK_WS09_T2.md` |
-| T3 | Author `tests/integration/contamination.retryPath.test.ts`: `vi.fn()` double injects malformed first response for request A; request B fires immediately (or concurrently) with no double. Assert A eventually resolves (attempt 2 succeeds with real adapter); assert B's response contains no trace of A's correction note content. | ~1 hour | ⬚ Not started | `../../active/TASK_WS09_T3.md` |
-| T4 | Phase-1 green-gate sign-off: run the full suite (`npm test`, `typecheck`, `lint`, `format`). Fix any issues. Verify all Phase 1A/1B/1C acceptance criteria from spec §6 are satisfied by the test suite. Update CLAUDE.md Session State with Phase 1 sign-off note. Update phase plan statuses (01a, 01b, 01c) to Completed. Record what is next (Phase 2 head: MCP upgrade). | ~1 hour | ⬚ Not started | `../../active/TASK_WS09_T4.md` |
+| Task ID | Description                                                                                                                                                                                                                                                                                                                                                                                                                                         | Est. Duration | Status        | Task Tracker Link              |
+| ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- | ------------- | ------------------------------ |
+| T1      | Extend `tests/integration/contamination.sequential.test.ts` to run through the full HTTP path (OpenAI SDK → Fastify → subprocess). Call A: distinctive UUID token. Call B: probe. Assert B's response has no trace of A's token through the HTTP path. Guard with `healthCheck()` skip.                                                                                                                                                             | ~45 min       | ⬚ Not started | `../../active/TASK_WS09_T1.md` |
+| T2      | Author `tests/integration/contamination.concurrent.test.ts`: `Promise.all` of two simultaneous `client.chat.completions.create()` calls (A with a distinctive UUID token, B with a different prompt). Assert neither response contains the other's token or content. Document in the test: "isolation holds on subprocess because each HTTP request spawns a separate OS process; this test is the regression guard for Phase 2's MCP `_mcp_lock`." | ~1 hour       | ⬚ Not started | `../../active/TASK_WS09_T2.md` |
+| T3      | Author `tests/integration/contamination.retryPath.test.ts`: `vi.fn()` double injects malformed first response for request A; request B fires immediately (or concurrently) with no double. Assert A eventually resolves (attempt 2 succeeds with real adapter); assert B's response contains no trace of A's correction note content.                                                                                                               | ~1 hour       | ⬚ Not started | `../../active/TASK_WS09_T3.md` |
+| T4      | Phase-1 green-gate sign-off: run the full suite (`npm test`, `typecheck`, `lint`, `format`). Fix any issues. Verify all Phase 1A/1B/1C acceptance criteria from spec §6 are satisfied by the test suite. Update CLAUDE.md Session State with Phase 1 sign-off note. Update phase plan statuses (01a, 01b, 01c) to Completed. Record what is next (Phase 2 head: MCP upgrade).                                                                       | ~1 hour       | ⬚ Not started | `../../active/TASK_WS09_T4.md` |
 
-*Status: `✅ Completed` | `🔄 In Progress` | `⬚ Not started` | `❌ Blocked`*
+_Status: `✅ Completed` | `🔄 In Progress` | `⬚ Not started` | `❌ Blocked`_
 
-*T1, T2, and T3 are independent and can run in any order or in parallel. T4 is the close-out and depends on all three passing. If T2 or T3 reveal unexpected failures, investigate the subprocess-spawn path (WS_02/WS_04) before escalating — the most likely cause is shared state in a module-level variable, not a subprocess leak.*
+_T1, T2, and T3 are independent and can run in any order or in parallel. T4 is the close-out and depends on all three passing. If T2 or T3 reveal unexpected failures, investigate the subprocess-spawn path (WS_02/WS_04) before escalating — the most likely cause is shared state in a module-level variable, not a subprocess leak._
 
 ---
 
 ## Cross-Task Contracts
 
 ### Test server fixture (inherited from WS_06 / WS_07 pattern → consumed by T1, T2, T3)
+
 All three contamination tests use the same `beforeAll`/`afterAll` server lifecycle pattern established in WS_06 and WS_07: `createServer(config, adapters)` factory, `healthCheck()` skip guard, server bound to a test port. T1 reuses the WS_06 fixture directly (or extends it); T2 and T3 follow the same pattern. Do not spin up a new server per test — one server per describe block.
 
 ### Adapter-level sequential test (inherited from WS_03 T3 → preserved by T1)
+
 WS_03's `tests/integration/contamination.sequential.test.ts` calls `adapter.complete()` directly. T1 adds an HTTP-path version alongside it in the same file or a companion file. Both versions are kept in the test suite — the adapter-level version is a unit-level guard; the HTTP-path version is the Phase 1C acceptance criterion.
 
 ### Phase 1 sign-off (produced by T4 → consumed by Phase 2 planning)
+
 WS_09 T4 is the formal exit from Phase 1. The sign-off in CLAUDE.md Session State records:
+
 - All spec §6 criteria verified: no-tools path, tool-call path, retry path, all three contamination sub-cases.
 - Green gate clean.
 - Why the contamination tests pass (fresh-process isolation; the property Phase 2's `_mcp_lock` must preserve).
 - What is next: Phase 2 head = MCP upgrade (persistent `quotagate_complete` tool server, Mechanism B, installer, MCP client, `_mcp_lock`).
 
 ### Contamination token convention (inherited from WS_03-D3 → applied in T1, T2, T3)
+
 Each contamination test uses a fixed UUID constant (not `crypto.randomUUID()` at runtime) as the distinctive token, following WS_03-D3. The UUID is a fixed constant in the test file, commented with its purpose. T2 and T3 use different UUIDs from T1 to prevent cross-test token collisions.
 
 ---
@@ -115,9 +125,9 @@ Each contamination test uses a fixed UUID constant (not `crypto.randomUUID()` at
 ## Success & Evaluation Criteria
 
 - **Functional requirements — contamination (all three sub-cases; spec §6)**:
-  - [ ] *Sequential (HTTP path)*: OpenAI SDK call A with UUID token → call B "what was the code word?" → B's response contains no trace of the token. (Invariant #10.)
-  - [ ] *Concurrent*: Two simultaneous SDK calls (A: UUID token, B: different prompt). `Promise.all` resolves; neither response contains the other's token. (Isolation under real HTTP concurrency; invariant #10/#11 regression guard.)
-  - [ ] *Retry-path*: Request A forced to retry (malformed first response via double); request B fires independently; B's response contains no content from A's correction note. (Invariant #10 on the error path.)
+  - [ ] _Sequential (HTTP path)_: OpenAI SDK call A with UUID token → call B "what was the code word?" → B's response contains no trace of the token. (Invariant #10.)
+  - [ ] _Concurrent_: Two simultaneous SDK calls (A: UUID token, B: different prompt). `Promise.all` resolves; neither response contains the other's token. (Isolation under real HTTP concurrency; invariant #10/#11 regression guard.)
+  - [ ] _Retry-path_: Request A forced to retry (malformed first response via double); request B fires independently; B's response contains no content from A's correction note. (Invariant #10 on the error path.)
 
 - **Functional requirements — retry exhaustion**:
   - [ ] Three consecutive malformed responses (test double) cause the proxy to return HTTP 500 with an OpenAI-format error body; no stack trace; no raw model output in the body.

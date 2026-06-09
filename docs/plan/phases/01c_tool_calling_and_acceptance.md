@@ -5,6 +5,7 @@
 > workstreams it points to.
 
 ## Phase Overview
+
 - **Objective**: Complete Phase 1 by adding the tool/function-call response path and hardening the
   validator retry loop, then sign off the full Phase-1 acceptance criteria achievable on the
   subprocess transport (spec §6). By the end of this phase the proxy handles both text completions
@@ -23,61 +24,65 @@
 ## Goals
 
 ### Proxy / Server
+
 - [ ] `src/router.ts` — single-backend alias resolution only: reads model aliases from `config.ts`
-  and returns the correct adapter. No health checks, no multi-backend fallback (Phase 2). Replaces
-  the inline map lookup from 1B. Interface designed so Phase 2 can extend it to multi-backend
-  without changing the `proxy.ts` call site.
+      and returns the correct adapter. No health checks, no multi-backend fallback (Phase 2). Replaces
+      the inline map lookup from 1B. Interface designed so Phase 2 can extend it to multi-backend
+      without changing the `proxy.ts` call site.
 - [ ] `src/proxy.ts` updated to use `router.ts` instead of the inline lookup from 1B. No other proxy
-  changes — routing logic moves to `router.ts`.
+      changes — routing logic moves to `router.ts`.
 
 ### Adapters / Transport
+
 - [ ] No new transport work — the Claude subprocess adapter (`_complete_via_subprocess` +
-  `build_constrained_prompt` + `sanitised_env`) was built and proven in Phase 1A, and the same path
-  serves both the text and tool-call branches (the model decides which to return). 1C exercises the
-  tool-call branch through the existing adapter; it does not add a transport.
+      `build_constrained_prompt` + `sanitised_env`) was built and proven in Phase 1A, and the same path
+      serves both the text and tool-call branches (the model decides which to return). 1C exercises the
+      tool-call branch through the existing adapter; it does not add a transport.
 
 ### Constraint Mechanism (prompt-engineering / Mechanism A)
+
 - [ ] `src/validator.ts` retry loop fully exercised: a forced-malformed response (test double
-  injecting a malformed raw string) causes the loop to re-invoke `adapter.complete()` with a
-  correction note appended to messages, up to 3 attempts, then HTTP 500 if all fail. The correction
-  note is a formatting instruction only — it carries no prior-turn content.
+      injecting a malformed raw string) causes the loop to re-invoke `adapter.complete()` with a
+      correction note appended to messages, up to 3 attempts, then HTTP 500 if all fail. The correction
+      note is a formatting instruction only — it carries no prior-turn content.
 - [ ] Tool/function-call validation in `src/validator.ts`: Zod parsing of `{type:"tool_call",
-  name:"...", arguments:{...}}` — `name` is a string, `arguments` is a parseable JSON object, `type`
-  is exactly `"tool_call"`. Malformed tool-call shapes hit the same retry logic as malformed text.
+name:"...", arguments:{...}}` — `name` is a string, `arguments` is a parseable JSON object, `type`
+      is exactly `"tool_call"`. Malformed tool-call shapes hit the same retry logic as malformed text.
 - [ ] Tool/function-call response in `src/responseBuilder.ts`: converts `AdapterResponse` with
-  `type:"tool_call"` into an OpenAI `chat.completion` with `finish_reason:"tool_calls"`,
-  `choices[0].message.content: null`, and a well-formed `tool_calls` array (spec §4.3 steps 5–6).
-  **The tool is NEVER executed — invariant #1 is a hard constraint.** `responseBuilder.ts` returns a
-  declaration only.
+      `type:"tool_call"` into an OpenAI `chat.completion` with `finish_reason:"tool_calls"`,
+      `choices[0].message.content: null`, and a well-formed `tool_calls` array (spec §4.3 steps 5–6).
+      **The tool is NEVER executed — invariant #1 is a hard constraint.** `responseBuilder.ts` returns a
+      declaration only.
 
 ### Testing & Quality
+
 - [ ] Green gate maintained: `npm test` · `typecheck` · `lint` · `format` all clean.
 - [ ] **Full contamination test suite — all three sub-cases** (spec §6). The machine-readable proof
-  that **invariant #10** ("persist the process, never the conversation — each call runs in a fresh
-  context seeded solely by its args") holds. On `claude --print` this is satisfied **by construction**
-  (a fresh OS process per request, which exits after one response), but it is asserted as a test so
-  the guarantee is enforced and carried into the Phase 2 MCP upgrade — where it must be *re-earned*
-  by the `_mcp_lock` (invariant #11):
-  - *Sequential*: Call A with a distinctive secret token, call B "what did I just say?". Assert B's
+      that **invariant #10** ("persist the process, never the conversation — each call runs in a fresh
+      context seeded solely by its args") holds. On `claude --print` this is satisfied **by construction**
+      (a fresh OS process per request, which exits after one response), but it is asserted as a test so
+      the guarantee is enforced and carried into the Phase 2 MCP upgrade — where it must be _re-earned_
+      by the `_mcp_lock` (invariant #11):
+  - _Sequential_: Call A with a distinctive secret token, call B "what did I just say?". Assert B's
     response contains no trace of the token. (Invariant #10, serial path.)
-  - *Concurrent*: Fire A and B in parallel (two simultaneous `client.chat.completions.create()` calls
+  - _Concurrent_: Fire A and B in parallel (two simultaneous `client.chat.completions.create()` calls
     via the OpenAI SDK). Assert neither response contains content from the other. On subprocess this
     holds because each request is an isolated process; the test proves request isolation under real
     HTTP-level concurrency — the same property invariant #11 will protect once MCP sessions exist.
-  - *Retry-path*: Force a validator retry on call A (inject a malformed first response per D-1C-02),
+  - _Retry-path_: Force a validator retry on call A (inject a malformed first response per D-1C-02),
     then send call B. Assert the correction context did not bleed into B. (On subprocess, A's retry
-    re-spawns a fresh process carrying the correction note in *that* request's prompt only; B gets
+    re-spawns a fresh process carrying the correction note in _that_ request's prompt only; B gets
     its own fresh process. Invariant #10 on the error path.)
 - [ ] Tool-call integration test: OpenAI SDK call with a `tools` array (e.g. `get_weather`) produces
-  a response with `finish_reason:"tool_calls"` and a `tool_calls[0]` with the correct function name
-  and parseable arguments. Assert the tool was NOT executed (no side-effect; no file read; no network
-  call from within the proxy process).
+      a response with `finish_reason:"tool_calls"` and a `tool_calls[0]` with the correct function name
+      and parseable arguments. Assert the tool was NOT executed (no side-effect; no file read; no network
+      call from within the proxy process).
 - [ ] Retry-exhaustion test: three consecutive malformed responses (test double) cause `proxy.ts` to
-  return HTTP 500 with a descriptive, non-leaking error body (no stack trace, no raw model output).
+      return HTTP 500 with a descriptive, non-leaking error body (no stack trace, no raw model output).
 - [ ] Unit tests for `router.ts`: known model aliases resolve to the Claude adapter; unknown alias
-  returns null / triggers the HTTP 400 path.
+      returns null / triggers the HTTP 400 path.
 - [ ] Unit tests for `responseBuilder.ts` tool-call branch: `{type:"tool_call"}` produces the correct
-  `tool_calls` array shape; `finish_reason:"tool_calls"`; `content: null`.
+      `tool_calls` array shape; `finish_reason:"tool_calls"`; `content: null`.
 
 ---
 
@@ -89,7 +94,7 @@
   Phase 2 concerns. Implementing them now means dead code that cannot be integration-tested until
   the Gemini/Codex adapters exist.
 - **Selected Approach**: `router.ts` in 1C is a thin resolver: `resolve(modelAlias) → CLIAdapter |
-  null`. Reads the config alias map, returns the Claude adapter for any Claude alias, returns `null`
+null`. Reads the config alias map, returns the Claude adapter for any Claude alias, returns `null`
   for unknown aliases (→ HTTP 400 in `proxy.ts`). The signature is designed so Phase 2 can extend it
   to `Promise<CLIAdapter | null>` (async health check) without changing the call site beyond awaiting.
 - **Rejected Alternative — build the full health-check/multi-backend router now**: Rejected on
@@ -153,15 +158,15 @@
 
 ## Assumptions This Phase Rests On
 
-| Assumption | Risk if false | De-risked by | Status |
-|---|---|---|---|
-| Phase 1B WS_06 is signed off: no-tools end-to-end integration test passing; green gate held | 1C cannot start — the tool-call path builds on a working no-tools path | Phase 1B sign-off gate (WS_06 ✅) | ⬚ |
-| The model consistently returns `{type:"tool_call", name:"...", arguments:{...}}` when `tools` are present and the request calls for a function — i.e. the prompt-engineering constraint (Mechanism A) is effective for the tool-call branch, not just text | High validator retry rate on the tool-call path; constraint wording must be tuned for tool calls | Tool-call integration test in WS_07; constraint prompt iterated if retry rate is high (the constraint is Quotagate's own prompt, so it is directly tunable) | ⬚ |
-| Each `claude --print` request is an isolated OS process, so concurrent requests cannot share context | Concurrent contamination test fails — would indicate an unexpected shared-state leak in the spawn path | Concurrent contamination sub-case in WS_09; de-risked early by the sequential probe from 1A | ⬚ |
-| The retry-path contamination sub-case is testable without a real malformed model response — a malformed raw string can be injected at the `complete()` boundary without breaking the live subprocess call | Retry-path contamination cannot be tested deterministically; the sub-case must be labeled "manual" | Test double approach (D-1C-02); the adapter interface supports injection at the `complete()` boundary | ⬚ |
+| Assumption                                                                                                                                                                                                                                                 | Risk if false                                                                                          | De-risked by                                                                                                                                                | Status |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| Phase 1B WS_06 is signed off: no-tools end-to-end integration test passing; green gate held                                                                                                                                                                | 1C cannot start — the tool-call path builds on a working no-tools path                                 | Phase 1B sign-off gate (WS_06 ✅)                                                                                                                           | ⬚      |
+| The model consistently returns `{type:"tool_call", name:"...", arguments:{...}}` when `tools` are present and the request calls for a function — i.e. the prompt-engineering constraint (Mechanism A) is effective for the tool-call branch, not just text | High validator retry rate on the tool-call path; constraint wording must be tuned for tool calls       | Tool-call integration test in WS_07; constraint prompt iterated if retry rate is high (the constraint is Quotagate's own prompt, so it is directly tunable) | ⬚      |
+| Each `claude --print` request is an isolated OS process, so concurrent requests cannot share context                                                                                                                                                       | Concurrent contamination test fails — would indicate an unexpected shared-state leak in the spawn path | Concurrent contamination sub-case in WS_09; de-risked early by the sequential probe from 1A                                                                 | ⬚      |
+| The retry-path contamination sub-case is testable without a real malformed model response — a malformed raw string can be injected at the `complete()` boundary without breaking the live subprocess call                                                  | Retry-path contamination cannot be tested deterministically; the sub-case must be labeled "manual"     | Test double approach (D-1C-02); the adapter interface supports injection at the `complete()` boundary                                                       | ⬚      |
 
-*Note: the MCP-fallback, `_mcp_lock`, and "make MCP unhealthy" assumptions from the prior MCP-first
-draft are removed — there is no MCP in Phase 1 (D-SEQ-01). They move to the Phase 2 MCP-upgrade plan.*
+_Note: the MCP-fallback, `_mcp_lock`, and "make MCP unhealthy" assumptions from the prior MCP-first
+draft are removed — there is no MCP in Phase 1 (D-SEQ-01). They move to the Phase 2 MCP-upgrade plan._
 
 ---
 
@@ -188,11 +193,11 @@ draft are removed — there is no MCP in Phase 1 (D-SEQ-01). They move to the Ph
 
 ## Workstreams Mapping
 
-| Workstream ID | Workstream Name | Timeframe | Status | Plan Link |
-|--------------|-----------------|-----------|--------|-----------|
-| WS_07 | Tool-Call Response Path (Validator + Response Builder) | ~2 days | ⬚ Not started | [ws07_tool_call_response_path.md](../workstreams/ws07_tool_call_response_path.md) |
-| WS_08 | Validator Retry Loop & Single-Backend Router | ~2 days | ⬚ Not started | [ws08_retry_and_router.md](../workstreams/ws08_retry_and_router.md) |
-| WS_09 | Full Contamination Test Suite & Phase-1 Sign-Off | ~1 day | ⬚ Not started | [ws09_contamination_and_signoff.md](../workstreams/ws09_contamination_and_signoff.md) |
+| Workstream ID | Workstream Name                                        | Timeframe | Status        | Plan Link                                                                             |
+| ------------- | ------------------------------------------------------ | --------- | ------------- | ------------------------------------------------------------------------------------- |
+| WS_07         | Tool-Call Response Path (Validator + Response Builder) | ~2 days   | ⬚ Not started | [ws07_tool_call_response_path.md](../workstreams/ws07_tool_call_response_path.md)     |
+| WS_08         | Validator Retry Loop & Single-Backend Router           | ~2 days   | ⬚ Not started | [ws08_retry_and_router.md](../workstreams/ws08_retry_and_router.md)                   |
+| WS_09         | Full Contamination Test Suite & Phase-1 Sign-Off       | ~1 day    | ⬚ Not started | [ws09_contamination_and_signoff.md](../workstreams/ws09_contamination_and_signoff.md) |
 
 **Dependency ordering within 1C:**
 WS_07 (tool-call path in validator + responseBuilder) and WS_08 (retry loop + `router.ts`) are
@@ -204,42 +209,47 @@ signed off.
 collectively "Phase 1 — Core Proxy" from the spec (spec §6), delivered on the subprocess transport.
 Phase 2 (head: the MCP upgrade; then Multi-Backend and Routing) depends on WS_09 ✅.
 
-*Status: `✅ Completed` | `🔄 In Progress` | `⬚ Not started` | `❌ Blocked`*
+_Status: `✅ Completed` | `🔄 In Progress` | `⬚ Not started` | `❌ Blocked`_
 
 ---
 
 ## Success Criteria (phase-level)
 
 These are the Phase-1 success criteria from the spec (spec §6) achievable on the subprocess
-transport, validated here in their entirety. *(The spec's "zero prompt engineering in the hot path"
+transport, validated here in their entirety. _(The spec's "zero prompt engineering in the hot path"
 property is a feature of the MCP/Mechanism B upgrade — Phase 2 — not the subprocess MVP, which uses
-per-request prompt-engineering by design; see 1A D-SEQ-01.)*
+per-request prompt-engineering by design; see 1A D-SEQ-01.)_
 
 **Functional — no-tools path (inherited from 1B, re-confirmed in the acceptance run):**
+
 - [ ] OpenAI SDK against `localhost:8080/v1`, `api_key="quotagate"`, no `tools`: response has
-  `finish_reason:"stop"`, non-empty `choices[0].message.content`, correct `id` prefix.
+      `finish_reason:"stop"`, non-empty `choices[0].message.content`, correct `id` prefix.
 
 **Functional — tool-call path (new in 1C):**
+
 - [ ] OpenAI SDK call with a `tools` array produces `finish_reason:"tool_calls"`, a `tool_calls`
-  array with the correct function name and parseable `arguments` JSON, and `content: null`.
+      array with the correct function name and parseable `arguments` JSON, and `content: null`.
 - [ ] The declared tool was NOT executed — no side-effect from within the proxy (invariant #1).
 
 **Functional — retry path (new in 1C):**
+
 - [ ] Three consecutive malformed responses (test double) cause the proxy to return HTTP 500 with a
-  descriptive non-leaking error body. A single malformed response followed by a good one returns the
-  good response.
+      descriptive non-leaking error body. A single malformed response followed by a good one returns the
+      good response.
 
 **Contamination test — all three sub-cases (spec §6; validates invariant #10 "persist process not
 conversation"; satisfied on subprocess by fresh-process isolation):**
-- [ ] *Sequential*: Call A (distinctive secret token) → Call B ("what did I just say?"). B's response
-  contains no trace of the token. (Invariant #10.)
-- [ ] *Concurrent*: Two simultaneous OpenAI SDK calls (A and B in parallel). Neither response contains
-  the other's content. Request isolation proven under real HTTP-level concurrency. (The property
-  invariant #11 will protect once MCP sessions exist in Phase 2.)
-- [ ] *Retry-path*: Forced retry on Call A (per D-1C-02 test double) does not bleed correction context
-  into Call B. (Invariant #10 on the error path.)
+
+- [ ] _Sequential_: Call A (distinctive secret token) → Call B ("what did I just say?"). B's response
+      contains no trace of the token. (Invariant #10.)
+- [ ] _Concurrent_: Two simultaneous OpenAI SDK calls (A and B in parallel). Neither response contains
+      the other's content. Request isolation proven under real HTTP-level concurrency. (The property
+      invariant #11 will protect once MCP sessions exist in Phase 2.)
+- [ ] _Retry-path_: Forced retry on Call A (per D-1C-02 test double) does not bleed correction context
+      into Call B. (Invariant #10 on the error path.)
 
 **Green gate (the formal exit condition):**
+
 - [ ] `npm test` green (all Vitest suites pass, no regression in test count).
 - [ ] `npm run typecheck` clean (zero TypeScript errors).
 - [ ] `npm run lint` clean (zero ESLint violations).
@@ -248,6 +258,7 @@ conversation"; satisfied on subprocess by fresh-process isolation):**
 ---
 
 ## Future Enhancements & Roadmap
+
 - **Next Phase**: Phase 2 — **MCP upgrade (head)** then Multi-Backend and Routing. The MCP upgrade
   builds the persistent `quotagate_complete` tool server, Mechanism B constraint, installer +
   `claude mcp add`, MCP client, and `_mcp_lock` (re-earning invariants #10/#11 on the persistent

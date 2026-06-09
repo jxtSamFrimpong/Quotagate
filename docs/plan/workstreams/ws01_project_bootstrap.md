@@ -5,6 +5,7 @@
 > contracts, and success/quality gates. It is the bridge from phase goals to hour-sized tasks.
 
 ## Workstream Overview
+
 - **Parent Phase**: [Phase 1A — Claude Subprocess Adapter & Constraint](../phases/01a_transport_and_constraint.md)
 - **Timeframe**: ~1 day
 - **Status**: Proposed
@@ -39,6 +40,7 @@ The green gate — `npm test` / `typecheck` / `lint` / `format` — is a quality
 ## Locked Decisions
 
 ### WS_01-D1 — Fastify v5 Declared in WS_01 (Server Not Started) ✅ LOCKED (Architect, 2026-06-08)
+
 Inherits **D-1A-05** from the parent phase plan.
 
 **Decision**: Pin `fastify@5.x` in `package.json` during WS_01 bootstrap. The server does not start until WS_05, but the dependency and its TypeScript types are present from the first `npm install` so typecheck is clean across all phases without a package change mid-flight.
@@ -48,6 +50,7 @@ Inherits **D-1A-05** from the parent phase plan.
 **Rejected alternative — declare Fastify in WS_05**: The `tsconfig.json` strict-mode type check covers the whole `src/` tree; `proxy.ts` type-stubs (even empty) would fail typecheck if the package is not installed. Deferring creates a toolchain gap.
 
 ### WS_01-D2 — ESLint Flat Config (`eslint.config.js`) Over Legacy `.eslintrc` ✅ LOCKED (Architect, 2026-06-08)
+
 **Decision**: Use ESLint's flat config format (`eslint.config.js`) with the `@typescript-eslint/eslint-plugin` and `@typescript-eslint/parser`. No `.eslintrc.json` / `.eslintrc.js`.
 
 **Rationale**: ESLint flat config is the current format as of ESLint v9; the legacy format is soft-deprecated. Starting on flat config avoids a forced migration later and is compatible with the project's ESM-first stance.
@@ -55,6 +58,7 @@ Inherits **D-1A-05** from the parent phase plan.
 **Rejected alternative — legacy `.eslintrc.json`**: Introduces a migration burden within the project's own lifetime. The flat config is a one-time cost now, not a recurring debt.
 
 ### WS_01-D3 — `src/types.ts` Defines `QuotagateCompleteResult` with Both Branches ✅ LOCKED (Architect, 2026-06-08)
+
 **Decision**: The Zod schema `QuotagateCompleteResult` is a discriminated union with `{type:"text", content: string}` and `{type:"tool_call", name: string, arguments: Record<string, unknown>}`. Both branches are defined in WS_01 even though the `tool_call` branch is not exercised until WS_03/WS_07.
 
 **Rationale**: `src/types.ts` is the single source of truth for the adapter contract (invariant #4). Defining both branches now means the WS_02 validator and WS_07 tool-call path both import the same Zod schema rather than each defining their own. If the `tool_call` branch were deferred, WS_07 would need to add to `types.ts` mid-flight — a cross-workstream contract change.
@@ -65,37 +69,43 @@ Inherits **D-1A-05** from the parent phase plan.
 
 ## Task Breakdown
 
-| Task ID | Description | Est. Duration | Status | Task Tracker Link |
-|---------|-------------|---------------|--------|-------------------|
-| T1 | Initialize repo: `package.json` (ESM, all npm scripts), `tsconfig.json` (strict, ESM, path aliases), `tsup.config.ts`, `.gitignore`, `README.md` stub | ~1 hour | ⬚ Not started | `../../active/TASK_WS01_T1.md` |
-| T2 | Install and configure toolchain: Vitest (`vitest.config.ts`), ESLint flat config (`eslint.config.js`), Prettier (`.prettierrc`). Green gate passes against a trivial `src/__tests__/smoke.test.ts` | ~1 hour | ⬚ Not started | `../../active/TASK_WS01_T2.md` |
-| T3 | Author `src/types.ts`: `AdapterRequest`, `AdapterResponse`, `QuotagateCompleteResult` Zod schema (both branches). Unit tests: valid/invalid Zod fixtures parse correctly | ~1 hour | ⬚ Not started | `../../active/TASK_WS01_T3.md` |
-| T4 | Author `src/errors.ts` (`QuotagateError`, `TransportError`, `ValidationError`) and `src/index.ts` (no-op stub). Verify full typechain compiles clean. | ~45 min | ⬚ Not started | `../../active/TASK_WS01_T4.md` |
+| Task ID | Description                                                                                                                                                                                        | Est. Duration | Status        | Task Tracker Link              |
+| ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- | ------------- | ------------------------------ |
+| T1      | Initialize repo: `package.json` (ESM, all npm scripts), `tsconfig.json` (strict, ESM, path aliases), `tsup.config.ts`, `.gitignore`, `README.md` stub                                              | ~1 hour       | ⬚ Not started | `../../active/TASK_WS01_T1.md` |
+| T2      | Install and configure toolchain: Vitest (`vitest.config.ts`), ESLint flat config (`eslint.config.js`), Prettier (`.prettierrc`). Green gate passes against a trivial `src/__tests__/smoke.test.ts` | ~1 hour       | ⬚ Not started | `../../active/TASK_WS01_T2.md` |
+| T3      | Author `src/types.ts`: `AdapterRequest`, `AdapterResponse`, `QuotagateCompleteResult` Zod schema (both branches). Unit tests: valid/invalid Zod fixtures parse correctly                           | ~1 hour       | ⬚ Not started | `../../active/TASK_WS01_T3.md` |
+| T4      | Author `src/errors.ts` (`QuotagateError`, `TransportError`, `ValidationError`) and `src/index.ts` (no-op stub). Verify full typechain compiles clean.                                              | ~45 min       | ⬚ Not started | `../../active/TASK_WS01_T4.md` |
 
-*Status: `✅ Completed` | `🔄 In Progress` | `⬚ Not started` | `❌ Blocked`*
+_Status: `✅ Completed` | `🔄 In Progress` | `⬚ Not started` | `❌ Blocked`_
 
-*T1 and T2 are sequential (T2 needs `package.json`). T3 and T4 are independent once T2 is green. Run T3 and T4 in parallel if two sessions are available.*
+_T1 and T2 are sequential (T2 needs `package.json`). T3 and T4 are independent once T2 is green. Run T3 and T4 in parallel if two sessions are available._
 
 ---
 
 ## Cross-Task Contracts
 
 ### `QuotagateCompleteResult` Zod schema (owned by T3 → consumed by WS_02 T2, WS_07 T1)
+
 Defined in `src/types.ts`. The discriminated union:
+
 ```
 { type: "text",      content: string }
 { type: "tool_call", name: string, arguments: Record<string, unknown> }
 ```
+
 WS_02 and WS_07 import this schema; they do NOT redefine it. Shape changes to this schema are breaking contract revisions that must be flagged in the Decision Log.
 
 ### `AdapterRequest` / `AdapterResponse` types (owned by T3 → consumed by WS_02, WS_04, WS_05)
+
 `AdapterRequest`: `{ messages: OpenAIMessage[], tools?: OpenAITool[], toolChoice?: string }`.
 `AdapterResponse`: `{ raw: string, backend: "claude-subprocess" }` (Phase 1; the `backend` discriminant is extended in Phase 2 with `"claude-mcp"`). These are the seams between the translation pipeline (WS_04) and the adapter (WS_02). Consumers must not widen `backend` without a Decision Log entry.
 
 ### `QuotagateError` / `TransportError` / `ValidationError` (owned by T4 → consumed by WS_02, WS_05)
+
 Defined in `src/errors.ts` only — never re-declared in adapter or proxy files. WS_02's `_complete_via_subprocess` throws `TransportError`; WS_05's `proxy.ts` catches `QuotagateError` and maps to HTTP error responses.
 
 ### `npm run` script table (owned by T1 → consumed by all workstreams)
+
 The exact script names (`dev`, `build`, `test`, `test:watch`, `test:cov`, `typecheck`, `lint`, `format`) are fixed here. Later workstreams run them by name; they must not be renamed or removed.
 
 ---

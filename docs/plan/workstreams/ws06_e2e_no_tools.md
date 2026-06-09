@@ -5,6 +5,7 @@
 > contracts, and success/quality gates. It is the bridge from phase goals to hour-sized tasks.
 
 ## Workstream Overview
+
 - **Parent Phase**: [Phase 1B — OpenAI Translation Pipeline](../phases/01b_openai_translation_pipeline.md)
 - **Timeframe**: ~1 day
 - **Status**: Proposed
@@ -38,6 +39,7 @@ WS_06 sign-off is also the formal gate for Phase 1C. The tool-call path (WS_07) 
 ## Locked Decisions
 
 ### WS_06-D1 — No Mocking of the Claude Adapter or Subprocess in E2E Tests ✅ LOCKED (Architect, 2026-06-08)
+
 Inherits **WS_03-D1** (integration tests run against the real subscription).
 
 **Decision**: The end-to-end tests in WS_06 invoke the real `claude --print` subprocess against the developer's live Claude subscription. The Fastify server is started with the real `ClaudeAdapter`. No mock adapter, no stub subprocess, no intercepted HTTP.
@@ -47,6 +49,7 @@ Inherits **WS_03-D1** (integration tests run against the real subscription).
 **Rejected alternative — mock `ClaudeAdapter.complete()` in the integration test**: Indistinguishable from the WS_05 stub-adapter unit test. It would pass even if the subprocess was broken, the constraint was wrong, or the JSON output could not be parsed — exactly the failure modes WS_06 is designed to catch.
 
 ### WS_06-D2 — Fastify Server Started in-process via `createServer` Factory; No Separate Process ✅ LOCKED (Architect, 2026-06-08)
+
 **Decision**: The integration test uses Vitest's `beforeAll` / `afterAll` hooks to start and stop the Fastify server in-process via `createServer(config, adapter)`. The server binds to a port (127.0.0.1:8080 or a test-specific port if needed to avoid conflict). The `openai` npm SDK client is pointed at that address.
 
 **Rationale**: Starting the server in-process gives the test full lifecycle control (clean start, clean teardown) without requiring a running background process before the test suite. It avoids port conflicts with a concurrently running dev server. The factory-based `createServer` design from WS_05 was specifically motivated by this use case.
@@ -54,6 +57,7 @@ Inherits **WS_03-D1** (integration tests run against the real subscription).
 **Rejected alternative — require `quotagate start` to be running before the integration tests**: Makes the integration tests dependent on an external process, complicates the test runner setup, and prevents deterministic start/stop in the Vitest lifecycle.
 
 ### WS_06-D3 — Integration Tests Tagged `integration`; Skippable in CI Without Claude Auth ✅ LOCKED (Architect, 2026-06-08)
+
 Inherits **WS_03-D2** (integration test tag convention).
 
 **Decision**: WS_06's integration tests follow the same tag/filename convention as WS_03: file path `tests/integration/e2e.*.test.ts`, guarded by a `healthCheck()` skip, tagged so `vitest run --reporter=verbose` can separate unit vs integration suites. The local green gate always runs them. CI may exclude them if no Claude subscription is present.
@@ -66,31 +70,35 @@ Inherits **WS_03-D2** (integration test tag convention).
 
 ## Task Breakdown
 
-| Task ID | Description | Est. Duration | Status | Task Tracker Link |
-|---------|-------------|---------------|--------|-------------------|
-| T1 | Author the test fixture: `beforeAll` starts the Fastify server in-process (calls `loadConfig` with a test config fixture, instantiates `ClaudeAdapter`, calls `createServer`; skips suite if `healthCheck()` returns false). `afterAll` closes the server. Confirm the server starts and binds without error on a dry run. | ~45 min | ⬚ Not started | `../../active/TASK_WS06_T1.md` |
-| T2 | Author the happy-path test: `client.chat.completions.create({ model: "claude-sonnet-4-6", messages:[...] })`. Assert all four success criteria from the Phase 1B spec (finish_reason, role, content non-empty, chatcmpl- id). Run against the real subscription. | ~1 hour | ⬚ Not started | `../../active/TASK_WS06_T2.md` |
-| T3 | Author the error-path tests: (a) `stream: true` error is surfaced by the SDK; assert message contains "Streaming is not supported". (b) Unknown model alias returns an SDK-surfaced error. Confirm both return non-2xx status codes that the SDK surfaces as thrown errors. | ~45 min | ⬚ Not started | `../../active/TASK_WS06_T3.md` |
-| T4 | Green-gate close-out: run the full suite (`npm test`, `typecheck`, `lint`, `format`). Fix any issues exposed by the live run (constraint wording drift, content-type headers, SDK version quirks). Sign off Phase 1B and record the close-out note in CLAUDE.md Session State. | ~1 hour | ⬚ Not started | `../../active/TASK_WS06_T4.md` |
+| Task ID | Description                                                                                                                                                                                                                                                                                                                | Est. Duration | Status        | Task Tracker Link              |
+| ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- | ------------- | ------------------------------ |
+| T1      | Author the test fixture: `beforeAll` starts the Fastify server in-process (calls `loadConfig` with a test config fixture, instantiates `ClaudeAdapter`, calls `createServer`; skips suite if `healthCheck()` returns false). `afterAll` closes the server. Confirm the server starts and binds without error on a dry run. | ~45 min       | ⬚ Not started | `../../active/TASK_WS06_T1.md` |
+| T2      | Author the happy-path test: `client.chat.completions.create({ model: "claude-sonnet-4-6", messages:[...] })`. Assert all four success criteria from the Phase 1B spec (finish_reason, role, content non-empty, chatcmpl- id). Run against the real subscription.                                                           | ~1 hour       | ⬚ Not started | `../../active/TASK_WS06_T2.md` |
+| T3      | Author the error-path tests: (a) `stream: true` error is surfaced by the SDK; assert message contains "Streaming is not supported". (b) Unknown model alias returns an SDK-surfaced error. Confirm both return non-2xx status codes that the SDK surfaces as thrown errors.                                                | ~45 min       | ⬚ Not started | `../../active/TASK_WS06_T3.md` |
+| T4      | Green-gate close-out: run the full suite (`npm test`, `typecheck`, `lint`, `format`). Fix any issues exposed by the live run (constraint wording drift, content-type headers, SDK version quirks). Sign off Phase 1B and record the close-out note in CLAUDE.md Session State.                                             | ~1 hour       | ⬚ Not started | `../../active/TASK_WS06_T4.md` |
 
-*Status: `✅ Completed` | `🔄 In Progress` | `⬚ Not started` | `❌ Blocked`*
+_Status: `✅ Completed` | `🔄 In Progress` | `⬚ Not started` | `❌ Blocked`_
 
-*T1 is a prerequisite for T2 and T3 (fixture must exist). T2 and T3 are independent once T1 is working. T4 depends on T2 and T3 both passing cleanly.*
+_T1 is a prerequisite for T2 and T3 (fixture must exist). T2 and T3 are independent once T1 is working. T4 depends on T2 and T3 both passing cleanly._
 
 ---
 
 ## Cross-Task Contracts
 
 ### Test fixture lifecycle (owned by T1 → consumed by T2, T3)
+
 T1's `beforeAll`/`afterAll` pattern is the shared fixture for all tests in this workstream. T2 and T3 use the `openai` SDK client instance and the server URL produced by T1. Do not re-start the server per test — a single server per describe block is sufficient and faster.
 
 ### `healthCheck()` guard pattern (inherited from WS_03-D2 → applied in T1)
+
 T1 calls `adapter.healthCheck()` before registering any test cases. If it returns false, `vi.skip()` is called at the describe level. The pattern is identical to WS_03 T1. WS_09 will follow the same pattern for the acceptance suite.
 
 ### Phase 1B sign-off (produced by T4 → consumed by WS_07/WS_08 as the gate)
+
 WS_06 T4 completion is the formal gate for Phase 1C. WS_07 and WS_08 must not begin until T4 is signed off. The dependency: no-tools path proven live end-to-end, green gate holding, `AdapterResponse` contract stable.
 
 ### `createServer` / `loadConfig` (inherited from WS_05 → consumed by T1)
+
 T1 calls `createServer(config, adapter)` and `loadConfig("tests/fixtures/config.minimal.yaml")` directly. The test config fixture must include at least one Claude alias (`claude-sonnet-4-6 → {backend: "claude"}`). The fixture is created in T1 if it does not already exist from WS_05.
 
 ---

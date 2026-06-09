@@ -5,6 +5,7 @@
 > contracts, and success/quality gates. It is the bridge from phase goals to hour-sized tasks.
 
 ## Workstream Overview
+
 - **Parent Phase**: [Phase 1B — OpenAI Translation Pipeline](../phases/01b_openai_translation_pipeline.md)
 - **Timeframe**: ~2 days
 - **Status**: Proposed
@@ -46,6 +47,7 @@ WS_04 and WS_05 can run in parallel since they touch different files. WS_06 depe
 ## Locked Decisions
 
 ### WS_05-D1 — Fastify v5, ESM, `localhost:8080` Only ✅ LOCKED (Architect, 2026-06-08)
+
 Inherits **D-1A-05** (Fastify v5 declared in WS_01) from Phase 1A.
 
 **Decision**: `proxy.ts` uses `import Fastify from "fastify"` (ESM, v5). The server is created with `{ logger: true }` for structured logs. `listen` is called with `{ port: 8080, host: "127.0.0.1" }` — never `0.0.0.0`. The port is not configurable in Phase 1 (config key reserved for Phase 4).
@@ -55,9 +57,11 @@ Inherits **D-1A-05** (Fastify v5 declared in WS_01) from Phase 1A.
 **Rejected alternative — `0.0.0.0` with a config flag**: Deferred to Phase 4. In Phase 1 there is no access-control layer, so `0.0.0.0` would expose the proxy to the local network with no authentication. The Phase 1 threat model is a single developer on a local machine.
 
 ### WS_05-D2 — `stream: true` Returns HTTP 400 With OpenAI-Format Error Body ✅ LOCKED (Architect, 2026-06-08)
+
 Inherits **D-1B-04** from the parent phase plan.
 
 **Decision**: If the parsed request body contains `stream: true`, `proxy.ts` returns HTTP 400 with:
+
 ```json
 {
   "error": {
@@ -67,6 +71,7 @@ Inherits **D-1B-04** from the parent phase plan.
   }
 }
 ```
+
 The response header is `Content-Type: application/json`. No OpenAI SDK client parsing a stream will succeed on this body — the error is explicit and human-readable.
 
 **Rationale**: Silently ignoring `stream: true` and returning a non-streaming body causes the OpenAI SDK to attempt to parse a JSON object as an SSE stream, producing an opaque client-side error. An explicit HTTP 400 with a readable message tells the developer exactly what happened and what to fix. Phase 3 wires SSE properly; the HTTP 400 is the correct behavior until then.
@@ -74,6 +79,7 @@ The response header is `Content-Type: application/json`. No OpenAI SDK client pa
 **Rejected alternative — silently ignore `stream: true` and return a non-streaming body**: SDK clients expecting an SSE stream will fail to parse a JSON object. The error surface is the client, not the proxy, and the message will be unhelpful.
 
 ### WS_05-D3 — Inline Model-Alias Resolution in `proxy.ts` for Phase 1B; `router.ts` Is Phase 1C ✅ LOCKED (Architect, 2026-06-08)
+
 Inherits **D-1B-03** from the parent phase plan.
 
 **Decision**: In `proxy.ts`, model alias resolution is a single inline check: look up `request.model` in `config.models`; if found and `backend === "claude"`, use the injected `ClaudeAdapter`; otherwise return HTTP 400 `"model not supported"`. No `router.ts` file is created in WS_05.
@@ -83,12 +89,14 @@ Inherits **D-1B-03** from the parent phase plan.
 **Rejected alternative — introduce `router.ts` in WS_05**: Anti-overengineering. The router has no value until the Phase 2 Gemini/Codex adapters exist, at which point health-check and fallback logic also arrive. Introducing it now creates a file that will be rewritten wholesale in Phase 2.
 
 ### WS_05-D4 — `QuotagateError` Subclass → HTTP Status Code Mapping Is Exhaustive and Centralized in `proxy.ts` ✅ LOCKED (Architect, 2026-06-08)
+
 **Decision**: `proxy.ts` contains the definitive mapping from `QuotagateError` subclasses to HTTP status codes:
+
 - `ValidationError` (retry exhausted) → 500, OpenAI-format error body, no raw stack trace.
 - `TransportError` (subprocess failed) → 500, same shape.
 - `QuotagateError` (base, catch-all) → 500, generic message.
 - Unhandled `Error` → 500, generic message (no stack trace leaked).
-Fastify's `setErrorHandler` is used to centralize this mapping. Individual route handlers throw typed errors; they do not set HTTP status codes directly.
+  Fastify's `setErrorHandler` is used to centralize this mapping. Individual route handlers throw typed errors; they do not set HTTP status codes directly.
 
 **Rationale**: CLAUDE.md error-handling convention: "Boundary errors map to OpenAI-shaped error responses (`proxy.ts`), never raw stack traces to the caller." Centralizing in `setErrorHandler` means adding a new `QuotagateError` subclass in the future requires one map entry, not changes across multiple route handlers.
 
@@ -98,23 +106,25 @@ Fastify's `setErrorHandler` is used to centralize this mapping. Individual route
 
 ## Task Breakdown
 
-| Task ID | Description | Est. Duration | Status | Task Tracker Link |
-|---------|-------------|---------------|--------|-------------------|
-| T1 | Author `src/config.ts`: Zod schema for `QuotagateConfig` (models alias map, retry settings, MCP stubs). `loadConfig(path?)` reads and parses `config.yaml`. Unit tests: valid minimal fixture passes; missing `models` throws; extra unknown fields stripped; retry defaults applied. | ~1 hour | ⬚ Not started | `../../active/TASK_WS05_T1.md` |
-| T2 | Author `src/proxy.ts` skeleton: Fastify v5 instance creation, `setErrorHandler` with `QuotagateError` mapping (no raw stack traces), `POST /v1/chat/completions` route with Zod body parse and `stream: true` guard. Unit tests: `stream: true` → 400; unknown model → 400; malformed body → 400. | ~1 hour | ⬚ Not started | `../../active/TASK_WS05_T2.md` |
-| T3 | Wire the full request pipeline into `proxy.ts`: inline alias resolution → `buildAdapterRequest` → `adapter.complete()` → `validate()` → `buildChatCompletion()` → `reply.send()`. Inject adapter via `createServer(config, adapter)` factory. Unit tests (Fastify `inject`, stub adapter): success path returns 200 with valid `ChatCompletion` shape; `TransportError` returns 500 with OpenAI-format error body. | ~1 hour | ⬚ Not started | `../../active/TASK_WS05_T3.md` |
-| T4 | Flesh out `src/index.ts`: parse `quotagate start` subcommand with a minimal arg-parser (no external dep needed in Phase 1); call `loadConfig()`, instantiate `ClaudeAdapter`, call `adapter.healthCheck()` (exit 1 with clear message if false); call `createServer()` and listen on `127.0.0.1:8080`. `quotagate status` / `quotagate backends` stubs throw `"not implemented in Phase 1"`. Green gate passes. | ~45 min | ⬚ Not started | `../../active/TASK_WS05_T4.md` |
+| Task ID | Description                                                                                                                                                                                                                                                                                                                                                                                                        | Est. Duration | Status        | Task Tracker Link              |
+| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------- | ------------- | ------------------------------ |
+| T1      | Author `src/config.ts`: Zod schema for `QuotagateConfig` (models alias map, retry settings, MCP stubs). `loadConfig(path?)` reads and parses `config.yaml`. Unit tests: valid minimal fixture passes; missing `models` throws; extra unknown fields stripped; retry defaults applied.                                                                                                                              | ~1 hour       | ⬚ Not started | `../../active/TASK_WS05_T1.md` |
+| T2      | Author `src/proxy.ts` skeleton: Fastify v5 instance creation, `setErrorHandler` with `QuotagateError` mapping (no raw stack traces), `POST /v1/chat/completions` route with Zod body parse and `stream: true` guard. Unit tests: `stream: true` → 400; unknown model → 400; malformed body → 400.                                                                                                                  | ~1 hour       | ⬚ Not started | `../../active/TASK_WS05_T2.md` |
+| T3      | Wire the full request pipeline into `proxy.ts`: inline alias resolution → `buildAdapterRequest` → `adapter.complete()` → `validate()` → `buildChatCompletion()` → `reply.send()`. Inject adapter via `createServer(config, adapter)` factory. Unit tests (Fastify `inject`, stub adapter): success path returns 200 with valid `ChatCompletion` shape; `TransportError` returns 500 with OpenAI-format error body. | ~1 hour       | ⬚ Not started | `../../active/TASK_WS05_T3.md` |
+| T4      | Flesh out `src/index.ts`: parse `quotagate start` subcommand with a minimal arg-parser (no external dep needed in Phase 1); call `loadConfig()`, instantiate `ClaudeAdapter`, call `adapter.healthCheck()` (exit 1 with clear message if false); call `createServer()` and listen on `127.0.0.1:8080`. `quotagate status` / `quotagate backends` stubs throw `"not implemented in Phase 1"`. Green gate passes.    | ~45 min       | ⬚ Not started | `../../active/TASK_WS05_T4.md` |
 
-*Status: `✅ Completed` | `🔄 In Progress` | `⬚ Not started` | `❌ Blocked`*
+_Status: `✅ Completed` | `🔄 In Progress` | `⬚ Not started` | `❌ Blocked`_
 
-*T1 can start immediately (no dependencies beyond WS_01 types). T2 depends on T1 for the `QuotagateConfig` type. T3 depends on T2 and requires `buildAdapterRequest` / `validate` / `buildChatCompletion` from WS_04 to be present (or stubbed) — coordinate with WS_04. T4 depends on T2 and T3.*
+_T1 can start immediately (no dependencies beyond WS_01 types). T2 depends on T1 for the `QuotagateConfig` type. T3 depends on T2 and requires `buildAdapterRequest` / `validate` / `buildChatCompletion` from WS_04 to be present (or stubbed) — coordinate with WS_04. T4 depends on T2 and T3._
 
 ---
 
 ## Cross-Task Contracts
 
 ### `QuotagateConfig` type (owned by T1 → consumed by T2, T3, T4, WS_08)
+
 Defined in `src/config.ts`. Shape:
+
 ```typescript
 interface QuotagateConfig {
   models: Record<string, { backend: string }>;
@@ -122,23 +132,34 @@ interface QuotagateConfig {
   mcp?: Record<string, unknown>; // Phase 2 keys — present but not read in Phase 1
 }
 ```
+
 `proxy.ts` reads `config.models` for inline alias resolution. `ClaudeAdapter` does not consume config directly in Phase 1 — the adapter is wired at the `index.ts` level. WS_08's `router.ts` will read `config.models`; the shape must not change without a Decision Log entry.
 
 ### `createServer(config, adapter)` factory signature (owned by T2/T3 → consumed by T4, WS_06)
+
 Defined in `src/proxy.ts`. Signature:
+
 ```typescript
-function createServer(config: QuotagateConfig, adapter: CLIAdapter): FastifyInstance
+function createServer(
+  config: QuotagateConfig,
+  adapter: CLIAdapter,
+): FastifyInstance;
 ```
+
 `index.ts` calls this to boot the server. WS_06's integration test also calls it with a real adapter and a real config. The factory takes the adapter as a parameter (dependency injection) so tests can pass a stub adapter — this is the seam WS_05-T3 uses for the stub-adapter unit test.
 
 ### `setErrorHandler` mapping (owned by T2 → consumed by T3, T4, WS_06)
+
 The error handler is registered in T2 and applies to all routes registered in T3. T3 must throw typed `QuotagateError` subclasses, not manually set reply status codes. The error body shape is:
+
 ```json
 { "error": { "message": "...", "type": "...", "code": "..." } }
 ```
+
 This shape is what WS_06's integration test asserts when an error path is triggered. Do not change the error body structure without updating WS_06.
 
 ### `loadConfig` (owned by T1 → consumed by T4, WS_06)
+
 `index.ts` calls `loadConfig()` with no argument to read from the default `config.yaml` path. WS_06's integration test may call `loadConfig("tests/fixtures/config.minimal.yaml")` with a test fixture. The function must accept an optional path override.
 
 ---

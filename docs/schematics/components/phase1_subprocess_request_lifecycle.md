@@ -202,23 +202,23 @@ QuotagateCompleteResult.type
 
 ## Phase-by-Phase Component Introduction
 
-| Component / function              | src/ module              | Introduced in  | Workstream |
-|-----------------------------------|--------------------------|----------------|------------|
-| `CLIAdapter` interface            | `adapters/base.ts`       | Phase 1A       | WS_02      |
-| `ClaudeAdapter`, `_complete_via_subprocess` | `adapters/claude.ts` | Phase 1A | WS_02  |
-| `build_constrained_prompt`        | `adapters/claude.ts`     | Phase 1A       | WS_02      |
-| `sanitised_env`                   | `adapters/claude.ts`     | Phase 1A       | WS_02      |
-| `AdapterRequest`, `AdapterResponse`, `QuotagateCompleteResult` Zod schema | `types.ts` | Phase 1A | WS_01 |
-| `buildAdapterRequest`             | `argumentBuilder.ts`     | Phase 1B       | WS_04      |
-| `validate` (success path, text branch, retry loop scaffolded) | `validator.ts` | Phase 1B | WS_04 |
-| `buildChatCompletion` (text branch) | `responseBuilder.ts`   | Phase 1B       | WS_04      |
-| Fastify server, Zod body parse, `stream:true` guard | `proxy.ts` | Phase 1B | WS_05 |
-| `loadConfig`                      | `config.ts`              | Phase 1B       | WS_05      |
-| `validate` tool-call Zod branch   | `validator.ts`           | Phase 1C       | WS_07      |
-| `buildChatCompletion` tool-call branch | `responseBuilder.ts` | Phase 1C     | WS_07      |
-| Retry loop fully exercised (live path, exhaustion → HTTP 500) | `validator.ts` | Phase 1C | WS_08 |
-| `resolve` (single-backend alias resolver) | `router.ts`    | Phase 1C       | WS_08      |
-| `proxy.ts` migrated to use `router.ts` | `proxy.ts`        | Phase 1C       | WS_08      |
+| Component / function                                                      | src/ module          | Introduced in | Workstream |
+| ------------------------------------------------------------------------- | -------------------- | ------------- | ---------- |
+| `CLIAdapter` interface                                                    | `adapters/base.ts`   | Phase 1A      | WS_02      |
+| `ClaudeAdapter`, `_complete_via_subprocess`                               | `adapters/claude.ts` | Phase 1A      | WS_02      |
+| `build_constrained_prompt`                                                | `adapters/claude.ts` | Phase 1A      | WS_02      |
+| `sanitised_env`                                                           | `adapters/claude.ts` | Phase 1A      | WS_02      |
+| `AdapterRequest`, `AdapterResponse`, `QuotagateCompleteResult` Zod schema | `types.ts`           | Phase 1A      | WS_01      |
+| `buildAdapterRequest`                                                     | `argumentBuilder.ts` | Phase 1B      | WS_04      |
+| `validate` (success path, text branch, retry loop scaffolded)             | `validator.ts`       | Phase 1B      | WS_04      |
+| `buildChatCompletion` (text branch)                                       | `responseBuilder.ts` | Phase 1B      | WS_04      |
+| Fastify server, Zod body parse, `stream:true` guard                       | `proxy.ts`           | Phase 1B      | WS_05      |
+| `loadConfig`                                                              | `config.ts`          | Phase 1B      | WS_05      |
+| `validate` tool-call Zod branch                                           | `validator.ts`       | Phase 1C      | WS_07      |
+| `buildChatCompletion` tool-call branch                                    | `responseBuilder.ts` | Phase 1C      | WS_07      |
+| Retry loop fully exercised (live path, exhaustion → HTTP 500)             | `validator.ts`       | Phase 1C      | WS_08      |
+| `resolve` (single-backend alias resolver)                                 | `router.ts`          | Phase 1C      | WS_08      |
+| `proxy.ts` migrated to use `router.ts`                                    | `proxy.ts`           | Phase 1C      | WS_08      |
 
 ---
 
@@ -338,20 +338,20 @@ for free.
 The following components and mechanisms are **not present in Phase 1** by design (D-SEQ-01). They
 are the Phase 2 MCP upgrade deliverables:
 
-| Absent in Phase 1 | Phase 2 module / mechanism |
-|---|---|
-| MCP client (persistent connection to Claude Code MCP server) | `adapters/claude.ts` MCP path |
-| `quotagate_complete` MCP tool server | `src/mcp/toolServer.ts` |
-| Mechanism B structural constraint (tool definition) | `src/mcp/toolDefinition.ts` |
-| `~/.quotagate/CLAUDE.md` (session-level constraint) | `src/mcp/claudeMd.ts` |
-| `installer.ts` + `claude mcp add` registration | `src/installer.ts` |
-| `_mcp_lock` (serialization over the persistent MCP session) | `adapters/claude.ts` |
-| `_reset_context_if_needed()` (context reset between serialized calls) | `adapters/claude.ts` |
-| MCP → subprocess fallback trigger (failure-rate threshold) | `adapters/claude.ts` |
-| Sharding (pool of N isolated MCP sessions) | Phase 2+ |
-| Gemini CLI and Codex CLI adapters | `adapters/gemini.ts`, `adapters/codex.ts` |
-| `auto` model routing, multi-backend health checks | `router.ts` Phase 2 extension |
-| Anthropic-ecosystem feasibility investigation | Phase 2 pre-work |
+| Absent in Phase 1                                                     | Phase 2 module / mechanism                |
+| --------------------------------------------------------------------- | ----------------------------------------- |
+| MCP client (persistent connection to Claude Code MCP server)          | `adapters/claude.ts` MCP path             |
+| `quotagate_complete` MCP tool server                                  | `src/mcp/toolServer.ts`                   |
+| Mechanism B structural constraint (tool definition)                   | `src/mcp/toolDefinition.ts`               |
+| `~/.quotagate/CLAUDE.md` (session-level constraint)                   | `src/mcp/claudeMd.ts`                     |
+| `installer.ts` + `claude mcp add` registration                        | `src/installer.ts`                        |
+| `_mcp_lock` (serialization over the persistent MCP session)           | `adapters/claude.ts`                      |
+| `_reset_context_if_needed()` (context reset between serialized calls) | `adapters/claude.ts`                      |
+| MCP → subprocess fallback trigger (failure-rate threshold)            | `adapters/claude.ts`                      |
+| Sharding (pool of N isolated MCP sessions)                            | Phase 2+                                  |
+| Gemini CLI and Codex CLI adapters                                     | `adapters/gemini.ts`, `adapters/codex.ts` |
+| `auto` model routing, multi-backend health checks                     | `router.ts` Phase 2 extension             |
+| Anthropic-ecosystem feasibility investigation                         | Phase 2 pre-work                          |
 
 In the spec's §3.3 component overview and §4.4 MCP-failure flow, MCP is drawn as the primary
 transport. That diagram reflects the production end-state. This schematic reflects the Phase 1

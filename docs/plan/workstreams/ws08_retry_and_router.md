@@ -5,6 +5,7 @@
 > contracts, and success/quality gates. It is the bridge from phase goals to hour-sized tasks.
 
 ## Workstream Overview
+
 - **Parent Phase**: [Phase 1C — Tool Calling & Acceptance](../phases/01c_tool_calling_and_acceptance.md)
 - **Timeframe**: ~2 days
 - **Status**: Proposed
@@ -38,6 +39,7 @@ The `proxy.ts` migration from inline lookup to `router.ts` is explicitly a mecha
 ## Locked Decisions
 
 ### WS_08-D1 — Retry Tests Use a `vi.fn()` Double at the `invoker` Boundary; Two Distinct Tests ✅ LOCKED (Architect, 2026-06-08)
+
 Inherits **D-1C-02** from the parent phase plan.
 
 **Decision**: Two distinct tests:
@@ -49,6 +51,7 @@ Inherits **D-1C-02** from the parent phase plan.
 **Rejected alternative — test the retry loop only at the `validator.ts` unit level (WS_04)**: Already done in WS_04. WS_08 adds the proxy-level test because the HTTP error mapping (`ValidationError` → HTTP 500) has not been exercised by the retry loop yet — the WS_05 stub-adapter tests used a clean adapter, never a double that fails.
 
 ### WS_08-D2 — `router.ts` Signature Is Synchronous in Phase 1; Designed for Async Extension in Phase 2 ✅ LOCKED (Architect, 2026-06-08)
+
 Inherits **D-1C-01** from the parent phase plan.
 
 **Decision**: `resolve(alias, config, adapters)` returns `CLIAdapter | null` synchronously in Phase 1. It does not perform I/O. The `proxy.ts` call site does not use `await`. In Phase 2, when health checks are added, the signature becomes `Promise<CLIAdapter | null>` — and `proxy.ts` simply adds `await`. This is a deliberate backward-incompatible extension at the Phase 2 boundary, not a breaking change to the Phase 1 behavior.
@@ -58,6 +61,7 @@ Inherits **D-1C-01** from the parent phase plan.
 **Rejected alternative — make `resolve` return `Promise<CLIAdapter | null>` now**: Forces `await resolve(...)` in `proxy.ts` for a function that does a Map lookup. Introduces async overhead and misleads the reader about the function's complexity. The Phase 2 migration is a known, bounded change — defer it.
 
 ### WS_08-D3 — `createServer` Factory Signature Changes to Accept `adapters` Map ✅ LOCKED (Architect, 2026-06-08)
+
 **Decision**: `createServer` in `proxy.ts` changes from `createServer(config, adapter: CLIAdapter)` to `createServer(config, adapters: Record<string, CLIAdapter>)`. The adapters map is keyed by backend name (e.g. `{"claude": new ClaudeAdapter()}`). `router.ts`'s `resolve()` receives this map and returns the matching adapter. `index.ts` is updated to construct the map and pass it. All existing tests (WS_05 unit tests, WS_06 integration tests) are updated to pass the new signature.
 
 **Rationale**: The router needs to dispatch to different adapters by backend name. The map makes the routing table explicit and testable in isolation — `resolve("claude-sonnet-4-6", config, {"claude": stubAdapter})` is a clean unit test. A single `adapter` parameter could not support multi-backend routing even in Phase 1's single-adapter case without naming the adapter.
@@ -68,39 +72,45 @@ Inherits **D-1C-01** from the parent phase plan.
 
 ## Task Breakdown
 
-| Task ID | Description | Est. Duration | Status | Task Tracker Link |
-|---------|-------------|---------------|--------|-------------------|
-| T1 | Author `src/router.ts`: `resolve(alias, config, adapters)` — synchronous Map lookup; returns `CLIAdapter | null`. Unit tests: known Claude alias resolves to the injected adapter; unknown alias returns null; case-sensitivity behavior documented and tested; `adapters` map with missing backend returns null gracefully. | ~1 hour | ⬚ Not started | `../../active/TASK_WS08_T1.md` |
-| T2 | Update `src/proxy.ts`: replace inline lookup with `resolve()`; update `createServer` signature to `(config, adapters)`. Update `src/index.ts` to construct the adapters map. Update `tests/proxy.test.ts` and `tests/integration/e2e.noTools.test.ts` / `tests/integration/e2e.toolCall.test.ts` for the new signature. Green gate passes after migration. | ~1 hour | ⬚ Not started | `../../active/TASK_WS08_T2.md` |
-| T3 | Author retry loop integration tests (proxy-level): (a) `vi.fn()` double wired as the adapter's `complete()` method; double returns malformed string on attempt 1, well-formed on attempt 2; assert `proxy.ts` returns HTTP 200. (b) Double returns malformed string three times; assert `proxy.ts` returns HTTP 500 with OpenAI-format error body and no stack trace. (c) Assert correction note in messages array has correct structure (formatting instruction, no prior-turn content). | ~1 hour | ⬚ Not started | `../../active/TASK_WS08_T3.md` |
-| T4 | Green-gate close-out: run the full suite (`npm test`, `typecheck`, `lint`, `format`). Fix any issues from the `proxy.ts` migration or the retry tests. Confirm WS_06's e2e tests still pass end-to-end with the new `router.ts` path. | ~45 min | ⬚ Not started | `../../active/TASK_WS08_T4.md` |
+| Task ID | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | Est. Duration                                                                                                                                                                                                     | Status        | Task Tracker Link              |
+| ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- | ------------------------------ | ------------------------------ |
+| T1      | Author `src/router.ts`: `resolve(alias, config, adapters)` — synchronous Map lookup; returns `CLIAdapter                                                                                                                                                                                                                                                                                                                                                                                  | null`. Unit tests: known Claude alias resolves to the injected adapter; unknown alias returns null; case-sensitivity behavior documented and tested; `adapters` map with missing backend returns null gracefully. | ~1 hour       | ⬚ Not started                  | `../../active/TASK_WS08_T1.md` |
+| T2      | Update `src/proxy.ts`: replace inline lookup with `resolve()`; update `createServer` signature to `(config, adapters)`. Update `src/index.ts` to construct the adapters map. Update `tests/proxy.test.ts` and `tests/integration/e2e.noTools.test.ts` / `tests/integration/e2e.toolCall.test.ts` for the new signature. Green gate passes after migration.                                                                                                                                | ~1 hour                                                                                                                                                                                                           | ⬚ Not started | `../../active/TASK_WS08_T2.md` |
+| T3      | Author retry loop integration tests (proxy-level): (a) `vi.fn()` double wired as the adapter's `complete()` method; double returns malformed string on attempt 1, well-formed on attempt 2; assert `proxy.ts` returns HTTP 200. (b) Double returns malformed string three times; assert `proxy.ts` returns HTTP 500 with OpenAI-format error body and no stack trace. (c) Assert correction note in messages array has correct structure (formatting instruction, no prior-turn content). | ~1 hour                                                                                                                                                                                                           | ⬚ Not started | `../../active/TASK_WS08_T3.md` |
+| T4      | Green-gate close-out: run the full suite (`npm test`, `typecheck`, `lint`, `format`). Fix any issues from the `proxy.ts` migration or the retry tests. Confirm WS_06's e2e tests still pass end-to-end with the new `router.ts` path.                                                                                                                                                                                                                                                     | ~45 min                                                                                                                                                                                                           | ⬚ Not started | `../../active/TASK_WS08_T4.md` |
 
-*Status: `✅ Completed` | `🔄 In Progress` | `⬚ Not started` | `❌ Blocked`*
+_Status: `✅ Completed` | `🔄 In Progress` | `⬚ Not started` | `❌ Blocked`_
 
-*T1 is independent and can start immediately. T2 depends on T1 (replaces the inline lookup with the router). T3 depends on T2 (the proxy-level test uses the updated `createServer` signature). T4 depends on all three.*
+_T1 is independent and can start immediately. T2 depends on T1 (replaces the inline lookup with the router). T3 depends on T2 (the proxy-level test uses the updated `createServer` signature). T4 depends on all three._
 
 ---
 
 ## Cross-Task Contracts
 
 ### `resolve(alias, config, adapters)` signature (owned by T1 → consumed by T2, T3, WS_09)
+
 Defined in `src/router.ts`. Full signature:
+
 ```typescript
 function resolve(
   alias: string,
   config: QuotagateConfig,
-  adapters: Record<string, CLIAdapter>
-): CLIAdapter | null
+  adapters: Record<string, CLIAdapter>,
+): CLIAdapter | null;
 ```
+
 `proxy.ts` (T2) calls this synchronously. WS_09's tests use the same proxy, so the router is exercised in the acceptance tests without any additional wiring. Phase 2 extends this signature to `Promise<CLIAdapter | null>` — that is a planned, bounded change, not a surprise.
 
 ### `createServer(config, adapters)` updated signature (owned by T2 → consumed by T3, WS_06 tests, WS_09)
+
 All callers of `createServer` must be updated in T2: `src/index.ts`, `tests/proxy.test.ts`, `tests/integration/e2e.noTools.test.ts`, `tests/integration/e2e.toolCall.test.ts`. The `adapters` map for tests uses a stub `CLIAdapter` keyed as `{"claude": stubAdapter}`, matching the config fixture's `backend: "claude"`.
 
 ### `validate()` invoker boundary (inherited from WS_04 → consumed by T3)
+
 T3's retry tests pass a `vi.fn()` double as the `invoker` parameter to `validate()`. This is the exact boundary defined in WS_04-D2 and WS_04 T3. The double is wired via a stub adapter whose `complete()` method is a `vi.fn()`. The proxy calls `adapter.complete()` which is the double. The key is that the double is at the adapter boundary, not the validator boundary — this exercises the full `proxy.ts` → `adapter.complete()` → `validate()` path, not just `validate()` in isolation.
 
 ### Correction note message structure (inherited from WS_04-D3 → asserted in T3)
+
 T3 asserts that on retry, the `invoker` receives a messages array whose last element is `{role: "user", content: "<formatting instruction>"}` with no content from the malformed prior response. The exact wording of the correction note must match what was established in WS_04-D3.
 
 ---

@@ -5,6 +5,7 @@
 > contracts, and success/quality gates. It is the bridge from phase goals to hour-sized tasks.
 
 ## Workstream Overview
+
 - **Parent Phase**: [Phase 1B — OpenAI Translation Pipeline](../phases/01b_openai_translation_pipeline.md)
 - **Timeframe**: ~2 days
 - **Status**: Proposed
@@ -38,6 +39,7 @@ WS_05 (Fastify proxy and config) can proceed in parallel with this workstream si
 ## Locked Decisions
 
 ### WS_04-D1 — `argumentBuilder.ts` Is a Pure Function With No Constraint Injection ✅ LOCKED (Architect, 2026-06-08)
+
 Inherits **D-1B-01** from the parent phase plan (the workstream where the implementation lives).
 
 **Decision**: `buildAdapterRequest` maps OpenAI request fields to `AdapterRequest` fields one-for-one. It does not append a system message, modify the `messages` array, or inject any text that is not present in the caller's original request. The constraint is owned exclusively by `build_constrained_prompt` inside `src/adapters/claude.ts` (WS_02).
@@ -47,6 +49,7 @@ Inherits **D-1B-01** from the parent phase plan (the workstream where the implem
 **Rejected alternative — inject the constraint as a system message in `argumentBuilder.ts`**: Breaks transport-agnosticism. When Phase 2 adds the Gemini adapter (which uses a different constraint mechanism or none), `argumentBuilder.ts` would need branching logic per backend. The translation layer would no longer be a clean OpenAI→adapter mapping.
 
 ### WS_04-D2 — Validator Retry Loop Written and Unit-Tested in WS_04; Live Exercise Is WS_08 ✅ LOCKED (Architect, 2026-06-08)
+
 Inherits **D-1B-02** from the parent phase plan.
 
 **Decision**: In WS_04, the retry loop (attempt counter, re-invoke with correction note, max-3 termination, `ValidationError` throw on exhaustion) is fully written and unit-tested using Vitest `vi.fn()` doubles that return a malformed raw string on attempt 1 and a well-formed result on attempt 2. The test exercises loop increment, re-invocation, and termination. The live forced-retry path (real adapter response, retry-path contamination proof) is Phase 1C WS_08.
@@ -56,6 +59,7 @@ Inherits **D-1B-02** from the parent phase plan.
 **Rejected alternative — defer all of `validator.ts` to WS_08**: Blocks the WS_06 integration test, which requires the validator to be present on the success path.
 
 ### WS_04-D3 — Correction Note Carries Formatting Instruction Only; No Prior-Turn Content ✅ LOCKED (Architect, 2026-06-08)
+
 **Decision**: When the retry loop re-invokes the adapter, the correction note appended to the `messages` array is a formatting instruction only — for example: `{role: "user", content: "The previous response was not valid JSON. Please respond with a single raw JSON object matching the schema: {type:\"text\",content:\"...\"}"}`. It does not echo or reference any content from the malformed prior response.
 
 **Rationale**: Echoing prior-turn content in the correction note would be a stateful contamination vector — the correction turn would carry prior-session context into the retry attempt, violating invariant #10 ("persist the process, never the conversation"). The note is a formatting nudge, not a history entry. This keeps the retry path as clean as the initial path.
@@ -63,6 +67,7 @@ Inherits **D-1B-02** from the parent phase plan.
 **Rejected alternative — echo the malformed response in the correction note ("your last output was: ...")**: Introduces prior-turn content into the retry's message array. On the subprocess transport this is contained to one request's messages, but the pattern must not leak contamination; keeping the note content-free is the correct default.
 
 ### WS_04-D4 — `responseBuilder.ts` Handles `{type:"text"}` Branch Only in WS_04 ✅ LOCKED (Architect, 2026-06-08)
+
 **Decision**: `buildChatCompletion` in WS_04 handles only `QuotagateCompleteResult` where `type === "text"`. If called with `type === "tool_call"`, it throws `new QuotagateError("tool_call branch not yet implemented")`. The tool-call branch is added in WS_07.
 
 **Rationale**: Adding the tool-call branch before WS_07 is premature — WS_07 is the workstream that validates the tool-call path, and a partially-tested half-implementation in WS_04 would create false confidence. The explicit throw makes the omission loud rather than silently wrong.
@@ -73,47 +78,60 @@ Inherits **D-1B-02** from the parent phase plan.
 
 ## Task Breakdown
 
-| Task ID | Description | Est. Duration | Status | Task Tracker Link |
-|---------|-------------|---------------|--------|-------------------|
-| T1 | Author `src/argumentBuilder.ts`: `buildAdapterRequest(body)` — maps `messages`, `tools`, `toolChoice` to `AdapterRequest`. Unit tests: messages passed through unmodified (no constraint text); `tools: undefined` and `tools: []` produce identical `AdapterRequest`; `toolChoice` forwarded verbatim; separation-of-concerns assertion (no system message added). | ~1 hour | ⬚ Not started | `../../active/TASK_WS04_T1.md` |
-| T2 | Author `src/validator.ts` success path: `validate()` parses JSON and Zod-validates `{type:"text"}` branch. Unit tests: valid text fixture parses; malformed JSON throws `ValidationError`; wrong `type` field throws `ValidationError`; missing `content` throws `ValidationError`. | ~1 hour | ⬚ Not started | `../../active/TASK_WS04_T2.md` |
-| T3 | Extend `src/validator.ts` with the retry loop. Unit tests using `vi.fn()` doubles: malformed-then-good sequence resolves on attempt 2; three malformed responses throw `ValidationError` after 3 attempts; correction note appended to messages on retry (assert message array length and last message role/content); attempt counter increments. | ~1 hour | ⬚ Not started | `../../active/TASK_WS04_T3.md` |
-| T4 | Author `src/responseBuilder.ts` (`{type:"text"}` branch only): `buildChatCompletion(result, model)` — `id` format `chatcmpl-<uuid>`, `object: "chat.completion"`, `finish_reason: "stop"`, `choices[0].message` shape. Unit tests: assert `id` matches `/^chatcmpl-/`; `finish_reason === "stop"`; `choices[0].message.role === "assistant"`; `content` non-null and equals `result.content`; output satisfies `openai` package TypeScript type. Explicit throw for `{type:"tool_call"}`. Green gate passes. | ~1 hour | ⬚ Not started | `../../active/TASK_WS04_T4.md` |
+| Task ID | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | Est. Duration | Status        | Task Tracker Link              |
+| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------- | ------------- | ------------------------------ |
+| T1      | Author `src/argumentBuilder.ts`: `buildAdapterRequest(body)` — maps `messages`, `tools`, `toolChoice` to `AdapterRequest`. Unit tests: messages passed through unmodified (no constraint text); `tools: undefined` and `tools: []` produce identical `AdapterRequest`; `toolChoice` forwarded verbatim; separation-of-concerns assertion (no system message added).                                                                                                                                          | ~1 hour       | ⬚ Not started | `../../active/TASK_WS04_T1.md` |
+| T2      | Author `src/validator.ts` success path: `validate()` parses JSON and Zod-validates `{type:"text"}` branch. Unit tests: valid text fixture parses; malformed JSON throws `ValidationError`; wrong `type` field throws `ValidationError`; missing `content` throws `ValidationError`.                                                                                                                                                                                                                          | ~1 hour       | ⬚ Not started | `../../active/TASK_WS04_T2.md` |
+| T3      | Extend `src/validator.ts` with the retry loop. Unit tests using `vi.fn()` doubles: malformed-then-good sequence resolves on attempt 2; three malformed responses throw `ValidationError` after 3 attempts; correction note appended to messages on retry (assert message array length and last message role/content); attempt counter increments.                                                                                                                                                            | ~1 hour       | ⬚ Not started | `../../active/TASK_WS04_T3.md` |
+| T4      | Author `src/responseBuilder.ts` (`{type:"text"}` branch only): `buildChatCompletion(result, model)` — `id` format `chatcmpl-<uuid>`, `object: "chat.completion"`, `finish_reason: "stop"`, `choices[0].message` shape. Unit tests: assert `id` matches `/^chatcmpl-/`; `finish_reason === "stop"`; `choices[0].message.role === "assistant"`; `content` non-null and equals `result.content`; output satisfies `openai` package TypeScript type. Explicit throw for `{type:"tool_call"}`. Green gate passes. | ~1 hour       | ⬚ Not started | `../../active/TASK_WS04_T4.md` |
 
-*Status: `✅ Completed` | `🔄 In Progress` | `⬚ Not started` | `❌ Blocked`*
+_Status: `✅ Completed` | `🔄 In Progress` | `⬚ Not started` | `❌ Blocked`_
 
-*T1 and T2 are independent and can run in parallel. T3 depends on T2 (extends the same file). T4 is independent of T1–T3. Run T1 and T4 in parallel if two sessions are available, then T2 and T3.*
+_T1 and T2 are independent and can run in parallel. T3 depends on T2 (extends the same file). T4 is independent of T1–T3. Run T1 and T4 in parallel if two sessions are available, then T2 and T3._
 
 ---
 
 ## Cross-Task Contracts
 
 ### `buildAdapterRequest` signature (owned by T1 → consumed by WS_05 T2, WS_06)
+
 Defined in `src/argumentBuilder.ts`. Signature:
+
 ```typescript
-function buildAdapterRequest(body: OpenAIChatRequest): AdapterRequest
+function buildAdapterRequest(body: OpenAIChatRequest): AdapterRequest;
 ```
+
 `proxy.ts` calls this to produce the `AdapterRequest` it hands to the adapter. This function must be a pure function of its input — no I/O, no side effects, no module-level state. WS_05 imports it directly; consumers must not modify the returned object.
 
 ### `validate` signature (owned by T2/T3 → consumed by WS_05 T2, WS_06, WS_08)
+
 Defined in `src/validator.ts`. Signature:
+
 ```typescript
 async function validate(
   raw: string,
   invoker: (correctionMessages: OpenAIMessage[]) => Promise<AdapterResponse>,
-  attempt?: number
-): Promise<QuotagateCompleteResult>
+  attempt?: number,
+): Promise<QuotagateCompleteResult>;
 ```
+
 The `invoker` callback is the retry mechanism: when Zod validation fails, `validate` calls `invoker` with the original messages plus the correction note appended, receives a new `AdapterResponse`, and recurses. The `attempt` counter is threaded through to enforce the max-3 limit. WS_05 wires the adapter's `complete()` as the invoker. WS_08 replaces this with a test double for the retry-exhaustion test. Consumers must not bypass `validate` to read `AdapterResponse.raw` directly.
 
 ### `buildChatCompletion` signature (owned by T4 → consumed by WS_05 T2, WS_06, WS_07)
+
 Defined in `src/responseBuilder.ts`. Signature:
+
 ```typescript
-function buildChatCompletion(result: QuotagateCompleteResult, model: string): ChatCompletion
+function buildChatCompletion(
+  result: QuotagateCompleteResult,
+  model: string,
+): ChatCompletion;
 ```
+
 `proxy.ts` calls this to produce the response body. WS_07 adds the `{type:"tool_call"}` branch to the same function; it does not change the signature. The return type must satisfy the `openai` package's `ChatCompletion` TypeScript type — this is validated in T4's unit tests.
 
 ### `QuotagateCompleteResult` / `AdapterRequest` / `AdapterResponse` (inherited from WS_01 T3)
+
 All three translation pipeline modules import these from `src/types.ts`. No redefinition. Changes to these types are breaking cross-workstream contract revisions that require a Decision Log entry.
 
 ---

@@ -5,6 +5,7 @@
 > contracts, and success/quality gates. It is the bridge from phase goals to hour-sized tasks.
 
 ## Workstream Overview
+
 - **Parent Phase**: [Phase 1A — Claude Subprocess Adapter & Constraint](../phases/01a_transport_and_constraint.md)
 - **Timeframe**: ~1 day
 - **Status**: Proposed
@@ -41,6 +42,7 @@ WS_03 sign-off unlocks Phase 1B. WS_04 and WS_05 both depend on a proven `adapte
 ## Locked Decisions
 
 ### WS_03-D1 — Integration Tests Run Against the Real Subscription; No Mock Adapter ✅ LOCKED (Architect, 2026-06-08)
+
 **Decision**: The integration tests in WS_03 invoke the real `claude --print` subprocess against the developer's live Claude subscription. No mock or stub is used for the adapter itself in these tests.
 
 **Rationale**: The entire point of this workstream is to prove the real transport works under Quotagate's own code path. A mock adapter proves nothing about the subprocess, `sanitised_env()`, or the constraint wording. The risk of flaky tests from network/auth issues is accepted; it is managed by the `healthCheck()` guard (skip the suite if the CLI is not available) rather than by mocking the transport away.
@@ -48,6 +50,7 @@ WS_03 sign-off unlocks Phase 1B. WS_04 and WS_05 both depend on a proven `adapte
 **Rejected alternative — mock `child_process.spawn` and assert on the spawned command**: This would be a unit test of the spawn call, not a proof that `claude --print` works. It belongs in WS_02 (if at all); WS_03's job is real-world validation.
 
 ### WS_03-D2 — Integration Tests Are Marked with a Vitest `integration` Tag and Can Be Skipped in CI ✅ LOCKED (Architect, 2026-06-08)
+
 **Decision**: Integration tests use a Vitest `tags` marker (e.g. `test.concurrent.each` with a describe block tagged `integration`) or a file-naming convention (`*.integration.test.ts`). A `vitest.config.ts` workspace or `--testNamePattern` flag allows CI to exclude them. The local green gate always runs them; CI may skip if no Claude subscription is available in the CI environment.
 
 **Rationale**: These tests require a live `claude` CLI installation and subscription. Running them in a clean CI environment without auth would fail every PR check with a transport error, drowning real failures. The pragmatic answer is: run integration tests locally on the dev machine; gate the CI suite on unit tests only until a CI-accessible subscription is configured.
@@ -55,6 +58,7 @@ WS_03 sign-off unlocks Phase 1B. WS_04 and WS_05 both depend on a proven `adapte
 **Rejected alternative — require integration tests to pass in CI from day one**: Blocks every CI run until a Claude subscription is wired into CI secrets, which is a Phase 4 DX concern, not Phase 1A.
 
 ### WS_03-D3 — Contamination Probe Uses a Distinctive Token, Not a Predictable Phrase ✅ LOCKED (Architect, 2026-06-08)
+
 **Decision**: Call A's distinctive value is a randomly generated token (e.g. `crypto.randomUUID()` or a fixed UUID constant chosen at authoring time) injected into a natural-language message ("Remember the code word: `<token>`"). Call B's probe is a simple "what was the code word I mentioned?" Assert B's response does not contain the token string.
 
 **Rationale**: A predictable phrase like "secret123" could plausibly appear in a model response through coincidence or training data. A UUID-shaped string is vanishingly unlikely to appear in a response that does not have access to call A's context. The assertion is therefore high-confidence and low-noise.
@@ -65,31 +69,35 @@ WS_03 sign-off unlocks Phase 1B. WS_04 and WS_05 both depend on a proven `adapte
 
 ## Task Breakdown
 
-| Task ID | Description | Est. Duration | Status | Task Tracker Link |
-|---------|-------------|---------------|--------|-------------------|
-| T1 | Author `tests/integration/constraint.test.ts`: calls `adapter.complete()` with a no-tools message; asserts `AdapterResponse.raw` Zod-parses as `QuotagateCompleteResult` with `type:"text"` and non-empty `content`. Guards with `healthCheck()` skip if CLI unavailable. | ~1 hour | ⬚ Not started | `../../active/TASK_WS03_T1.md` |
-| T2 | Author `tests/integration/executionSuppression.test.ts`: calls `adapter.complete()` with `tools:[{name:"read_file", ...}]`; asserts response is `{type:"tool_call", name:"read_file"}`; asserts the file path in `arguments` was not read (stat the path before and after; assert no new read). | ~1 hour | ⬚ Not started | `../../active/TASK_WS03_T2.md` |
-| T3 | Author `tests/integration/contamination.sequential.test.ts`: two sequential `adapter.complete()` calls (A: inject distinctive UUID token; B: probe for the token); assert B's raw response does not contain the token string. | ~45 min | ⬚ Not started | `../../active/TASK_WS03_T3.md` |
-| T4 | Green-gate close-out: run the full suite (`npm test`, `typecheck`, `lint`, `format`). Fix any issues exposed by the integration tests (constraint wording, env vars, spawn flags). Update the CLAUDE.md Decision Log with the WS_02-D2-allowlist entry if not already recorded. | ~1 hour | ⬚ Not started | `../../active/TASK_WS03_T4.md` |
+| Task ID | Description                                                                                                                                                                                                                                                                                     | Est. Duration | Status        | Task Tracker Link              |
+| ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- | ------------- | ------------------------------ |
+| T1      | Author `tests/integration/constraint.test.ts`: calls `adapter.complete()` with a no-tools message; asserts `AdapterResponse.raw` Zod-parses as `QuotagateCompleteResult` with `type:"text"` and non-empty `content`. Guards with `healthCheck()` skip if CLI unavailable.                       | ~1 hour       | ⬚ Not started | `../../active/TASK_WS03_T1.md` |
+| T2      | Author `tests/integration/executionSuppression.test.ts`: calls `adapter.complete()` with `tools:[{name:"read_file", ...}]`; asserts response is `{type:"tool_call", name:"read_file"}`; asserts the file path in `arguments` was not read (stat the path before and after; assert no new read). | ~1 hour       | ⬚ Not started | `../../active/TASK_WS03_T2.md` |
+| T3      | Author `tests/integration/contamination.sequential.test.ts`: two sequential `adapter.complete()` calls (A: inject distinctive UUID token; B: probe for the token); assert B's raw response does not contain the token string.                                                                   | ~45 min       | ⬚ Not started | `../../active/TASK_WS03_T3.md` |
+| T4      | Green-gate close-out: run the full suite (`npm test`, `typecheck`, `lint`, `format`). Fix any issues exposed by the integration tests (constraint wording, env vars, spawn flags). Update the CLAUDE.md Decision Log with the WS_02-D2-allowlist entry if not already recorded.                 | ~1 hour       | ⬚ Not started | `../../active/TASK_WS03_T4.md` |
 
-*Status: `✅ Completed` | `🔄 In Progress` | `⬚ Not started` | `❌ Blocked`*
+_Status: `✅ Completed` | `🔄 In Progress` | `⬚ Not started` | `❌ Blocked`_
 
-*T1, T2, and T3 are independent of each other — write and run them in any order. T4 is the close-out and depends on all three passing. If T1 fails due to a constraint wording issue, fix `build_constrained_prompt` in WS_02 before proceeding to T4.*
+_T1, T2, and T3 are independent of each other — write and run them in any order. T4 is the close-out and depends on all three passing. If T1 fails due to a constraint wording issue, fix `build_constrained_prompt` in WS_02 before proceeding to T4._
 
 ---
 
 ## Cross-Task Contracts
 
 ### `ClaudeAdapter` + `CLIAdapter` (inherited from WS_02 → consumed by T1, T2, T3)
+
 All three integration tests instantiate `ClaudeAdapter` and call it via the `CLIAdapter` interface — they do not call `_complete_via_subprocess` directly. This ensures the integration tests prove the public contract, not the private implementation.
 
 ### `QuotagateCompleteResult` Zod schema (inherited from WS_01 T3 → consumed by T1, T2, T3)
+
 The integration tests use this schema to parse `AdapterResponse.raw`. They do not write their own JSON parsing. If the raw response fails Zod validation, that is a test failure — not a test-code bug — and surfaces the constraint wording issue explicitly.
 
 ### `healthCheck()` guard pattern (defined in T1 → reused in T2, T3)
+
 The skip-if-unavailable guard is authored in T1 and used as a shared pattern in T2 and T3. It calls `adapter.healthCheck()` before the test body; if it returns `false`, the test is skipped with `test.skip`. This pattern is the contract for all integration tests in this project — WS_06 and WS_09 will follow it.
 
 ### Phase 1A sign-off (produced by T4 → consumed by WS_04/WS_05 as a gate)
+
 WS_03 T4 completion is the formal gate for Phase 1B. WS_04 and WS_05 must not begin implementation until T4 is signed off. The dependency is: `AdapterResponse` contract stable, `adapter.complete()` proven live, green gate holding.
 
 ---

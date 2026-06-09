@@ -5,9 +5,10 @@
 > workstreams it points to.
 
 ## Phase Overview
+
 - **Objective**: Stand up the Node/TypeScript project and build the **Claude `--print` subprocess
   adapter** with the **prompt-engineering constraint** (spec §3.2 Mechanism A) — the transport and
-  constraint already *proven* by the spec experiments (§5.2/§5.3). By the end of this phase a
+  constraint already _proven_ by the spec experiments (§5.2/§5.3). By the end of this phase a
   standalone script (no HTTP) calls `adapter.complete({ messages:[...] })` and receives a
   Zod-validated `AdapterResponse` of `type:"text"` from the **real Claude subscription** via
   `claude --print`, with execution suppression re-confirmed and a sequential contamination probe
@@ -22,54 +23,58 @@
 ## Goals
 
 ### Proxy / Server (bootstrap only — no server in 1A)
+
 - [ ] Node/TypeScript project bootstrap: `package.json` (ESM, `"type":"module"`), `tsconfig.json`
-  (`strict: true`), ESLint + Prettier config, Vitest config, **Fastify v5 declared as a dependency**
-  (D-1A-05; server not started until 1B), and the full `npm run` script table from CLAUDE.md. Must
-  reach the green gate (`npm test` · `typecheck` · `lint` · `format`) from the start.
+      (`strict: true`), ESLint + Prettier config, Vitest config, **Fastify v5 declared as a dependency**
+      (D-1A-05; server not started until 1B), and the full `npm run` script table from CLAUDE.md. Must
+      reach the green gate (`npm test` · `typecheck` · `lint` · `format`) from the start.
 - [ ] `src/errors.ts` — `QuotagateError` base + `TransportError` and `ValidationError` subclasses
-  (the minimum the adapter throws). Class hierarchy only; no logic (D-1A-04).
+      (the minimum the adapter throws). Class hierarchy only; no logic (D-1A-04).
 - [ ] `src/index.ts` — no-op entry-point stub so `tsup`/`tsc` have a build target (D-1A-06). Fleshed
-  out in 1B.
+      out in 1B.
 - [ ] `src/types.ts` — shared types: `AdapterRequest`, `AdapterResponse`, and the Zod schema for
-  `QuotagateCompleteResult` (`{type:"text"}` and `{type:"tool_call"}` shapes, spec §3.5). No HTTP.
+      `QuotagateCompleteResult` (`{type:"text"}` and `{type:"tool_call"}` shapes, spec §3.5). No HTTP.
 
 ### Adapters / Transport
+
 - [ ] `src/adapters/base.ts` — the `CLIAdapter` interface: `complete()`, `healthCheck()`,
-  `install()` (spec §3.7). Every adapter implements this; adding a backend = one new file (invariant #4).
+      `install()` (spec §3.7). Every adapter implements this; adding a backend = one new file (invariant #4).
 - [ ] `src/adapters/claude.ts` — the Claude **subprocess** adapter: `_complete_via_subprocess()`
-  spawns `claude --print` (stdin = constrained prompt, reads stdout), with `sanitised_env()`
-  applied (D-1A-07). `complete()` delegates to the subprocess path — it is the only transport in
-  Phase 1. `healthCheck()` verifies `claude` is installed and authenticated. `install()` is a no-op
-  stub in Phase 1 (real install — MCP registration — is Phase 2).
+      spawns `claude --print` (stdin = constrained prompt, reads stdout), with `sanitised_env()`
+      applied (D-1A-07). `complete()` delegates to the subprocess path — it is the only transport in
+      Phase 1. `healthCheck()` verifies `claude` is installed and authenticated. `install()` is a no-op
+      stub in Phase 1 (real install — MCP registration — is Phase 2).
 - [ ] `src/adapters/claude.ts` — `build_constrained_prompt(messages, tools, tool_choice)`: the
-  per-request constraint (spec §3.2 Mechanism A). Serializes the conversation + the constraint
-  instructions (return raw JSON only; never execute tools; declare don't act) into the stdin prompt.
-  This is the **primary** constraint mechanism for Phase 1 (Mechanism B / MCP is Phase 2).
+      per-request constraint (spec §3.2 Mechanism A). Serializes the conversation + the constraint
+      instructions (return raw JSON only; never execute tools; declare don't act) into the stdin prompt.
+      This is the **primary** constraint mechanism for Phase 1 (Mechanism B / MCP is Phase 2).
 - [ ] `sanitised_env()` utility: strips ambient machine-context vars (HOME, PWD, OLDPWD,
-  filesystem-revealing vars — the spec §5.3 Haiku path-leak class) while preserving the vars
-  `claude --print` needs to authenticate against the subscription. The exact allowlist is determined
-  empirically in WS_02 (D-1A-07).
+      filesystem-revealing vars — the spec §5.3 Haiku path-leak class) while preserving the vars
+      `claude --print` needs to authenticate against the subscription. The exact allowlist is determined
+      empirically in WS_02 (D-1A-07).
 
 ### Constraint Mechanism (prompt-engineering / Mechanism A)
+
 - [ ] Re-validate clean-JSON output (spec §5.2) over `claude --print` as driven by Quotagate's own
-  `build_constrained_prompt`: the model returns a raw JSON object, no prose, no markdown fences.
-  Captured as a passing integration test, not just a manual probe.
+      `build_constrained_prompt`: the model returns a raw JSON object, no prose, no markdown fences.
+      Captured as a passing integration test, not just a manual probe.
 - [ ] Re-validate execution suppression (spec §5.3): a request whose `tools` include a
-  side-effecting name (e.g. `read_file`) returns `{type:"tool_call", ...}` and the file is **not**
-  read. `--print` suppresses the agent execution loop — confirm it holds via Quotagate's prompt.
+      side-effecting name (e.g. `read_file`) returns `{type:"tool_call", ...}` and the file is **not**
+      read. `--print` suppresses the agent execution loop — confirm it holds via Quotagate's prompt.
 - [ ] Sequential contamination probe: two sequential `complete()` calls (A with a distinctive token,
-  B asking about it); assert B has zero knowledge of A. On the subprocess transport this passes
-  **by construction** (fresh process per request, exits after one response — invariants #10/#11 are
-  satisfied with no machinery), but it is asserted as a test so 1B/1C inherit the guarantee.
+      B asking about it); assert B has zero knowledge of A. On the subprocess transport this passes
+      **by construction** (fresh process per request, exits after one response — invariants #10/#11 are
+      satisfied with no machinery), but it is asserted as a test so 1B/1C inherit the guarantee.
 
 ### Testing & Quality
+
 - [ ] Green gate from day one: `npm test` · `typecheck` · `lint` · `format` clean; no test-count regression.
 - [ ] Unit tests: `src/types.ts` (Zod parses valid/invalid `QuotagateCompleteResult` fixtures);
-  `build_constrained_prompt` (constraint text present; messages serialized faithfully);
-  `sanitised_env` (machine-context vars stripped; auth vars preserved).
+      `build_constrained_prompt` (constraint text present; messages serialized faithfully);
+      `sanitised_env` (machine-context vars stripped; auth vars preserved).
 - [ ] Integration test: `adapter.complete({ messages:[{role:"user",content:"Hello"}] })` returns a
-  Zod-validated `AdapterResponse` with `type:"text"` and non-empty content, against the real Claude
-  subscription via `claude --print`.
+      Zod-validated `AdapterResponse` with `type:"text"` and non-empty content, against the real Claude
+      subscription via `claude --print`.
 - [ ] Contamination probe test (sequential sub-case) and execution-suppression test, both passing.
 
 ---
@@ -80,7 +85,7 @@
 
 - **Problem**: The spec's DECIDED architecture (§3.1) makes the persistent **MCP server** the
   primary transport and `--print` subprocess the fallback. But MCP-server mode for Claude Code is
-  *unproven* (the BLOCKING feasibility check), whereas the `--print` subprocess transport is already
+  _unproven_ (the BLOCKING feasibility check), whereas the `--print` subprocess transport is already
   validated by the spec's own experiments (§5.2/§5.3). Front-loading the unproven transport puts the
   riskiest unknown under the entire Phase 1 build.
 - **Selected Approach**: Build **all of Phase 1 on the proven `claude --print` subprocess transport**
@@ -92,7 +97,7 @@
   shippable subprocess-only MVP.
 - **Rejected Alternative — MCP-first (front-loaded feasibility spike)**: Rejected because it bets
   the whole phase on an unproven capability and would force a transport rework if the spike failed.
-  Subprocess-first builds on solid ground; MCP becomes a clean, well-scoped *upgrade* with its own
+  Subprocess-first builds on solid ground; MCP becomes a clean, well-scoped _upgrade_ with its own
   phase rather than a Phase 1 gamble.
 - **Invariant #6 reconciliation (does NOT violate it)**: Invariant #6 says "MCP is primary,
   subprocess is fallback — never subprocess-only **in production**." Phase 1 is an explicit
@@ -140,8 +145,8 @@
 ### D-1A-07 — `sanitised_env()` Is a First-Class 1A Concern (the Only Transport)
 
 - **Problem**: The Haiku path-leak (spec §5.3) shows ambient env / cwd can bleed into tool-call
-  arguments. Because `claude --print` is the *only* transport in Phase 1, sanitising the subprocess
-  environment is core, not a deferred hardening item. The risk: stripping *all* env vars may break
+  arguments. Because `claude --print` is the _only_ transport in Phase 1, sanitising the subprocess
+  environment is core, not a deferred hardening item. The risk: stripping _all_ env vars may break
   `claude --print` subscription authentication.
 - **Selected Approach**: `sanitised_env()` strips ambient machine-context vars (HOME, PWD, OLDPWD,
   filesystem-revealing vars) while **preserving** the vars `claude --print` needs to authenticate.
@@ -156,23 +161,23 @@
 
 ## Assumptions This Phase Rests On
 
-| Assumption | Risk if false | De-risked by | Status |
-|---|---|---|---|
-| `claude --print` is installed and authenticated on the dev machine, and is invokable as a child process from Node | No transport at all; Phase 1 cannot proceed until the developer authenticates Claude Code | WS_01 `healthCheck()` + a first manual `echo '...' \| claude --print` probe before WS_02 implementation | ⬚ |
-| A constraint *prompt* (Mechanism A) reliably makes `claude --print` return raw JSON with no prose/markdown — already shown in spec §5.2 across model sizes | Validator retry rate climbs; constraint wording must be tuned | Re-validation integration test in WS_02 (low risk — already empirically proven in §5.2) | ⬚ |
-| `claude --print` suppresses the agent execution loop (declares tool calls, does not execute) — shown in spec §5.3 | Proxy could trigger real side-effects via the agent | Execution-suppression test in WS_02 (low risk — proven in §5.3) | ⬚ |
-| `sanitised_env()` can preserve the auth-relevant env vars `claude --print` needs while stripping machine-context vars (spec §5.3) | CLI auth breaks under a stripped env; the only transport becomes unusable | Empirical allowlist determination in WS_02 (progressively strip; confirm auth); recorded in Decision Log (D-1A-07) | ⬚ |
-| The Node/TS green gate (Node 20, TS 5.x, Vitest, ESLint flat config, Fastify v5 per D-1A-05) is achievable from the start | Toolchain friction delays every later workstream | WS_01 is entirely dedicated to this and blocks all other WS | ⬚ |
+| Assumption                                                                                                                                                 | Risk if false                                                                             | De-risked by                                                                                                       | Status |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ | ------ |
+| `claude --print` is installed and authenticated on the dev machine, and is invokable as a child process from Node                                          | No transport at all; Phase 1 cannot proceed until the developer authenticates Claude Code | WS_01 `healthCheck()` + a first manual `echo '...' \| claude --print` probe before WS_02 implementation            | ⬚      |
+| A constraint _prompt_ (Mechanism A) reliably makes `claude --print` return raw JSON with no prose/markdown — already shown in spec §5.2 across model sizes | Validator retry rate climbs; constraint wording must be tuned                             | Re-validation integration test in WS_02 (low risk — already empirically proven in §5.2)                            | ⬚      |
+| `claude --print` suppresses the agent execution loop (declares tool calls, does not execute) — shown in spec §5.3                                          | Proxy could trigger real side-effects via the agent                                       | Execution-suppression test in WS_02 (low risk — proven in §5.3)                                                    | ⬚      |
+| `sanitised_env()` can preserve the auth-relevant env vars `claude --print` needs while stripping machine-context vars (spec §5.3)                          | CLI auth breaks under a stripped env; the only transport becomes unusable                 | Empirical allowlist determination in WS_02 (progressively strip; confirm auth); recorded in Decision Log (D-1A-07) | ⬚      |
+| The Node/TS green gate (Node 20, TS 5.x, Vitest, ESLint flat config, Fastify v5 per D-1A-05) is achievable from the start                                  | Toolchain friction delays every later workstream                                          | WS_01 is entirely dedicated to this and blocks all other WS                                                        | ⬚      |
 
-*Note: the MCP-server feasibility assumptions (can Claude Code run as an MCP server; fresh-context
+_Note: the MCP-server feasibility assumptions (can Claude Code run as an MCP server; fresh-context
 mechanism; `claude mcp add` scriptability; dual client/server in one process) are NO LONGER Phase 1
-assumptions — they move to the Phase 2 MCP-upgrade investigation (see Future Enhancements & Roadmap).*
+assumptions — they move to the Phase 2 MCP-upgrade investigation (see Future Enhancements & Roadmap)._
 
 ---
 
 ## Out of Scope (anti-overengineering fence)
 
-*Items deliberately pulled into 1A scope (not deferred):* `src/errors.ts` base hierarchy (typecheck
+_Items deliberately pulled into 1A scope (not deferred):_ `src/errors.ts` base hierarchy (typecheck
 from day one — D-1A-04); `src/index.ts` no-op stub (build target — D-1A-06); Fastify v5 declared in
 `package.json` (D-1A-05, server not started); `sanitised_env()` (core to the only transport — D-1A-07).
 
@@ -201,11 +206,11 @@ from day one — D-1A-04); `src/index.ts` no-op stub (build target — D-1A-06);
 
 ## Workstreams Mapping
 
-| Workstream ID | Workstream Name | Timeframe | Status | Plan Link |
-|--------------|-----------------|-----------|--------|-----------|
-| WS_01 | Node/TS Project Bootstrap | ~1 day | ⬚ Not started | [ws01_project_bootstrap.md](../workstreams/ws01_project_bootstrap.md) |
-| WS_02 | Claude Subprocess Adapter & Constraint | ~2 days | ⬚ Not started | [ws02_subprocess_adapter_and_constraint.md](../workstreams/ws02_subprocess_adapter_and_constraint.md) |
-| WS_03 | Adapter Proving & Contamination Probe | ~1 day | ⬚ Not started | [ws03_adapter_proving.md](../workstreams/ws03_adapter_proving.md) |
+| Workstream ID | Workstream Name                        | Timeframe | Status        | Plan Link                                                                                             |
+| ------------- | -------------------------------------- | --------- | ------------- | ----------------------------------------------------------------------------------------------------- |
+| WS_01         | Node/TS Project Bootstrap              | ~1 day    | ⬚ Not started | [ws01_project_bootstrap.md](../workstreams/ws01_project_bootstrap.md)                                 |
+| WS_02         | Claude Subprocess Adapter & Constraint | ~2 days   | ⬚ Not started | [ws02_subprocess_adapter_and_constraint.md](../workstreams/ws02_subprocess_adapter_and_constraint.md) |
+| WS_03         | Adapter Proving & Contamination Probe  | ~1 day    | ⬚ Not started | [ws03_adapter_proving.md](../workstreams/ws03_adapter_proving.md)                                     |
 
 **Dependency ordering within 1A:**
 WS_01 first (project must compile before code is testable). WS_02 depends on WS_01 — it builds the
@@ -216,28 +221,29 @@ subscription, the sequential contamination probe, and the green-gate close-out.
 **Dependency on 1B/1C:** Phase 1B (WS_04+) begins after WS_03 sign-off (the `AdapterResponse`
 contract and a proven `adapter.complete()` are in place).
 
-*Status: `✅ Completed` | `🔄 In Progress` | `⬚ Not started` | `❌ Blocked`*
+_Status: `✅ Completed` | `🔄 In Progress` | `⬚ Not started` | `❌ Blocked`_
 
 ---
 
 ## Success Criteria (phase-level)
 
 - [ ] A standalone Node/TS script (no HTTP, no OpenAI SDK) calls
-  `adapter.complete({ messages:[{role:"user", content:"Hello"}] })` and receives a Zod-validated
-  `AdapterResponse` where `result.type === "text"` and `result.content` is a non-empty string —
-  against the real Claude subscription via `claude --print`.
+      `adapter.complete({ messages:[{role:"user", content:"Hello"}] })` and receives a Zod-validated
+      `AdapterResponse` where `result.type === "text"` and `result.content` is a non-empty string —
+      against the real Claude subscription via `claude --print`.
 - [ ] The execution-suppression probe passes: a call whose `tools` include `read_file` returns
-  `{type:"tool_call", name:"read_file", arguments:{...}}` and the file was **not** read (re-confirming spec §5.3).
+      `{type:"tool_call", name:"read_file", arguments:{...}}` and the file was **not** read (re-confirming spec §5.3).
 - [ ] The sequential contamination probe passes: call A (distinctive token) → call B ("what did I
-  just say?") → B's content contains no trace of A's token (satisfied by fresh-process isolation;
-  asserted as a test).
+      just say?") → B's content contains no trace of A's token (satisfied by fresh-process isolation;
+      asserted as a test).
 - [ ] The `sanitised_env()` allowlist is recorded in the Decision Log: which vars are stripped, which
-  preserved, and the evidence that `claude --print` auth still works.
+      preserved, and the evidence that `claude --print` auth still works.
 - [ ] Green gate: `npm test` green · `npm run typecheck` clean · `npm run lint` clean · `npm run format` no diff.
 
 ---
 
 ## Future Enhancements & Roadmap
+
 - **Next Phase**: [Phase 1B — OpenAI Translation Pipeline](./01b_openai_translation_pipeline.md)
 - **Sibling Phase**: [Phase 1C — Tool Calling & Acceptance](./01c_tool_calling_and_acceptance.md)
 - **The MCP upgrade** (Mechanism B, persistent tool server, installer, `_mcp_lock`, feasibility

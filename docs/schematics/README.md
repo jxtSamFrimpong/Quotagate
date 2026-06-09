@@ -38,5 +38,5 @@ the spec wins and the schematic is corrected (or deleted).
   the explicit "not in Phase 1 (Phase 2 head)" MCP callout. Fills the gap between the spec's
   MCP-primary diagrams and the subprocess-first Phase 1 (D-SEQ-01).
 
-*(`schemas/` is still an empty placeholder — `src/types.ts` (WS_01 T3) will be the source of truth for
-the data shapes, so schema schematics are deferred until there is real drift to capture.)*
+_(`schemas/` is still an empty placeholder — `src/types.ts` (WS_01 T3) will be the source of truth for
+the data shapes, so schema schematics are deferred until there is real drift to capture.)_

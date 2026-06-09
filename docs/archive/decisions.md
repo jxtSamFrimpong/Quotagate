@@ -8,9 +8,16 @@ This file grows append-only. It is the long-term companion to the ≤2 dated dec
 in CLAUDE.md's Session State, and to the **Inherited DECIDED architecture** that lives in
 `docs/schematics/quotagate-spec.md` (§3.1, §3.2, §8).
 
-> Nothing has been archived here yet — the current settled decisions (D-LANG, D-STATELESS) still live
-> inline in `.claude/CLAUDE.md`. They move here once two newer dated blocks push them out.
-
 ---
 
-<!-- Append archived decision blocks below, oldest first, each retaining: date · choice · rationale · rejected alternative. -->
+## 2026-06-08
+
+### D-LANG — Node/TypeScript [LOCKED, user]
+
+**Choice**: Build Quotagate in Node/TypeScript, not Python.
+
+**Rationale**: The wrapped CLIs (Claude Code, Gemini CLI, Codex CLI) are all Node, so Node is a guaranteed-present runtime and the same `npm`/`npx` distribution channel as the tools being proxied; the MCP SDK is most mature in TypeScript; one runtime for the user to install.
+
+**Rejected — Python**: Mature MCP SDK and FastAPI exist, but forces a Python-**and**-Node dual runtime on users and fiddlier async-subprocess handling.
+
+**Rejected — Go/Rust**: Single-binary advantage is half-mooted (Node is required anyway) and MCP SDKs are less mature.

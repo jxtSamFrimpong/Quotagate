@@ -8,6 +8,10 @@ dist/
 coverage/
 *.tsbuildinfo
 
+# --- Environment / secrets ---
+.env
+.env.*
+
 # --- Runtime / logs ---
 .quotagate/
 *.log

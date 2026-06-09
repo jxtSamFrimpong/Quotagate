@@ -7,12 +7,12 @@ is **`../.claude/CLAUDE.md`**.
 
 ## The planning hierarchy
 
-| Tier | Horizon | Granularity | Lives in | Answers |
-|---|---|---|---|---|
-| **Phase** | ~1 week | Goal-level | `plan/phases/NN_*.md` | *What does a week of work achieve?* |
-| **Workstream** | ~1 day | Detailed plan | `plan/workstreams/wsNN_*.md` | *What does a day achieve, with locked decisions & success criteria?* |
-| **Task** | ~1 hour | Implementation-ready | `active/TASK_*.md` | *What does an hour build — with goal, assumptions, test strategy, expected failures, success criteria?* |
-| **Subtask** | minutes | Atomic | inside a task tracker | *One evaluable step toward the task.* |
+| Tier           | Horizon | Granularity          | Lives in                     | Answers                                                                                                 |
+| -------------- | ------- | -------------------- | ---------------------------- | ------------------------------------------------------------------------------------------------------- |
+| **Phase**      | ~1 week | Goal-level           | `plan/phases/NN_*.md`        | _What does a week of work achieve?_                                                                     |
+| **Workstream** | ~1 day  | Detailed plan        | `plan/workstreams/wsNN_*.md` | _What does a day achieve, with locked decisions & success criteria?_                                    |
+| **Task**       | ~1 hour | Implementation-ready | `active/TASK_*.md`           | _What does an hour build — with goal, assumptions, test strategy, expected failures, success criteria?_ |
+| **Subtask**    | minutes | Atomic               | inside a task tracker        | _One evaluable step toward the task._                                                                   |
 
 - A **Phase** sets goals and records phase-level architecture decisions. It maps to a set of
   workstreams. (Template: `plan/phases/TEMPLATE.md`.)
@@ -71,5 +71,5 @@ docs/
   Core Proxy first). Do not pull Phase 2/3 concerns (multi-backend, streaming) or the marketplace
   (spec §7) into earlier work.
 - **Empirical first**: Quotagate is feasibility-driven. Where a task rests on an unproven assumption
-  (e.g. MCP-server mode), the task's *Assumptions to test* and *Expected failures* sections must name
+  (e.g. MCP-server mode), the task's _Assumptions to test_ and _Expected failures_ sections must name
   it, and a research/spike subtask should de-risk it before implementation proceeds.
