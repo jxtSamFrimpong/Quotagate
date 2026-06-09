@@ -61,12 +61,12 @@
 
 | # | Subtask | Status | Iteration | Notes |
 |---|---|---|---|---|
-| 1 | Create `src/adapters/claude.ts` with the `buildConstrainedPrompt` function (unexported first; see EF1 note below) and the spec §3.5 constraint text as a static constant | ⬚ Not started | — | |
-| 2 | Handle `tools` injection branch: when `tools` is non-empty, serialize each tool's `function` schema into the prompt; when `tools` is undefined or empty, omit the tool schemas entirely (no mention of `toolChoice`) | ⬚ Not started | — | |
-| 3 | Handle `null` content on assistant messages (A3): render the turn boundary without text content — do not coerce to `""` or drop the message | ⬚ Not started | — | |
-| 4 | Export `buildConstrainedPrompt` with `/* @internal */` JSDoc (needed for test access; see EF1) | ⬚ Not started | — | |
-| 5 | Author `tests/adapters/buildConstrainedPrompt.test.ts` covering all 9 branches (see Test Strategy) | ⬚ Not started | — | |
-| 6 | Run `npm run test:cov` — confirm 100% branch coverage on `src/adapters/claude.ts`; run full green gate | ⬚ Not started | — | |
+| 1 | Create `src/adapters/claude.ts` with the `buildConstrainedPrompt` function (unexported first; see EF1 note below) and the spec §3.5 constraint text as a static constant | ✅ Done | 1 | `CONSTRAINT_INSTRUCTIONS` defined as plain string concatenation (`'...\n' + '...'`) — avoids all backtick/template-literal escaping risk (EF2). No dynamic interpolation of the constraint block. |
+| 2 | Handle `tools` injection branch: when `tools` is non-empty, serialize each tool's `function` schema into the prompt; when `tools` is undefined or empty, omit the tool schemas entirely (no mention of `toolChoice`) | ✅ Done | 1 | Guard: `const normalizedTools = tools && tools.length > 0 ? tools : undefined` — single normalisation point; both `undefined` and `[]` collapse to `undefined` before the branch check. `toolChoice` only appears in the output when `normalizedTools !== undefined` (EF3). |
+| 3 | Handle `null` content on assistant messages (A3): render the turn boundary without text content — do not coerce to `""` or drop the message | ✅ Done | 1 | Explicit guard: `message.content === null ? '[tool call]' : message.content`. The literal string `"null"` never appears; the turn is always preserved. Wording `[tool call]` matches the task prompt spec (D-T2-02). |
+| 4 | Export `buildConstrainedPrompt` with `/* @internal */` JSDoc (needed for test access; see EF1) | ✅ Done | 1 | `export function buildConstrainedPrompt` with `/* @internal */` JSDoc. Package-private pattern: testable without requiring a separate public API surface. |
+| 5 | Author `tests/adapters/buildConstrainedPrompt.test.ts` covering all 9 branches (see Test Strategy) | ✅ Done | 2 | 10 tests written (T-1 through T-10). T-10 added beyond the 9 required to cover the `fn.description ?? ''` and `fn.parameters ?? {}` nullish fallback branches — required to achieve SC-7 (100% branch coverage). All 9 required test cases are present with their exact assertions. **Post-PA-review (Finding 3)**: positive sentinel assertion added to T-7 (`expect(result).toContain('assistant: [tool call]')`) — the negative-only assertion would have silently passed on incorrect null renderings. **Post-PA-review (Finding 4)**: duplicate `toContain('bare_fn')` in T-10 replaced with `toContain('description: ')` — verifies the `fn.description ?? ''` fallthrough path does not produce `undefined` in the output. All 18 tests pass; 100% branch coverage maintained. |
+| 6 | Run `npm run test:cov` — confirm 100% branch coverage on `src/adapters/claude.ts`; run full green gate | ✅ Done | 1 | 100% statements/branches/functions/lines on `src/adapters/claude.ts`. 18 tests total (8 baseline + 10 new). `typecheck` clean. `lint` clean. `format` no diff. |
 
 _Status icons: `✅ Done` | `🔄 In progress` | `⬚ Not started` | `❌ Blocked`_
 
@@ -209,14 +209,26 @@ Construct `const original = [{ role: 'user' as const, content: 'hello' }]`. Capt
 
 ## Review Notes
 
-_(Architect fills after BSE submits — verdict APPROVE / APPROVE-WITH-NITS / REQUEST-CHANGES, findings classified required-change / nit / informational, mapped to SC / decision IDs.)_
+**Round 1 verdict (2026-06-09): APPROVE-WITH-NITS**
+
+Two nits requiring action:
+- **Finding 3** (nit): T-7 missing positive assertion for `'assistant: [tool call]'`. Fixed: `expect(result).toContain('assistant: [tool call]')` added.
+- **Finding 4** (nit): T-10 duplicate `toContain('bare_fn')`. Fixed: replaced with `expect(result).toContain('description: ')` to verify `?? ''` fallthrough.
+
+Five informational findings deferred: (1) MCP header omission correct for Phase 1; (2) double blank line cosmetic; (5) SC-1 return-format examples not asserted — theoretical gap given static constant + 100% coverage; (6) `system`/`tool` role edge cases — WS_03 watch item; (7) `toolChoice: 'required'` differentiation — Phase 2 scope.
+
+**WS_03 carry-forward**: tighten T-10 assertion to `'description: \n'`; add `system`/`tool` role smoke tests; assert both return-format example substrings.
+
+**Round 2 verdict (2026-06-09): APPROVE**
+
+Both fixes confirmed correct and complete. All informational findings correctly disposed. Implementation ready for sign-off.
 
 ---
 
 ## Architect Sign-off
 
-- [ ] Implementation reviewed
-- [ ] All success criteria verified
-- [ ] All assumptions resolved (proven, or fallback taken & documented)
-- [ ] No regressions in full test suite
-- [ ] `npm test` / `typecheck` / `lint` / `format` all clean
+- [x] Implementation reviewed
+- [x] All success criteria verified
+- [x] All assumptions resolved (proven, or fallback taken & documented)
+- [x] No regressions in full test suite
+- [x] `npm test` / `typecheck` / `lint` / `format` all clean

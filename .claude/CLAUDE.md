@@ -1,7 +1,7 @@
 # CLAUDE.md — Project Knowledge Base
 
 > **Last Updated**: 2026-06-09
-> **Status**: 🟢 **Phase 1A — WS_02 T1 complete (CLIAdapter interface, PA-reviewed APPROVE, 8 tests).** Next: WS_02 T2 + T3 in parallel (`buildConstrainedPrompt` + empirical `sanitisedEnv` spike).
+> **Status**: 🟢 **Phase 1A — WS_02 T2 complete (`buildConstrainedPrompt`, PA-reviewed APPROVE, 18 tests).** Next: WS_02 T3 (empirical `sanitisedEnv` spike).
 
 ---
 
@@ -267,9 +267,10 @@ current task and leaves no constraint behind, it is not a decision.
 
 **What was completed**:
 
-- **[Milestone — 2026-06-08]** Spec authored, language decided (Node/TS), planning harness scaffolded, Phase 1 re-sequenced subprocess-first (D-SEQ-01), all 9 workstream specs authored (WS_01–WS_09), all 4 WS_01 task trackers created (T1–T4), `git init` + initial commit.
+- **[Milestone — 2026-06-08]** Spec + planning harness; D-SEQ-01 locked; WS_01–WS_09 workstream specs authored; `git init`.
 - **[Milestone — WS_01 complete, 2026-06-09]** All 4 WS_01 tasks archived. T1+T2: full toolchain bootstrap (package.json, tsconfig, ESLint flat config, Prettier, Vitest 4.1.8, tsup). T3+T4: `src/types.ts` (AdapterRequest, AdapterResponse, QuotagateCompleteResultSchema Zod union, OpenAIMessage/Tool), `src/errors.ts` (QuotagateError base + TransportError + ValidationError). 7 tests, full green gate clean. All PA-reviewed APPROVE/APPROVE-WITH-NITS.
-- **[TASK_WS02_T1 complete + archived — 2026-06-09]** `src/adapters/base.ts` — `CLIAdapter` interface (`readonly name: string`, `complete()`, `healthCheck()`, `install()`); `tests/adapters/base.test.ts` — `StubAdapter` structural type check. 8 tests, full green gate clean. PA-reviewed APPROVE (no findings requiring action; structural typing proof sound, scope fence held perfectly).
+- **[TASK_WS02_T1 complete + archived — 2026-06-09]** `src/adapters/base.ts` — `CLIAdapter` interface (`readonly name: string`, `complete()`, `healthCheck()`, `install()`); `tests/adapters/base.test.ts` — `StubAdapter` structural type check. 8 tests, full green gate clean. PA-reviewed APPROVE.
+- **[TASK_WS02_T2 complete + archived — 2026-06-09]** `src/adapters/claude.ts` — `CONSTRAINT_INSTRUCTIONS` static constant (verbatim spec §3.5) + `buildConstrainedPrompt(messages, tools, toolChoice): string` exported `/* @internal */`. Handles null content (`[tool call]` sentinel per WS_02-D-T2-02), tool schema injection, toolChoice gating (absent when no tools). `tests/adapters/buildConstrainedPrompt.test.ts` — 10 tests. 18 tests total, 100% branch coverage. PA-reviewed APPROVE (Round 2, after nit fixes to T-7 + T-10 assertions). WS_03 carry-forward: add `system`/`tool` role smoke tests; assert return-format examples in constraint; tighten T-10 `description` assertion.
 
 **What is being worked on**:
 
@@ -277,14 +278,13 @@ current task and leaves no constraint behind, it is not a decision.
 
 **Active task trackers**:
 
-- `docs/active/TASK_WS02_T2.md` — `buildConstrainedPrompt` (not started)
 - `docs/active/TASK_WS02_T3.md` — empirical `sanitisedEnv` spike (not started)
-- `docs/active/TASK_WS02_T4.md` — `ClaudeAdapter` class (blocked on T2 + T3)
+- `docs/active/TASK_WS02_T4.md` — `ClaudeAdapter` class (blocked on T3)
 
 **What is next**:
 
-1. **WS_02 T2 + T3 (run in parallel)** — T2: `buildConstrainedPrompt(messages, tools, toolChoice): string` in `src/adapters/claude.ts` (Mechanism-A constraint text, spec §3.5); T3: empirical `claude --print` env-stripping spike → `sanitisedEnv()` allowlist confirmed as WS_02-D2-allowlist. See individual trackers.
-2. **WS_02 T4** — `ClaudeAdapter` class wiring T1+T2+T3 (`_complete_via_subprocess`, `healthCheck`, `install` stub). Depends on T2+T3 signed off.
+1. **WS_02 T3** — empirical `claude --print` env-stripping spike → `sanitisedEnv()` allowlist confirmed as WS_02-D2-allowlist → author `sanitisedEnv()` function + unit tests in `src/adapters/claude.ts`. Requires live authenticated `claude` CLI on dev machine. See tracker.
+2. **WS_02 T4** — `ClaudeAdapter` class wiring T1+T2+T3 (`_complete_via_subprocess`, `healthCheck`, `install` stub). Blocked on T3 sign-off.
 3. **Then WS_03** (adapter proving — integration tests against real subscription) → WS_04 (validator + retry) → WS_05 (proxy server).
 
 **Resolved decisions** (settled — ≤2 blocks inline; older ones in `docs/archive/decisions.md`):
