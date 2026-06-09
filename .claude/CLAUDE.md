@@ -278,7 +278,10 @@ current task and leaves no constraint behind, it is not a decision.
 
 **Active task trackers**:
 
-- None.
+- `docs/active/TASK_WS03_T1.md` — Constraint integration test + WS_02 carry-forward unit tests (T-11/T-12/T-13)
+- `docs/active/TASK_WS03_T2.md` — Execution suppression integration test (absence-of-side-effect via atime)
+- `docs/active/TASK_WS03_T3.md` — Sequential contamination probe (TOKEN-absence assertion)
+- `docs/active/TASK_WS03_T4.md` — Green-gate close-out + Phase 1A sign-off
 
 **What is next**:
 
