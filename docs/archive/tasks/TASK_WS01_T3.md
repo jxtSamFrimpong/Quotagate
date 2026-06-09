@@ -57,11 +57,11 @@
 
 | #   | Subtask                                                                                                                                                        | Status        | Iteration | Notes                                                                                          |
 | --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- | --------- | ---------------------------------------------------------------------------------------------- |
-| 1   | Install Zod devDependency (`zod@^3`) in `package.json`; add it as a runtime dependency (not devDep — `src/types.ts` uses it at runtime for `.parse()`)         | ⬚ Not started | —         | Zod belongs in `dependencies`, not `devDependencies`                                           |
-| 2   | Define minimal structural types `OpenAIMessage` and `OpenAITool` in `src/types.ts` for Phase 1 (no `openai` npm package yet)                                   | ⬚ Not started | —         | EF3: do not import from `openai` package — it is not declared until WS_05                      |
-| 3   | Define `AdapterRequest` and `AdapterResponse` in `src/types.ts`; `AdapterResponse.backend` must be the literal `"claude-subprocess"`                           | ⬚ Not started | —         | A3: verify TS narrows `backend` correctly                                                      |
-| 4   | Define `QuotagateCompleteResultSchema` Zod schema (discriminated union, both branches); export both the schema and the inferred type `QuotagateCompleteResult` | ⬚ Not started | —         | EF1/EF2: use `z.literal()` for `type`; use `z.record(z.string(), z.unknown())` for `arguments` |
-| 5   | Author `tests/types/quotagateCompleteResult.test.ts` with all five fixture cases; run `npm test` and confirm all pass                                          | ⬚ Not started | —         | Five cases from WS_01 Success Criteria                                                         |
+| 1   | Install Zod devDependency (`zod@^3`) in `package.json`; add it as a runtime dependency (not devDep — `src/types.ts` uses it at runtime for `.parse()`)         | ✅ Done        | 1         | Already present via `npm install zod@^3 --save`; confirmed in `dependencies`                  |
+| 2   | Define minimal structural types `OpenAIMessage` and `OpenAITool` in `src/types.ts` for Phase 1 (no `openai` npm package yet)                                   | ✅ Done        | 1         | Defined inline in `src/types.ts`; no `openai` package import                                  |
+| 3   | Define `AdapterRequest` and `AdapterResponse` in `src/types.ts`; `AdapterResponse.backend` must be the literal `"claude-subprocess"`                           | ✅ Done        | 1         | `backend: "claude-subprocess"` is a string literal; `// @ts-expect-error` test confirms TS rejects wrong value |
+| 4   | Define `QuotagateCompleteResultSchema` Zod schema (discriminated union, both branches); export both the schema and the inferred type `QuotagateCompleteResult` | ✅ Done        | 1         | `z.literal()` discriminants; `z.record(z.string(), z.unknown())` for `arguments`              |
+| 5   | Author `tests/types/quotagateCompleteResult.test.ts` with all five fixture cases; run `npm test` and confirm all pass                                          | ✅ Done        | 1         | 6 tests pass (5 fixture cases + smoke); typecheck/lint/format all clean                        |
 
 _Status icons: `✅ Done` | `🔄 In progress` | `⬚ Not started` | `❌ Blocked`_
 
@@ -187,14 +187,22 @@ Construct `{}` (no `type` field). Wrap in `expect(() => QuotagateCompleteResultS
 
 ## Review Notes
 
-_(Architect fills after BSE submits — verdict APPROVE / APPROVE-WITH-NITS / REQUEST-CHANGES, findings classified required-change / nit / informational, mapped to SC / decision IDs.)_
+**Verdict: APPROVE** (Principal Architect, 2026-06-09)
+
+**Finding 1 — Nit** (A3 / SC-7, test file): The `@ts-expect-error` SC-7 check on lines 44–46 is a module-level statement outside any `it()` block. Structurally correct and enforced by typecheck; but a cosmetic `it('SC-7 compile-time: ...')` wrapper would make the contract visible in the Vitest reporter. Fix when next touching the test file — non-blocking.
+
+**Finding 2 — Nit** (cross-task / WS_02): `OpenAIMessage.content: string | null` is the correct structural choice (null content is valid for assistant messages carrying only tool_calls). WS_02's implementer must not silently coerce `null` to `""` or skip the message when rendering history into the subprocess prompt. Record as an Assumption-to-Test in the WS_02 tracker — no change needed here.
+
+**Finding 3 — Informational** (cross-task / WS_07): `arguments: z.record(z.string(), z.unknown())` is intentionally open — WS_07 validates individual argument values against tool parameter schemas at that layer. The openness is a feature.
+
+All SC-1 through SC-8 verified. A1, A2, A3 all proven. EF1, EF2, EF3 all handled correctly. Scope fence clean. Cross-task contracts exact match.
 
 ---
 
 ## Architect Sign-off
 
-- [ ] Implementation reviewed
-- [ ] All success criteria verified
-- [ ] All assumptions resolved (proven, or fallback taken & documented)
-- [ ] No regressions in full test suite
-- [ ] `npm test` / `typecheck` / `lint` / `format` all clean
+- [x] Implementation reviewed
+- [x] All success criteria verified
+- [x] All assumptions resolved (proven, or fallback taken & documented)
+- [x] No regressions in full test suite
+- [x] `npm test` / `typecheck` / `lint` / `format` all clean

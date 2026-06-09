@@ -1,1 +1,2 @@
-// Quotagate entry point — wires the CLI and starts the proxy server.
+// Phase 1B fleshes this out
+export { QuotagateError } from './errors.js';

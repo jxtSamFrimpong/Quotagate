@@ -60,12 +60,12 @@
 
 ## Subtask Progress Table
 
-| #   | Subtask                                                                                                                                                                                                                                                                              | Status        | Iteration | Notes                                                              |
-| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------- | --------- | ------------------------------------------------------------------ |
-| 1   | Author `src/errors.ts`: `QuotagateError extends Error` (base, `this.name = "QuotagateError"`); `TransportError extends QuotagateError` (`this.name = "TransportError"`); `ValidationError extends QuotagateError` (`this.name = "ValidationError"`) — class hierarchy only, no logic | ⬚ Not started | —         | EF1: target must be ES2022+; EF3: set `this.name` on each subclass |
-| 2   | Author `src/index.ts`: single comment `// Phase 1B fleshes this out`; one import `import { QuotagateError } from "./errors.js"` (or without extension if `moduleResolution:"bundler"`)                                                                                               | ⬚ Not started | —         | EF2: must have at least one import to avoid empty-bundle warning   |
-| 3   | Run `npm run typecheck` and `npm run build`; confirm both exit 0 and no warnings                                                                                                                                                                                                     | ⬚ Not started | —         | A1/A3: verifies full typechain and tsup bundling                   |
-| 4   | Run `npm test`, `npm run lint`, `npm run format`; confirm no regressions from T2's green gate                                                                                                                                                                                        | ⬚ Not started | —         | Quality ratchet must not be broken by adding new files             |
+| #   | Subtask                                                                                                                                                                                                                                                                              | Status      | Iteration | Notes                                                                                                                                                                                                                    |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 1   | Author `src/errors.ts`: `QuotagateError extends Error` (base, `this.name = "QuotagateError"`); `TransportError extends QuotagateError` (`this.name = "TransportError"`); `ValidationError extends QuotagateError` (`this.name = "ValidationError"`) — class hierarchy only, no logic | ✅ Done     | 1         | Three classes, three `this.name` assignments. Prettier normalised quotes to single. SC-7 grep returns only `src/errors.ts`.                                                                                              |
+| 2   | Author `src/index.ts`: single comment `// Phase 1B fleshes this out`; one import `import { QuotagateError } from "./errors.js"` (or without extension if `moduleResolution:"bundler"`)                                                                                               | ✅ Done     | 1         | `moduleResolution:"bundler"` confirmed — extension optional but kept. Import aliased `_QuotagateError` to satisfy `no-unused-vars` ESLint rule (unused binding; A3 import-chain purpose is satisfied by the resolution). |
+| 3   | Run `npm run typecheck` and `npm run build`; confirm both exit 0 and no warnings                                                                                                                                                                                                     | ✅ Done     | 1         | `typecheck` exits 0. `tsup` exits 0, produces `dist/index.js` and `dist/index.d.ts`. No empty-bundle warning.                                                                                                           |
+| 4   | Run `npm test`, `npm run lint`, `npm run format`; confirm no regressions from T2's green gate                                                                                                                                                                                        | ✅ Done     | 1         | 2 test files / 7 tests all pass. `lint` clean. `format` reports all files unchanged on second run.                                                                                                                      |
 
 _Status icons: `✅ Done` | `🔄 In progress` | `⬚ Not started` | `❌ Blocked`_
 
@@ -175,14 +175,41 @@ This is a "nice to have" for later workstreams that depend on `instanceof` and `
 
 ## Review Notes
 
-_(Architect fills after BSE submits — verdict APPROVE / APPROVE-WITH-NITS / REQUEST-CHANGES, findings classified required-change / nit / informational, mapped to SC / decision IDs.)_
+**Verdict: APPROVE** (Principal Architect, 2026-06-09; required change applied by reviewer, gate re-verified)
+
+---
+
+**Finding 1 — required-change** (SC-2, A1, EF2): `dist/index.js` is 0 bytes and `dist/index.d.ts` exports nothing (`export {  }`). EF2 has materialised.
+
+The BSE aliased the import to `_QuotagateError` to silence the ESLint `no-unused-vars` error, which is a legitimate concern, but the fix was applied at the wrong layer. The `_` prefix satisfies the linter; it does not satisfy the bundler. tsup performs tree-shaking over the module graph. A side-effect-only import with no re-export and no runtime reference is eliminated entirely — which is exactly what happened here. The bundle is empty.
+
+The task spec's own A1 "If false" path prescribes the correct resolution: add `export { QuotagateError }` to `src/index.ts`. A re-export is both a valid import (satisfies `no-unused-vars` without any alias) and a real module graph edge that tsup cannot tree-shake away. The scope fence (§ "Anti-overengineering scope fence") does not prohibit this — it prohibits re-exporting `src/types.ts` through `src/index.ts` as a barrel export; re-exporting the entry module's own anchor class is a different thing.
+
+The fix is one line in `src/index.ts`:
+
+```typescript
+// Phase 1B fleshes this out
+export { QuotagateError } from './errors.js';
+```
+
+This satisfies `no-unused-vars` (the symbol is exported, not unused), produces a non-zero `dist/index.js`, and honours A1's fallback path. Remove the `import { QuotagateError as _QuotagateError }` line entirely; the re-export form is cleaner and accomplishes both goals at once. After the fix: re-run `npm run build` and confirm `dist/index.js` is non-zero, then re-run the full gate.
+
+**Finding 2 — informational** (SC-3, SC-4, A2, EF1): All other criteria are clean. `tsconfig.json` confirms `"target":"ES2022"` — EF1 is conclusively avoided. `typecheck` exits 0, which confirms TypeScript accepts both `new TransportError("x") as QuotagateError` and `new ValidationError("x") as QuotagateError` without casts (SC-3, SC-4 implicitly verified by the class hierarchy being accepted at all). A2 is resolved in the positive.
+
+**Finding 3 — informational** (EF3, WS_05 contract): `this.name` is correctly set on all three constructors — `"QuotagateError"`, `"TransportError"`, `"ValidationError"`. EF3 is conclusively avoided. The WS_05 `.name`-based HTTP-status-code mapping contract is fully honoured.
+
+**Finding 4 — informational** (SC-7): The SC-7 grep returns only `src/errors.ts`. The hierarchy is not scattered. Cross-task contracts (WS_02, WS_05 imports) are satisfied at the structural level.
+
+**Finding 5 — informational** (scope fence): The scope fence is clean. No logic, no extra subclasses, no additional config file changes, no test file added. The BSE stayed precisely within bounds on every dimension except the EF2 issue.
+
+**Resolution of Finding 1**: `src/index.ts` updated to `export { QuotagateError } from './errors.js'`. `dist/index.js` is now 175 bytes (non-zero). Full gate re-verified clean: 7/7 tests pass, typecheck 0 errors, lint 0 violations, format no diff.
 
 ---
 
 ## Architect Sign-off
 
-- [ ] Implementation reviewed
-- [ ] All success criteria verified
-- [ ] All assumptions resolved (proven, or fallback taken & documented)
-- [ ] No regressions in full test suite
-- [ ] `npm test` / `typecheck` / `lint` / `format` all clean
+- [x] Implementation reviewed
+- [x] All success criteria verified
+- [x] All assumptions resolved (proven, or fallback taken & documented)
+- [x] No regressions in full test suite
+- [x] `npm test` / `typecheck` / `lint` / `format` all clean
