@@ -91,14 +91,14 @@ Then add additional candidate vars one at a time. Typical candidates that may be
 
 | # | Subtask | Status | Iteration | Notes |
 |---|---|---|---|---|
-| 1 | Run spike step 1: confirm `claude --print` baseline works on dev machine | ⬚ Not started | — | |
-| 2 | Run spike step 2: determine `healthCheck()` probe command and its exit-code semantics | ⬚ Not started | — | |
-| 3 | Run spike step 3: progressive env stripping; record each var tested and whether its absence breaks auth | ⬚ Not started | — | |
-| 4 | Run spike step 4: confirm Haiku path-leak class vars are absent from the confirmed allowlist | ⬚ Not started | — | |
-| 5 | Record confirmed allowlist and health-check probe command as WS_02-D2-allowlist in CLAUDE.md Session State → Resolved Decisions | ⬚ Not started | — | |
-| 6 | Author `sanitisedEnv()` in `src/adapters/claude.ts` using the confirmed allowlist; export with `/* @internal */` JSDoc | ⬚ Not started | — | |
-| 7 | Author `tests/adapters/sanitisedEnv.test.ts` covering all branches; run `npm run test:cov` and confirm 100% branch coverage on the function | ⬚ Not started | — | |
-| 8 | Run full green gate: `npm test` / `npm run typecheck` / `npm run lint` / `npm run format` | ⬚ Not started | — | |
+| 1 | Run spike step 1: confirm `claude --print` baseline works on dev machine | ✅ Done | 1 | `echo 'ping' \| claude --print` → `pong`, EXIT: 0. Baseline confirmed. |
+| 2 | Run spike step 2: determine `healthCheck()` probe command and its exit-code semantics | ✅ Done | 1 | `claude auth status` → JSON with `loggedIn: true`, EXIT: 0 when authenticated. `claude --version` also exits 0 but does not confirm auth. `claude auth status` is the correct probe — exits 0 + structured JSON when authenticated. Confirmed also works under stripped env (PATH+USER only). |
+| 3 | Run spike step 3: progressive env stripping; record each var tested and whether its absence breaks auth | ✅ Done | 1 | Tested permutations: (a) PATH+HOME → EXIT 1 "Not logged in"; (b) PATH+HOME+USER → EXIT 0; (c) PATH+USER (no HOME) → EXIT 0; (d) PATH only → EXIT 1; (e) HOME+USER (no PATH) → EXIT 127 (binary not found). **Confirmed minimum allowlist: {PATH, USER}.** HOME is NOT required — Node's `os.homedir()` resolves from `/etc/passwd` via UID when `$HOME` is absent (verified with `node -e "require('os').homedir()"`). USER is required — auth fails without it regardless of other vars. |
+| 4 | Run spike step 4: confirm Haiku path-leak class vars are absent from the confirmed allowlist | ✅ Done | 1 | Ran `claude --print` with PATH+USER + full set of Haiku vars (PWD, OLDPWD, SHELL, SHLVL, TERM, TERM_PROGRAM, ITERM_SESSION_ID, COLORTERM, NVM_DIR, JAVA_HOME, GOPATH, CARGO_HOME, npm_config_prefix) → EXIT 0. None of these vars are required. Confirmed also with PATH+HOME (no USER) + Haiku vars → EXIT 1, proving USER is the auth-critical var, not any Haiku var. All Haiku path-leak class vars are absent from the allowlist. No Haiku vars were unavoidably retained. |
+| 5 | Record confirmed allowlist and health-check probe command as WS_02-D2-allowlist in CLAUDE.md Session State → Resolved Decisions | ✅ Done | 1 | WS_02-D2-allowlist block added to `.claude/CLAUDE.md` Resolved Decisions. |
+| 6 | Author `sanitisedEnv()` in `src/adapters/claude.ts` using the confirmed allowlist; export with `/* @internal */` JSDoc | ✅ Done | 1 | `sanitisedEnv()` added to `src/adapters/claude.ts`. Returns fresh `Record<string, string>` with only confirmed allowlist vars present in `process.env`. |
+| 7 | Author `tests/adapters/sanitisedEnv.test.ts` covering all branches; run `npm run test:cov` and confirm 100% branch coverage on the function | ✅ Done | 1 | 5 test cases (T-1 through T-5) covering: stripped vars absent, required vars present, active stripping, fresh object, missing var handled without throw. 100% branch coverage confirmed. |
+| 8 | Run full green gate: `npm test` / `npm run typecheck` / `npm run lint` / `npm run format` | ✅ Done | 1 | All clean. 23 tests total (18 prior + 5 new). No regressions. |
 
 _Status icons: `✅ Done` | `🔄 In progress` | `⬚ Not started` | `❌ Blocked`_
 

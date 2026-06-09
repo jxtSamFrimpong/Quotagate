@@ -1,7 +1,7 @@
 # CLAUDE.md — Project Knowledge Base
 
 > **Last Updated**: 2026-06-09
-> **Status**: 🟢 **Phase 1A — WS_02 T2 complete (`buildConstrainedPrompt`, PA-reviewed APPROVE, 18 tests).** Next: WS_02 T3 (empirical `sanitisedEnv` spike).
+> **Status**: 🟢 **Phase 1A — WS_02 T3 complete (`sanitisedEnv`, PA-reviewed APPROVE-WITH-NITS, 23 tests).** Next: WS_02 T4 (`ClaudeAdapter` class).
 
 ---
 
@@ -267,10 +267,10 @@ current task and leaves no constraint behind, it is not a decision.
 
 **What was completed**:
 
-- **[Milestone — 2026-06-08]** Spec + planning harness; D-SEQ-01 locked; WS_01–WS_09 workstream specs authored; `git init`.
-- **[Milestone — WS_01 complete, 2026-06-09]** All 4 WS_01 tasks archived. T1+T2: full toolchain bootstrap (package.json, tsconfig, ESLint flat config, Prettier, Vitest 4.1.8, tsup). T3+T4: `src/types.ts` (AdapterRequest, AdapterResponse, QuotagateCompleteResultSchema Zod union, OpenAIMessage/Tool), `src/errors.ts` (QuotagateError base + TransportError + ValidationError). 7 tests, full green gate clean. All PA-reviewed APPROVE/APPROVE-WITH-NITS.
+- **[Milestone — 2026-06-08/09]** Spec + D-SEQ-01 locked; WS_01–WS_09 authored; `git init`. WS_01 complete — toolchain bootstrap + `src/types.ts` + `src/errors.ts`; 7 tests, PA-reviewed APPROVE.
 - **[TASK_WS02_T1 complete + archived — 2026-06-09]** `src/adapters/base.ts` — `CLIAdapter` interface (`readonly name: string`, `complete()`, `healthCheck()`, `install()`); `tests/adapters/base.test.ts` — `StubAdapter` structural type check. 8 tests, full green gate clean. PA-reviewed APPROVE.
-- **[TASK_WS02_T2 complete + archived — 2026-06-09]** `src/adapters/claude.ts` — `CONSTRAINT_INSTRUCTIONS` static constant (verbatim spec §3.5) + `buildConstrainedPrompt(messages, tools, toolChoice): string` exported `/* @internal */`. Handles null content (`[tool call]` sentinel per WS_02-D-T2-02), tool schema injection, toolChoice gating (absent when no tools). `tests/adapters/buildConstrainedPrompt.test.ts` — 10 tests. 18 tests total, 100% branch coverage. PA-reviewed APPROVE (Round 2, after nit fixes to T-7 + T-10 assertions). WS_03 carry-forward: add `system`/`tool` role smoke tests; assert return-format examples in constraint; tighten T-10 `description` assertion. Schematic `phase1_subprocess_request_lifecycle.md` synced: Python snake_case names replaced with TypeScript camelCase (`buildConstrainedPrompt`, `sanitisedEnv`, `_completeViaSubprocess`).
+- **[TASK_WS02_T2 complete + archived — 2026-06-09]** `src/adapters/claude.ts` — `CONSTRAINT_INSTRUCTIONS` static constant (verbatim spec §3.5) + `buildConstrainedPrompt(messages, tools, toolChoice): string` exported `/* @internal */`. Handles null content (`[tool call]` sentinel per WS_02-D-T2-02), tool schema injection, toolChoice gating (absent when no tools). `tests/adapters/buildConstrainedPrompt.test.ts` — 10 tests. 18 tests total, 100% branch coverage. PA-reviewed APPROVE (Round 2, after nit fixes to T-7 + T-10 assertions). WS_03 carry-forward: add `system`/`tool` role smoke tests; assert return-format examples in constraint; tighten T-10 `description` assertion.
+- **[TASK_WS02_T3 complete + archived — 2026-06-09]** Empirical `claude --print` env-stripping spike; confirmed minimum allowlist `{PATH, USER}` (HOME not required — passwd UID fallback; macOS-empirical, Linux re-validate). `sanitisedEnv(): Record<string, string>` added to `src/adapters/claude.ts`; fresh object, omits missing vars. `tests/adapters/sanitisedEnv.test.ts` — 5 tests. 23 tests total, 100% branch coverage. `claude auth status` confirmed as healthCheck probe. PA-reviewed APPROVE-WITH-NITS; nit fixes applied (T-2 loop removed, `HAIKU_LEAK_VARS` extended with LOGNAME/EDITOR/PAGER/MANPATH, T-4b successive-call assertion, HOME comment empirical-first). WS_02-D2-allowlist in Resolved Decisions.
 
 **What is being worked on**:
 
@@ -278,28 +278,17 @@ current task and leaves no constraint behind, it is not a decision.
 
 **Active task trackers**:
 
-- `docs/active/TASK_WS02_T3.md` — empirical `sanitisedEnv` spike (not started)
-- `docs/active/TASK_WS02_T4.md` — `ClaudeAdapter` class (blocked on T3)
+- `docs/active/TASK_WS02_T4.md` — `ClaudeAdapter` class (unblocked — T3 signed off)
 
 **What is next**:
 
-1. **WS_02 T3** — empirical `claude --print` env-stripping spike → `sanitisedEnv()` allowlist confirmed as WS_02-D2-allowlist → author `sanitisedEnv()` function + unit tests in `src/adapters/claude.ts`. Requires live authenticated `claude` CLI on dev machine. See tracker.
-2. **WS_02 T4** — `ClaudeAdapter` class wiring T1+T2+T3 (`_completeViaSubprocess`, `healthCheck`, `install` stub). Blocked on T3 sign-off.
-3. **Then WS_03** (adapter proving — integration tests against real subscription) → WS_04 (validator + retry) → WS_05 (proxy server).
+1. **WS_02 T4** — `ClaudeAdapter` class wiring T1+T2+T3 (`_completeViaSubprocess`, `healthCheck`, `install` stub). T3 signed off; unblocked.
+2. **Then WS_03** (adapter proving — integration tests against real subscription) → WS_04 (validator + retry) → WS_05 (proxy server).
 
 **Resolved decisions** (settled — ≤2 blocks inline; older ones in `docs/archive/decisions.md`):
 
 **Decisions resolved (2026-06-08)**:
 
-- **D-STATELESS — persist the process, never the conversation [LOCKED].** MCP persistence reuses the
-  _process/connection_ only; each `quotagate_complete` call runs in a fresh context seeded solely by
-  its args (`adapter.complete()` is pure over inputs). Concurrency is handled by **serializing one
-  request per session** (a lock wrapping call→response→reset); shard a pool to scale; never interleave.
-  `/clear`-between-requests is a serialized best-effort fallback only, not the contract. _Rationale:_
-  the persistent MCP process is stateful; statelessness (invariant #3) must be re-earned structurally,
-  not cleaned up after the fact. The `--print` fallback is stateless by construction. _Rejected —
-  rely on `/clear` after each response as the primary guarantee:_ reactive, races concurrency, may be
-  unreachable in MCP-server mode. (Spec invariants #10/#11; §3.1/§3.8.)
 - **D-SEQ-01 — subprocess-first MVP; MCP upgrade is the head of Phase 2 [LOCKED, user].** Build all
   of Phase 1 on the _proven_ `claude --print` subprocess transport with the **Mechanism-A
   prompt-engineering constraint** (validated by spec §5.2/§5.3), to prove the product end-to-end. The
@@ -314,7 +303,31 @@ current task and leaves no constraint behind, it is not a decision.
   MCP-first / front-loaded feasibility spike:_ bets the phase on an unproven capability and forces a
   transport rework if it fails. (Recorded in `docs/plan/phases/01a_*.md` as D-SEQ-01; spec file unchanged.)
 
-> Older decisions archived to `docs/archive/decisions.md` (D-LANG).
+**Decisions resolved (2026-06-09)**:
+
+- **WS_02-D2-allowlist — `sanitisedEnv()` confirmed allowlist [LOCKED].** Empirical spike on macOS
+  (darwin 25.5.0, claude 2.1.170). **Confirmed minimum allowlist: `{PATH, USER}`.**
+  - `PATH`: required for OS subprocess binary resolution.
+  - `USER`: required for `claude` subscription auth — the auth token lookup path requires USER identity.
+    Removing USER while keeping HOME causes auth failure ("Not logged in").
+  - `HOME`: NOT required — Node's `os.homedir()` resolves from `/etc/passwd` via UID lookup when
+    `$HOME` is absent, so `claude`'s config path works without it. Intentionally excluded to avoid
+    leaking a filesystem path.
+  - **healthCheck probe command**: `claude auth status` — exits 0 and returns a structured JSON object
+    (`{ loggedIn, authMethod, apiProvider, email, ... }`) when authenticated; exits non-zero otherwise.
+    Confirmed working under stripped env (`{PATH, USER}` only).
+  - **Haiku path-leak class vars confirmed absent**: `PWD`, `OLDPWD`, `HOME`, `SHELL`, `SHLVL`,
+    `TERM`, `TERM_PROGRAM`, `ITERM_SESSION_ID`, `COLORTERM`, `NVM_DIR`, `JAVA_HOME`, `GOPATH`,
+    `CARGO_HOME`, `npm_config_prefix` — none required; all safely stripped. No Haiku leak class var
+    was unavoidably retained.
+  - **macOS-specific note** (EF4): spike run on macOS only. The `/etc/passwd` UID fallback for
+    `os.homedir()` is POSIX-standard; Linux should behave identically. However, the confirmed
+    allowlist is macOS-empirical — a Linux CI run should re-validate before production.
+  - _Rejected — include HOME_: unnecessary on macOS/Linux (passwd UID fallback); reveals a filesystem
+    path to the subprocess environment.
+  - _Rejected — include all common CI vars_: speculative; not confirmed by spike.
+
+> Older decisions archived to `docs/archive/decisions.md` (D-LANG, D-STATELESS).
 
 **Open decisions for user**:
 

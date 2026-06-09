@@ -1,5 +1,27 @@
 import type { OpenAIMessage, OpenAITool } from '../types.js';
 
+// Minimum env vars confirmed by empirical spike (WS_02-D2-allowlist, 2026-06-09):
+// - PATH: required for subprocess binary resolution by the OS
+// - USER: required for claude subscription auth (os.homedir() falls back to passwd lookup,
+//         but the auth token lookup path requires USER identity)
+// HOME is intentionally excluded: empirical spike confirmed claude --print authenticates
+// successfully without $HOME (spike step 3, 2026-06-09). Node-based CLIs fall back to the
+// passwd UID entry via os.homedir() when $HOME is absent (POSIX). Would reveal a filesystem
+// path if included. Re-validate on Linux CI — confirmed macOS only (darwin 25.5.0).
+const ENV_ALLOWLIST = ['PATH', 'USER'] as const;
+
+/* @internal */
+export function sanitisedEnv(): Record<string, string> {
+  const result: Record<string, string> = {};
+  for (const key of ENV_ALLOWLIST) {
+    const value = process.env[key];
+    if (value !== undefined) {
+      result[key] = value;
+    }
+  }
+  return result;
+}
+
 const CONSTRAINT_INSTRUCTIONS =
   'Pure inference endpoint for the Quotagate proxy.\n' +
   '\n' +

@@ -12,6 +12,18 @@ in CLAUDE.md's Session State, and to the **Inherited DECIDED architecture** that
 
 ## 2026-06-08
 
+### D-STATELESS — Persist the Process, Never the Conversation [LOCKED]
+
+**Choice**: MCP persistence reuses the _process/connection_ only; each `quotagate_complete` call runs in a fresh context seeded solely by its args (`adapter.complete()` is a pure function of its inputs). Concurrency is handled by serializing one request per session (a lock wrapping call→response→reset); shard a pool to scale; never interleave. `/clear`-between-requests is a serialized best-effort fallback only, not the contract.
+
+**Rationale**: The persistent MCP process is stateful; statelessness (invariant #3) must be re-earned structurally, not cleaned up after the fact. The `--print` fallback is stateless by construction.
+
+**Rejected — rely on `/clear` after each response as the primary guarantee**: Reactive, races concurrency, may be unreachable in MCP-server mode.
+
+_(Spec invariants #10/#11; §3.1/§3.8. Archived from inline Session State by BSE, 2026-06-09.)_
+
+---
+
 ### D-LANG — Node/TypeScript [LOCKED, user]
 
 **Choice**: Build Quotagate in Node/TypeScript, not Python.
