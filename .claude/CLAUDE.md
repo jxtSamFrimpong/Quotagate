@@ -270,7 +270,7 @@ current task and leaves no constraint behind, it is not a decision.
 - **[Milestone — 2026-06-08]** Spec + planning harness; D-SEQ-01 locked; WS_01–WS_09 workstream specs authored; `git init`.
 - **[Milestone — WS_01 complete, 2026-06-09]** All 4 WS_01 tasks archived. T1+T2: full toolchain bootstrap (package.json, tsconfig, ESLint flat config, Prettier, Vitest 4.1.8, tsup). T3+T4: `src/types.ts` (AdapterRequest, AdapterResponse, QuotagateCompleteResultSchema Zod union, OpenAIMessage/Tool), `src/errors.ts` (QuotagateError base + TransportError + ValidationError). 7 tests, full green gate clean. All PA-reviewed APPROVE/APPROVE-WITH-NITS.
 - **[TASK_WS02_T1 complete + archived — 2026-06-09]** `src/adapters/base.ts` — `CLIAdapter` interface (`readonly name: string`, `complete()`, `healthCheck()`, `install()`); `tests/adapters/base.test.ts` — `StubAdapter` structural type check. 8 tests, full green gate clean. PA-reviewed APPROVE.
-- **[TASK_WS02_T2 complete + archived — 2026-06-09]** `src/adapters/claude.ts` — `CONSTRAINT_INSTRUCTIONS` static constant (verbatim spec §3.5) + `buildConstrainedPrompt(messages, tools, toolChoice): string` exported `/* @internal */`. Handles null content (`[tool call]` sentinel per WS_02-D-T2-02), tool schema injection, toolChoice gating (absent when no tools). `tests/adapters/buildConstrainedPrompt.test.ts` — 10 tests. 18 tests total, 100% branch coverage. PA-reviewed APPROVE (Round 2, after nit fixes to T-7 + T-10 assertions). WS_03 carry-forward: add `system`/`tool` role smoke tests; assert return-format examples in constraint; tighten T-10 `description` assertion.
+- **[TASK_WS02_T2 complete + archived — 2026-06-09]** `src/adapters/claude.ts` — `CONSTRAINT_INSTRUCTIONS` static constant (verbatim spec §3.5) + `buildConstrainedPrompt(messages, tools, toolChoice): string` exported `/* @internal */`. Handles null content (`[tool call]` sentinel per WS_02-D-T2-02), tool schema injection, toolChoice gating (absent when no tools). `tests/adapters/buildConstrainedPrompt.test.ts` — 10 tests. 18 tests total, 100% branch coverage. PA-reviewed APPROVE (Round 2, after nit fixes to T-7 + T-10 assertions). WS_03 carry-forward: add `system`/`tool` role smoke tests; assert return-format examples in constraint; tighten T-10 `description` assertion. Schematic `phase1_subprocess_request_lifecycle.md` synced: Python snake_case names replaced with TypeScript camelCase (`buildConstrainedPrompt`, `sanitisedEnv`, `_completeViaSubprocess`).
 
 **What is being worked on**:
 
@@ -284,7 +284,7 @@ current task and leaves no constraint behind, it is not a decision.
 **What is next**:
 
 1. **WS_02 T3** — empirical `claude --print` env-stripping spike → `sanitisedEnv()` allowlist confirmed as WS_02-D2-allowlist → author `sanitisedEnv()` function + unit tests in `src/adapters/claude.ts`. Requires live authenticated `claude` CLI on dev machine. See tracker.
-2. **WS_02 T4** — `ClaudeAdapter` class wiring T1+T2+T3 (`_complete_via_subprocess`, `healthCheck`, `install` stub). Blocked on T3 sign-off.
+2. **WS_02 T4** — `ClaudeAdapter` class wiring T1+T2+T3 (`_completeViaSubprocess`, `healthCheck`, `install` stub). Blocked on T3 sign-off.
 3. **Then WS_03** (adapter proving — integration tests against real subscription) → WS_04 (validator + retry) → WS_05 (proxy server).
 
 **Resolved decisions** (settled — ≤2 blocks inline; older ones in `docs/archive/decisions.md`):
