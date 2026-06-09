@@ -1,7 +1,7 @@
 # CLAUDE.md — Project Knowledge Base
 
 > **Last Updated**: 2026-06-09
-> **Status**: 🟢 **Phase 1A — WS_01 complete (all 4 tasks signed off and archived).** Next: WS_02 (subprocess adapter — `src/adapters/base.ts` CLIAdapter interface + `src/adapters/claude.ts` subprocess implementation).
+> **Status**: 🟢 **Phase 1A — WS_02 T1 complete (CLIAdapter interface, PA-reviewed APPROVE, 8 tests).** Next: WS_02 T2 + T3 in parallel (`buildConstrainedPrompt` + empirical `sanitisedEnv` spike).
 
 ---
 
@@ -268,8 +268,8 @@ current task and leaves no constraint behind, it is not a decision.
 **What was completed**:
 
 - **[Milestone — 2026-06-08]** Spec authored, language decided (Node/TS), planning harness scaffolded, Phase 1 re-sequenced subprocess-first (D-SEQ-01), all 9 workstream specs authored (WS_01–WS_09), all 4 WS_01 task trackers created (T1–T4), `git init` + initial commit.
-- **[TASK_WS01_T1 + T2 complete + archived — 2026-06-09]** T1: Node/TS project bootstrap (`package.json`, `tsconfig.json`, `tsup.config.ts`, `src/index.ts` stub, `eslint.config.js` shim). T2: Vitest 4.1.8 (`pool:"forks"`, ESM-safe), ESLint flat config (`@typescript-eslint`, type-aware `no-floating-promises`/`no-explicit-any` as errors, `no-unused-vars`), Prettier (`.prettierrc`), `tests/smoke.test.ts`, `tsconfig.eslint.json` (standard deviation: ESLint project-parser requires broader `include` than `tsconfig.json`). Both PA-reviewed APPROVE-WITH-NITS; nits resolved. Full green gate clean.
-- **[TASK_WS01_T3 + T4 complete + archived — 2026-06-09]** T3: `src/types.ts` — `AdapterRequest`, `AdapterResponse` (literal `backend:"claude-subprocess"`), `QuotagateCompleteResultSchema` Zod discriminated union (both `text` + `tool_call` branches), `OpenAIMessage`/`OpenAITool` minimal structural types; `tests/types/quotagateCompleteResult.test.ts` (6 tests). T4: `src/errors.ts` — `QuotagateError` base + `TransportError` + `ValidationError` (`this.name` set on all); `src/index.ts` updated to `export { QuotagateError }` (re-export form satisfies both linter and bundler — PA caught silent 0-byte bundle from aliased import). PA-reviewed APPROVE. 7 tests, full green gate clean. **WS_01 complete.**
+- **[Milestone — WS_01 complete, 2026-06-09]** All 4 WS_01 tasks archived. T1+T2: full toolchain bootstrap (package.json, tsconfig, ESLint flat config, Prettier, Vitest 4.1.8, tsup). T3+T4: `src/types.ts` (AdapterRequest, AdapterResponse, QuotagateCompleteResultSchema Zod union, OpenAIMessage/Tool), `src/errors.ts` (QuotagateError base + TransportError + ValidationError). 7 tests, full green gate clean. All PA-reviewed APPROVE/APPROVE-WITH-NITS.
+- **[TASK_WS02_T1 complete + archived — 2026-06-09]** `src/adapters/base.ts` — `CLIAdapter` interface (`readonly name: string`, `complete()`, `healthCheck()`, `install()`); `tests/adapters/base.test.ts` — `StubAdapter` structural type check. 8 tests, full green gate clean. PA-reviewed APPROVE (no findings requiring action; structural typing proof sound, scope fence held perfectly).
 
 **What is being worked on**:
 
@@ -277,12 +277,15 @@ current task and leaves no constraint behind, it is not a decision.
 
 **Active task trackers**:
 
-- None — all WS_01 tasks complete and archived.
+- `docs/active/TASK_WS02_T2.md` — `buildConstrainedPrompt` (not started)
+- `docs/active/TASK_WS02_T3.md` — empirical `sanitisedEnv` spike (not started)
+- `docs/active/TASK_WS02_T4.md` — `ClaudeAdapter` class (blocked on T2 + T3)
 
 **What is next**:
 
-1. **WS_02 (subprocess adapter)** — `src/adapters/base.ts` (`CLIAdapter` interface: `complete(req: AdapterRequest): Promise<AdapterResponse>` + `healthCheck(): Promise<boolean>`); `src/adapters/claude.ts` (`ClaudeSubprocessAdapter` implementing `CLIAdapter` via `claude --print`); integration tests in `tests/adapters/`. See `docs/plan/workstreams/ws02_subprocess_adapter_and_constraint.md` for the full spec.
-2. **Phase 1A continues** through WS_02 → WS_03 (argument builder + constraint prompt) → WS_04 (validator + retry loop) → WS_05 (proxy server).
+1. **WS_02 T2 + T3 (run in parallel)** — T2: `buildConstrainedPrompt(messages, tools, toolChoice): string` in `src/adapters/claude.ts` (Mechanism-A constraint text, spec §3.5); T3: empirical `claude --print` env-stripping spike → `sanitisedEnv()` allowlist confirmed as WS_02-D2-allowlist. See individual trackers.
+2. **WS_02 T4** — `ClaudeAdapter` class wiring T1+T2+T3 (`_complete_via_subprocess`, `healthCheck`, `install` stub). Depends on T2+T3 signed off.
+3. **Then WS_03** (adapter proving — integration tests against real subscription) → WS_04 (validator + retry) → WS_05 (proxy server).
 
 **Resolved decisions** (settled — ≤2 blocks inline; older ones in `docs/archive/decisions.md`):
 
