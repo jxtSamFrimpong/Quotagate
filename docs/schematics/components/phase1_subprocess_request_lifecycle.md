@@ -59,7 +59,7 @@ OpenAI SDK client
 |                                                |
 |  DOES NOT inject the constraint — the          |
 |  constraint is owned exclusively by the        |
-|  adapter's build_constrained_prompt()          |
+|  adapter's buildConstrainedPrompt()          |
 |  (invariant #4: pipeline stays transport-      |
 |  agnostic so the Phase 2 MCP upgrade does      |
 |  not require pipeline changes)                 |
@@ -70,9 +70,9 @@ OpenAI SDK client
 +-----------------------------------------------+
 |  src/adapters/claude.ts  [Phase 1A — WS_02]  |
 |  ClaudeAdapter.complete()                      |
-|  → _complete_via_subprocess()                  |
+|  → _completeViaSubprocess()                  |
 |                                                |
-|  Step 1 — build_constrained_prompt()           |
+|  Step 1 — buildConstrainedPrompt()           |
 |    Mechanism A (spec §3.2, §5.2):              |
 |    Serializes messages + tool schemas +        |
 |    constraint instructions into a single       |
@@ -83,7 +83,7 @@ OpenAI SDK client
 |     Mechanism B — tool def + CLAUDE.md —       |
 |     is Phase 2 MCP work.)                      |
 |                                                |
-|  Step 2 — sanitised_env()  [D-1A-07]          |
+|  Step 2 — sanitisedEnv()  [D-1A-07]          |
 |    Strips HOME, PWD, OLDPWD and other          |
 |    filesystem-revealing vars to prevent the    |
 |    Haiku path-leak class (spec §5.3).          |
@@ -205,9 +205,9 @@ QuotagateCompleteResult.type
 | Component / function                                                      | src/ module          | Introduced in | Workstream |
 | ------------------------------------------------------------------------- | -------------------- | ------------- | ---------- |
 | `CLIAdapter` interface                                                    | `adapters/base.ts`   | Phase 1A      | WS_02      |
-| `ClaudeAdapter`, `_complete_via_subprocess`                               | `adapters/claude.ts` | Phase 1A      | WS_02      |
-| `build_constrained_prompt`                                                | `adapters/claude.ts` | Phase 1A      | WS_02      |
-| `sanitised_env`                                                           | `adapters/claude.ts` | Phase 1A      | WS_02      |
+| `ClaudeAdapter`, `_completeViaSubprocess`                               | `adapters/claude.ts` | Phase 1A      | WS_02      |
+| `buildConstrainedPrompt`                                                | `adapters/claude.ts` | Phase 1A      | WS_02      |
+| `sanitisedEnv`                                                           | `adapters/claude.ts` | Phase 1A      | WS_02      |
 | `AdapterRequest`, `AdapterResponse`, `QuotagateCompleteResult` Zod schema | `types.ts`           | Phase 1A      | WS_01      |
 | `buildAdapterRequest`                                                     | `argumentBuilder.ts` | Phase 1B      | WS_04      |
 | `validate` (success path, text branch, retry loop scaffolded)             | `validator.ts`       | Phase 1B      | WS_04      |
@@ -259,7 +259,7 @@ Invariants upheld: #4 (transport-agnostic translation — no adapter-specific co
 
 The `messages` array passed to the adapter is **exactly** the caller's messages — no system
 prompt, no constraint text. This is enforced by a named separation-of-concerns test
-(WS_04 T1). The constraint lives one layer down, inside `build_constrained_prompt` in the
+(WS_04 T1). The constraint lives one layer down, inside `buildConstrainedPrompt` in the
 Claude adapter. If constraint text were injected here, Phase 2's Gemini adapter would require
 `argumentBuilder.ts` to know which backend it is talking to, collapsing the clean pipeline
 abstraction.
@@ -272,9 +272,9 @@ Module owner: `adapters/claude.ts` (WS_02).
 Invariants upheld: #2 (no credentials — `claude --print` handles auth), #10 (stateless by
 construction — see note below).
 
-`build_constrained_prompt` assembles the stdin prompt from the caller's messages plus the
+`buildConstrainedPrompt` assembles the stdin prompt from the caller's messages plus the
 Mechanism A constraint instructions (spec §3.2, §5.2). This is Phase 1's sole constraint
-mechanism. `sanitised_env` strips machine-context environment variables before the child
+mechanism. `sanitisedEnv` strips machine-context environment variables before the child
 process is spawned, preventing the path-leak class observed in the Haiku experiment (spec §5.3).
 The child process — `claude --print` — reads the prompt from stdin, writes its response to
 stdout, and exits. Its stdout string becomes `AdapterResponse.raw`.
@@ -312,7 +312,7 @@ expects a string; passing the raw object would silently violate the wire contrac
 
 ## Why Statelessness Is Free in Phase 1 (and Must Be Re-earned in Phase 2)
 
-Each call to `_complete_via_subprocess()` spawns a fresh OS process. That process reads its input
+Each call to `_completeViaSubprocess()` spawns a fresh OS process. That process reads its input
 from stdin, writes its output to stdout, and exits. There is no shared memory, no session buffer,
 no accumulated context — each request is isolated by the OS process boundary. Invariants #10
 ("persist the process, never the conversation — each call runs in a fresh context seeded only by
