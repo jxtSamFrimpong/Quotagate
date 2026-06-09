@@ -33,3 +33,19 @@ _(Spec invariants #10/#11; §3.1/§3.8. Archived from inline Session State by BS
 **Rejected — Python**: Mature MCP SDK and FastAPI exist, but forces a Python-**and**-Node dual runtime on users and fiddlier async-subprocess handling.
 
 **Rejected — Go/Rust**: Single-binary advantage is half-mooted (Node is required anyway) and MCP SDKs are less mature.
+
+---
+
+## 2026-06-09
+
+### WS_02-D3 — `install()` Is a No-Op Stub in Phase 1 [LOCKED]
+
+**Choice**: `ClaudeAdapter.install()` throws `new Error("install() not implemented in Phase 1 — MCP registration is Phase 2")` from inside an `async` method body (so the throw wraps into a rejected Promise automatically — not `Promise.reject()`).
+
+**Rationale**: `install()` in the full design writes `~/.quotagate/CLAUDE.md` and runs `claude mcp add` — both Phase 2 MCP concerns (D-SEQ-01). The stub makes the omission explicit and loud. If `proxy.ts` or any Phase 2 caller accidentally invokes `install()` before the Phase 2 implementation lands, they get a clear error rather than a silent pass.
+
+**Rejected — `install()` returns `Promise.resolve()` silently**: Silent no-op hides that MCP registration has not occurred; a WS_05 startup path calling `install()` would incorrectly conclude the installation succeeded.
+
+**Rejected — omit `install()` from `CLIAdapter` until Phase 2**: Breaks invariant #4. All adapters must share the same interface; retrofitting a required method mid-phase forces changes to every existing implementor.
+
+_(Locked by Principal Architect in TASK_WS02_T4 planning, 2026-06-08. Implemented in TASK_WS02_T4, 2026-06-09.)_

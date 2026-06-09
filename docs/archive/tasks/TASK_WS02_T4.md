@@ -93,15 +93,15 @@ If the smoke test fails: do not submit for review. Diagnose the failure, fix it 
 
 | # | Subtask | Status | Iteration | Notes |
 |---|---|---|---|---|
-| 1 | Confirm `src/adapters/claude.ts` exists and contains `buildConstrainedPrompt` and `sanitisedEnv()` (T2 and T3 outputs); read WS_02-D2-allowlist from CLAUDE.md for the healthCheck probe command | ⬚ Not started | — | |
-| 2 | Add `ClaudeAdapter` class declaration with `implements CLIAdapter`; add `readonly name = 'claude-subprocess'`; stub all three methods with `throw new Error('not implemented')` | ⬚ Not started | — | |
-| 3 | Implement `_complete_via_subprocess(req: AdapterRequest): Promise<AdapterResponse>`: spawn `claude --print`; write `buildConstrainedPrompt(...)` to stdin; close stdin; collect stdout and stderr; handle exit code per EF4 spec | ⬚ Not started | — | |
-| 4 | Implement `complete(req: AdapterRequest): Promise<AdapterResponse>`: single-line delegation to `_complete_via_subprocess(req)` | ⬚ Not started | — | |
-| 5 | Implement `healthCheck(): Promise<boolean>`: spawn the T3-confirmed probe command with `sanitisedEnv()`; return `true` on exit code 0; return `false` on non-zero or ENOENT; never throw on `false` | ⬚ Not started | — | |
-| 6 | Implement `install(): Promise<void>` stub: `throw new Error("install() not implemented in Phase 1 — MCP registration is Phase 2")` | ⬚ Not started | — | |
-| 7 | Run manual smoke test; paste output into Notes | ⬚ Not started | — | |
-| 8 | Author `tests/adapters/claudeAdapter.healthCheck.test.ts`; run `npm test` | ⬚ Not started | — | |
-| 9 | Run full green gate: `npm test` / `npm run typecheck` / `npm run lint` / `npm run format` | ⬚ Not started | — | |
+| 1 | Confirm `src/adapters/claude.ts` exists and contains `buildConstrainedPrompt` and `sanitisedEnv()` (T2 and T3 outputs); read WS_02-D2-allowlist from CLAUDE.md for the healthCheck probe command | ✅ Done | 1 | Confirmed. healthCheck probe: `claude auth status`. |
+| 2 | Add `ClaudeAdapter` class declaration with `implements CLIAdapter`; add `readonly name = 'claude-subprocess'`; stub all three methods with `throw new Error('not implemented')` | ✅ Done | 1 | `implements CLIAdapter` present on class declaration; `readonly name = 'claude-subprocess'`. |
+| 3 | Implement `_complete_via_subprocess(req: AdapterRequest): Promise<AdapterResponse>`: spawn `claude --print`; write `buildConstrainedPrompt(...)` to stdin; close stdin; collect stdout and stderr; handle exit code per EF4 spec | ✅ Done | 3 | `node:child_process` / `stdio: ['pipe','pipe','pipe']` / `stdin.write` + `stdin.end()` / Buffer chunk collection / EF4 TransportError on non-zero + empty stdout. No `spawnSync`/`execSync` (grep confirmed empty). Named `_completeViaSubprocess`. |
+| 4 | Implement `complete(req: AdapterRequest): Promise<AdapterResponse>`: single-line delegation to `_complete_via_subprocess(req)` | ✅ Done | 1 | One-line: `return this._completeViaSubprocess(req)`. No transport-selection logic. |
+| 5 | Implement `healthCheck(): Promise<boolean>`: spawn the T3-confirmed probe command with `sanitisedEnv()`; return `true` on exit code 0; return `false` on non-zero or ENOENT; never throw on `false` | ✅ Done | 3 | `claude auth status` probe / ENOENT resolves `false` / non-zero resolves `false` / unexpected errors reject. |
+| 6 | Implement `install(): Promise<void>` stub: `throw new Error("install() not implemented in Phase 1 — MCP registration is Phase 2")` | ✅ Done | 1 | Throws from inside `async` body (EF6). Message contains "Phase 1" and "Phase 2". |
+| 7 | Run manual smoke test; paste output into Notes | ✅ Done | 1 | Smoke test ran successfully via `npx tsx smoke-test.ts`. `healthCheck: true`; `complete.raw` returned valid JSON (`{"type":"text","content":"pong"}`); `complete.backend: claude-subprocess`. `smoke-test.ts` deleted post-run. |
+| 8 | Author `tests/adapters/claudeAdapter.healthCheck.test.ts`; run `npm test` | ✅ Done | 1 | 4 mocked tests (T-1..T-4). `vi.mock('node:child_process', () => ({ spawn: vi.fn() }))` + `makeMockChild` helper using `EventEmitter` + `setImmediate`. 27 tests total, all pass. |
+| 9 | Run full green gate: `npm test` / `npm run typecheck` / `npm run lint` / `npm run format` | ✅ Done | 1 | `npm test`: 27/27 pass. `typecheck`: 0 errors. `lint`: 0 violations. `format`: all files unchanged. |
 
 _Status icons: `✅ Done` | `🔄 In progress` | `⬚ Not started` | `❌ Blocked`_
 

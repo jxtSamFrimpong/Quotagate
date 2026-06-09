@@ -1,7 +1,7 @@
 # CLAUDE.md — Project Knowledge Base
 
 > **Last Updated**: 2026-06-09
-> **Status**: 🟢 **Phase 1A — WS_02 T3 complete (`sanitisedEnv`, PA-reviewed APPROVE-WITH-NITS, 23 tests).** Next: WS_02 T4 (`ClaudeAdapter` class).
+> **Status**: 🟢 **Phase 1A — WS_02 complete (`ClaudeAdapter`, PA-reviewed APPROVE-WITH-NITS, 27 tests).** Next: WS_03 (adapter proving — integration against real subscription).
 
 ---
 
@@ -267,10 +267,10 @@ current task and leaves no constraint behind, it is not a decision.
 
 **What was completed**:
 
-- **[Milestone — 2026-06-08/09]** Spec + D-SEQ-01 locked; WS_01–WS_09 authored; `git init`. WS_01 complete — toolchain bootstrap + `src/types.ts` + `src/errors.ts`; 7 tests, PA-reviewed APPROVE.
-- **[TASK_WS02_T1 complete + archived — 2026-06-09]** `src/adapters/base.ts` — `CLIAdapter` interface (`readonly name: string`, `complete()`, `healthCheck()`, `install()`); `tests/adapters/base.test.ts` — `StubAdapter` structural type check. 8 tests, full green gate clean. PA-reviewed APPROVE.
-- **[TASK_WS02_T2 complete + archived — 2026-06-09]** `src/adapters/claude.ts` — `CONSTRAINT_INSTRUCTIONS` static constant (verbatim spec §3.5) + `buildConstrainedPrompt(messages, tools, toolChoice): string` exported `/* @internal */`. Handles null content (`[tool call]` sentinel per WS_02-D-T2-02), tool schema injection, toolChoice gating (absent when no tools). `tests/adapters/buildConstrainedPrompt.test.ts` — 10 tests. 18 tests total, 100% branch coverage. PA-reviewed APPROVE (Round 2, after nit fixes to T-7 + T-10 assertions). WS_03 carry-forward: add `system`/`tool` role smoke tests; assert return-format examples in constraint; tighten T-10 `description` assertion.
-- **[TASK_WS02_T3 complete + archived — 2026-06-09]** Empirical `claude --print` env-stripping spike; confirmed minimum allowlist `{PATH, USER}` (HOME not required — passwd UID fallback; macOS-empirical, Linux re-validate). `sanitisedEnv(): Record<string, string>` added to `src/adapters/claude.ts`; fresh object, omits missing vars. `tests/adapters/sanitisedEnv.test.ts` — 5 tests. 23 tests total, 100% branch coverage. `claude auth status` confirmed as healthCheck probe. PA-reviewed APPROVE-WITH-NITS; nit fixes applied (T-2 loop removed, `HAIKU_LEAK_VARS` extended with LOGNAME/EDITOR/PAGER/MANPATH, T-4b successive-call assertion, HOME comment empirical-first). WS_02-D2-allowlist in Resolved Decisions.
+- **[Milestone — WS_01 + WS_02 T1 — 2026-06-08/09]** Spec + D-SEQ-01 locked; WS_01–WS_09 authored; `git init`. WS_01 complete (toolchain bootstrap, `src/types.ts`, `src/errors.ts`, 7 tests). WS_02 T1 complete (`CLIAdapter` interface in `src/adapters/base.ts`, 8 tests). PA-reviewed APPROVE.
+- **[TASK_WS02_T2 complete + archived — 2026-06-09]** `src/adapters/claude.ts` — `CONSTRAINT_INSTRUCTIONS` constant (verbatim spec §3.5) + `buildConstrainedPrompt(messages, tools, toolChoice): string` (`/* @internal */`). Null content → `[tool call]` sentinel (WS_02-D-T2-02); tool schema injection; toolChoice gating (absent when no tools). `tests/adapters/buildConstrainedPrompt.test.ts` — 10 tests; 18 total; 100% branch coverage. PA-reviewed APPROVE (Round 2). WS_03 carry-forward: `system`/`tool` role smoke tests; return-format assertion in constraint; tighten T-10 `description` assertion.
+- **[TASK_WS02_T3 complete + archived — 2026-06-09]** Empirical `claude --print` env-stripping spike; confirmed allowlist `{PATH, USER}` (HOME excluded — passwd UID fallback; macOS-empirical, re-validate on Linux). `sanitisedEnv()` added to `src/adapters/claude.ts`. `tests/adapters/sanitisedEnv.test.ts` — 5 tests; 23 total. `claude auth status` confirmed as healthCheck probe. PA-reviewed APPROVE-WITH-NITS; nits applied. WS_02-D2-allowlist in Resolved Decisions.
+- **[TASK_WS02_T4 complete + archived — 2026-06-09]** `src/adapters/claude.ts` — `ClaudeAdapter implements CLIAdapter`: `_completeViaSubprocess()` (spawn `claude --print`, stdin pipe + `end()`, Buffer chunk collection, `TransportError` on non-zero + empty stdout); `complete()` (one-line delegation, WS_02-D-T4-02); `healthCheck()` (`claude auth status` probe, ENOENT → `false`); `install()` (Phase 2 stub, WS_02-D3 → `docs/archive/decisions.md`). `tests/adapters/claudeAdapter.healthCheck.test.ts` — 4 mocked tests (vi.mock + EventEmitter helper). Smoke test confirmed: `healthCheck: true`, `complete.raw: {"type":"text","content":"pong"}`. 27 tests total. PA-reviewed APPROVE-WITH-NITS; NIT-1 (dead disjunct in test helper) applied. **WS_04 carry-forward**: `AdapterResponse` has no `exitCode` field — validator receives no exit-code signal on non-zero+non-empty paths. **WS_05 carry-forward**: `healthCheck()` has no internal timeout — proxy startup must apply its own deadline.
 
 **What is being worked on**:
 
@@ -278,12 +278,12 @@ current task and leaves no constraint behind, it is not a decision.
 
 **Active task trackers**:
 
-- `docs/active/TASK_WS02_T4.md` — `ClaudeAdapter` class (unblocked — T3 signed off)
+- None.
 
 **What is next**:
 
-1. **WS_02 T4** — `ClaudeAdapter` class wiring T1+T2+T3 (`_completeViaSubprocess`, `healthCheck`, `install` stub). T3 signed off; unblocked.
-2. **Then WS_03** (adapter proving — integration tests against real subscription) → WS_04 (validator + retry) → WS_05 (proxy server).
+1. **WS_03** — Adapter proving: integration tests against a real Claude subscription. Imports `ClaudeAdapter`, calls `adapter.complete()` and `adapter.healthCheck()` against a real subprocess. Validates that `response.raw` parses against `QuotagateCompleteResultSchema`. WS_02 T2 carry-forwards apply here.
+2. **Then WS_04** (validator + retry) → **WS_05** (proxy server).
 
 **Resolved decisions** (settled — ≤2 blocks inline; older ones in `docs/archive/decisions.md`):
 
@@ -327,7 +327,7 @@ current task and leaves no constraint behind, it is not a decision.
     path to the subprocess environment.
   - _Rejected — include all common CI vars_: speculative; not confirmed by spike.
 
-> Older decisions archived to `docs/archive/decisions.md` (D-LANG, D-STATELESS).
+> Older decisions archived to `docs/archive/decisions.md` (D-LANG, D-STATELESS, WS_02-D3).
 
 **Open decisions for user**:
 
