@@ -1,2 +1,1 @@
-// Quotagate entry point stub — T4 adds the QuotagateError import chain; WS_05 wires the server.
-import Fastify from "fastify";
+// Quotagate entry point — wires the CLI and starts the proxy server.

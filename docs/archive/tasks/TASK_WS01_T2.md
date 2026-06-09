@@ -62,13 +62,13 @@
 
 ## Subtask Progress Table
 
-| #   | Subtask                                                                                                                                                                                                                                                           | Status        | Iteration | Notes                                                                  |
-| --- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- | --------- | ---------------------------------------------------------------------- |
-| 1   | Install Vitest devDependencies: `vitest`, `@vitest/coverage-v8`; author `vitest.config.ts` with `pool:"forks"`, `environment:"node"`, `include:["tests/**/*.test.ts"]`                                                                                            | ⬚ Not started | —         | Pitfall: verify `pool:"forks"` resolves ESM conflict before proceeding |
-| 2   | Install ESLint devDependencies: `eslint@^9`, `@typescript-eslint/eslint-plugin`, `@typescript-eslint/parser`; author `eslint.config.js` (flat config) with `parserOptions.project:"tsconfig.json"` and at least `@typescript-eslint/no-floating-promises` enabled | ⬚ Not started | —         | WS_01-D2; pitfall: verify type-aware rule fires (see EF2)              |
-| 3   | Install Prettier devDependency: `prettier`; author `.prettierrc` (semi, singleQuote, trailingComma: "all", printWidth: 100)                                                                                                                                       | ⬚ Not started | —         | No `eslint-plugin-prettier` — they run independently                   |
-| 4   | Author `tests/smoke.test.ts`: `import { expect, it } from "vitest"; it("smoke", () => { expect(1+1).toBe(2); });`                                                                                                                                                 | ⬚ Not started | —         | Trivial; its purpose is to prove the harness runs                      |
-| 5   | Run full green gate; confirm type-aware ESLint rule fires on deliberate violation then remove the bad line                                                                                                                                                        | ⬚ Not started | —         | EF2 check: `no-floating-promises` on bare `Promise.resolve()`          |
+| #   | Subtask                                                                                                                                                                                                                                                           | Status        | Iteration | Notes                                                                                                                                                                                                                                                                                                    |
+| --- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- | --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Install Vitest devDependencies: `vitest`, `@vitest/coverage-v8`; author `vitest.config.ts` with `pool:"forks"`, `environment:"node"`, `include:["tests/**/*.test.ts"]`                                                                                            | ✅ Done        | 1         | `pool:"forks"` resolved ESM conflict on first attempt; no CJS errors. Vitest 4.1.8 installed.                                                                                                                                                                                                            |
+| 2   | Install ESLint devDependencies: `eslint@^9`, `@typescript-eslint/eslint-plugin`, `@typescript-eslint/parser`; author `eslint.config.js` (flat config) with `parserOptions.project:"tsconfig.json"` and at least `@typescript-eslint/no-floating-promises` enabled | ✅ Done        | 2         | Deviation: `parserOptions.project` points at `tsconfig.eslint.json` (not `tsconfig.json`) — a new file that extends base and adds `"include": ["src","tests","*.ts","*.js"]`. Required because the main `tsconfig.json` only includes `src/`; ESLint's project-parser rejected `tests/smoke.test.ts` otherwise. Added `ignores: ['dist/**','coverage/**','node_modules/**']` to prevent linting generated files. |
+| 3   | Install Prettier devDependency: `prettier`; author `.prettierrc` (semi, singleQuote, trailingComma: "all", printWidth: 100)                                                                                                                                       | ✅ Done        | 1         | `prettier@^3` was already installed by T1; only `.prettierrc` needed to be created. Format script updated from `prettier --write .` to the explicit glob form per task spec. No `eslint-plugin-prettier` installed.                                                                                       |
+| 4   | Author `tests/smoke.test.ts`: `import { expect, it } from "vitest"; it("smoke", () => { expect(1+1).toBe(2); });`                                                                                                                                                 | ✅ Done        | 1         | Trivial assertion passes on first run; `tests/` directory created.                                                                                                                                                                                                                                       |
+| 5   | Run full green gate; confirm type-aware ESLint rule fires on deliberate violation then remove the bad line                                                                                                                                                        | ✅ Done        | 1         | SC-7 confirmed: bare `Promise.resolve();` in smoke file triggered `@typescript-eslint/no-floating-promises` error. Bad line removed. All 8 SC verified in sequence. Additional deviation from T1: removed unused `import Fastify from "fastify"` stub from `src/index.ts` to satisfy `no-unused-vars`.   |
 
 _Status icons: `✅ Done` | `🔄 In progress` | `⬚ Not started` | `❌ Blocked`_
 
@@ -168,14 +168,73 @@ Import `expect` and `it` from `"vitest"`. Assert `expect(1 + 1).toBe(2)`. Purpos
 
 ## Review Notes
 
-_(Architect fills after BSE submits — verdict APPROVE / APPROVE-WITH-NITS / REQUEST-CHANGES, findings classified required-change / nit / informational, mapped to SC / decision IDs.)_
+**Reviewer**: Principal Architect — **2026-06-09**
+**Verdict**: APPROVE-WITH-NITS
+
+All 8 success criteria pass. The green gate is sound and will hold across WS_02–WS_09 for `src/` code. Two nits and one informational note follow; none block approval.
+
+---
+
+### Finding 1 — `no-explicit-any` as `warn` contradicts the project's "no `any` without a written reason" convention [nit]
+
+**Maps to**: SC-4, CLAUDE.md coding convention ("No `any` without a written reason").
+
+**Observation**: The rule is set to `'warn'` rather than `'error'`. `npm run lint` exits 0 even when `any` is present — warnings do not fail the command. That means the quality ratchet silently passes files that violate the stated convention. In my experience, a convention enforced only by warning is a convention that will be broken in the first week of real implementation (WS_02).
+
+**Prescribed fix**: Change `'@typescript-eslint/no-explicit-any': 'warn'` to `'error'`. When a legitimate `any` boundary is genuinely required (e.g., dynamic `JSON.parse` output before Zod narrows it), the author adds an `// eslint-disable-next-line @typescript-eslint/no-explicit-any -- <reason>` comment. That inline suppression is the "written reason" the convention demands. The ratchet then enforces both the rule and its documentation.
+
+---
+
+### Finding 2 — `src/index.ts` stub comment references task IDs and workstream names [nit]
+
+**Maps to**: CLAUDE.md key coding conventions ("Names should reveal intent").
+
+**Observation**: The current comment is `// Quotagate entry point stub — T4 adds the QuotagateError import chain; WS_05 wires the server.` Task IDs (`T4`) and workstream labels (`WS_05`) are planning-harness artefacts, not code. They will be stale the moment those tasks complete and the comment is not updated — which, in my experience, is always. A reader six months from now sees references to completed tasks and learns nothing about the file's purpose.
+
+**Prescribed fix**: Replace with a stable, intent-revealing comment that describes what the file _is_, not what future tasks will do to it. For example: `// Quotagate entry point — wires the CLI and starts the proxy server.` T3 and T4 can append to or replace this comment when they add real code; the comment should reflect the current state of the file, not its future state.
+
+---
+
+### Finding 3 — Root-level `*.ts` config files (`vitest.config.ts`, `tsup.config.ts`) are excluded from ESLint coverage [informational]
+
+**Maps to**: SC-4, WS-01-D2.
+
+**Observation**: The `eslint.config.js` `files` pattern is `['src/**/*.ts', 'tests/**/*.ts']`. Root-level config files are explicitly outside it. Running `npx eslint vitest.config.ts` produces `File ignored because no matching configuration was supplied`. This is not a defect for this task — those files contain no product logic and carry no floating-promise risk — but it is a gap worth knowing about.
+
+The `*.js` glob in `tsconfig.eslint.json`'s `include` array (`"*.js"` at root) is a no-op: `allowJs` is not set in `tsconfig.json`, so TypeScript ignores `.js` files regardless. This entry is harmless but misleading; a future engineer may wonder why it is there. It should be noted but is not worth a change at this stage.
+
+**No action required now.** If a root-level config file ever accumulates complex logic, extend the `files` pattern then. Record this gap in the WS_02 tracker's "inherited toolchain notes" so it is not re-discovered.
+
+---
+
+### Deviation assessment — `tsconfig.eslint.json` is correct and necessary
+
+The deviation from the original plan (which named `tsconfig.json` directly in `parserOptions.project`) is the right call. The base `tsconfig.json` has `"include": ["src"]` and `"rootDir": "src"`; pointing ESLint's parser at it causes the parser to reject `tests/smoke.test.ts` and any root-level `.ts` config file as outside the project boundary. A separate `tsconfig.eslint.json` extending the base — overriding `rootDir: "."` and broadening `include` — is the canonical pattern for this situation.
+
+The `rootDir: "."` override in `tsconfig.eslint.json` does NOT affect the build. `tsc --noEmit` (the `typecheck` script) uses `tsconfig.json`, not `tsconfig.eslint.json`. The override is consumed solely by ESLint's project-aware parser. This was confirmed: `npm run typecheck` exits clean with the file present.
+
+The `tsconfig.eslint.json` file is not in `.gitignore` and will be committed with the rest of T2's output — correct; it is a permanent part of the toolchain, not a transient artefact.
+
+---
+
+### Green gate verification (independently run by reviewer)
+
+| Command | Result |
+| --- | --- |
+| `npm test` | 1 passed, 0 failed, no loader errors |
+| `npm run typecheck` | Clean (exit 0) |
+| `npm run lint` | Clean (exit 0) |
+| `npm run format` (2nd pass) | No files changed |
+| `npm run test:cov` | Exit 0; `coverage/` created; 0% on trivial smoke file is expected and acceptable |
+| SC-7 contract (BSE-verified) | `no-floating-promises` fired on bare `Promise.resolve();`; line removed |
+| SC-8 | No `.eslintrc.*` files present |
 
 ---
 
 ## Architect Sign-off
 
-- [ ] Implementation reviewed
-- [ ] All success criteria verified
-- [ ] All assumptions resolved (proven, or fallback taken & documented)
-- [ ] No regressions in full test suite
-- [ ] `npm test` / `typecheck` / `lint` / `format` all clean
+- [x] Implementation reviewed
+- [x] All success criteria verified
+- [x] All assumptions resolved (proven, or fallback taken & documented)
+- [x] No regressions in full test suite
+- [x] `npm test` / `typecheck` / `lint` / `format` all clean

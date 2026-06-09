@@ -1,9 +1,7 @@
 # CLAUDE.md — Project Knowledge Base
 
 > **Last Updated**: 2026-06-09
-> **Status**: 🟢 **Phase 1A — implementation underway (WS_01 in progress).** The product spec is
-> written; the core architecture is DECIDED. All 9 workstream specs authored (WS_01–WS_09). TASK_WS01_T1
-> (project bootstrap) is **complete and archived**. Next: TASK_WS01_T2 (Vitest + ESLint + Prettier; green gate).
+> **Status**: 🟢 **Phase 1A — implementation underway (WS_01 in progress).** T1 + T2 complete and archived. Next: TASK_WS01_T3 (`src/types.ts` Zod schemas) + TASK_WS01_T4 (`src/errors.ts`) — both unblocked, ready to run in parallel.
 
 ---
 
@@ -129,6 +127,18 @@ src/
 ---
 
 ## Key Coding Conventions
+
+### Engineering Integrity (MANDATORY)
+
+- **This is a product, not a prototype.** Every implementation decision — from transport choice to error shape to test coverage — must be made with genuine intent for long-term reliability. Shortcuts are last resorts that require explicit justification and a documented plan to remove them. "It works in my smoke test" is not a quality bar.
+- **No cheap fixes.** When a bug or mismatch is found, diagnose the root cause and fix it at the correct layer. Do not paper over structural problems with flags, callbacks, or fallbacks that hide the real failure. A workaround that makes a test pass without fixing the underlying contract is worse than a failing test — it erodes trust silently.
+- **Intent matters.** If a fix feels like a workaround, it probably is. Before committing, ask: _is this the right fix, or the easiest fix?_ If the answer is "easiest," stop and escalate to the architect for a proper diagnosis. The cost of a workaround compounds; the cost of doing it right once does not.
+- **Tests must prove the fix, not hide the failure.** A test that passes because it bypasses the broken code path (e.g., mocking the subprocess to return valid JSON when the real subprocess path is broken) is a deferred bug, not a passing test. Tests must exercise the production path they claim to cover.
+- **The green gate is a ratchet, not a target.** Once `npm test` · `typecheck` · `lint` · `format` is green, it stays green. A task that breaks an existing passing test has regressed — full stop. Do not comment out tests, loosen assertions, or widen `any` suppressions to make the gate pass. If the test was wrong, fix the test and document why; if the code was wrong, fix the code.
+- **The OpenAI response contract is the output invariant.** Any response that is "close enough but not quite right" is a breaking change for every consumer using the real OpenAI SDK. Validate the outgoing response shape in tests just as you validate the incoming request. Approximations are not acceptable.
+- **Subprocess-phase code must survive the MCP upgrade.** Phase 1 ships subprocess-first (D-SEQ-01); Phase 2 replaces the transport with MCP. Every abstraction written in Phase 1 must be honest to the `CLIAdapter` interface contract — not to the subprocess implementation detail. If `adapter.complete()` leaks subprocess assumptions into `proxy.ts` or `argumentBuilder.ts`, it will break when the MCP adapter replaces it.
+
+---
 
 ### Spec is the source of truth
 
@@ -258,23 +268,21 @@ current task and leaves no constraint behind, it is not a decision.
 **What was completed**:
 
 - **[Milestone — 2026-06-08]** Spec authored, language decided (Node/TS), planning harness scaffolded, Phase 1 re-sequenced subprocess-first (D-SEQ-01), all 9 workstream specs authored (WS_01–WS_09), all 4 WS_01 task trackers created (T1–T4), `git init` + initial commit.
-- **[TASK_WS01_T1 complete + archived — 2026-06-09]** Node/TS project bootstrap: `package.json` (ESM, all 8 scripts, `fastify@^5.0.0`), `tsconfig.json` (strict, ESM, no path aliases), `tsup.config.ts`, `.gitignore`, `README.md`, `src/index.ts` stub, `eslint.config.js` shim. `npm install`, `typecheck`, `build`, `lint`, `format` all green. Principal-architect review: APPROVE-WITH-NITS; both nits resolved (tracker docs + stub comment). Tracker archived to `docs/archive/tasks/`.
+- **[TASK_WS01_T1 + T2 complete + archived — 2026-06-09]** T1: Node/TS project bootstrap (`package.json`, `tsconfig.json`, `tsup.config.ts`, `src/index.ts` stub, `eslint.config.js` shim). T2: Vitest 4.1.8 (`pool:"forks"`, ESM-safe), ESLint flat config (`@typescript-eslint`, type-aware `no-floating-promises`/`no-explicit-any` as errors, `no-unused-vars`), Prettier (`.prettierrc`), `tests/smoke.test.ts`, `tsconfig.eslint.json` (standard deviation: ESLint project-parser requires broader `include` than `tsconfig.json`). Both PA-reviewed APPROVE-WITH-NITS; nits resolved. Full green gate clean. Engineering Integrity (MANDATORY) section added to CLAUDE.md.
 
 **What is being worked on**:
 
-- **Nothing mid-flight.** TASK_WS01_T1 archived. T2 has not started.
+- **Nothing mid-flight.**
 
 **Active task trackers**:
 
-- `docs/active/TASK_WS01_T2.md` — Vitest + ESLint flat config + Prettier; green gate (⬚ Not started — ready to begin; T1 done)
-- `docs/active/TASK_WS01_T3.md` — `src/types.ts` + Zod schemas (⬚ Not started — blocked on T2)
-- `docs/active/TASK_WS01_T4.md` — `src/errors.ts` + entry stub (⬚ Not started — blocked on T2)
+- `docs/active/TASK_WS01_T3.md` — `src/types.ts` + Zod schemas (⬚ Not started — unblocked, ready to begin)
+- `docs/active/TASK_WS01_T4.md` — `src/errors.ts` + entry stub (⬚ Not started — unblocked, ready to begin)
 
 **What is next**:
 
-1. **TASK_WS01_T2** — hand to BSE: install Vitest + `@vitest/coverage-v8`, extend `eslint.config.js` with `@typescript-eslint` parser + rules, add `.prettierrc`, author `tests/smoke.test.ts`, run full green gate (including type-aware ESLint rule contract test). Key pitfall: ESM/CJS pool conflict (use `pool:"forks"`).
-2. **TASK_WS01_T3 + T4** — can begin in parallel once T2 is signed off (`src/types.ts` Zod schemas and `src/errors.ts` error hierarchy).
-3. **Phase 1A exit** → WS_02 (subprocess adapter) begins once T1–T4 all signed off.
+1. **TASK_WS01_T3 + TASK_WS01_T4** — dispatch both to BSE in parallel: T3 authors `src/types.ts` (Zod schemas for `AdapterRequest`, `AdapterResponse`, `QuotagateCompleteResult`); T4 authors `src/errors.ts` (error hierarchy: `QuotagateError` base + subclasses) and finalises `src/index.ts` entry stub.
+2. **Phase 1A exit** → WS_02 (subprocess adapter) begins once T3 + T4 are signed off.
 
 **Resolved decisions** (settled — ≤2 blocks inline; older ones in `docs/archive/decisions.md`):
 
