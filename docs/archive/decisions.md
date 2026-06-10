@@ -49,3 +49,17 @@ _(Spec invariants #10/#11; §3.1/§3.8. Archived from inline Session State by BS
 **Rejected — omit `install()` from `CLIAdapter` until Phase 2**: Breaks invariant #4. All adapters must share the same interface; retrofitting a required method mid-phase forces changes to every existing implementor.
 
 _(Locked by Principal Architect in TASK_WS02_T4 planning, 2026-06-08. Implemented in TASK_WS02_T4, 2026-06-09.)_
+
+---
+
+### WS_02-D-T2-02 — Null `content` on Assistant Messages Rendered as `[tool call]` Sentinel [LOCKED]
+
+**Choice**: When an `OpenAIMessage` has `role: 'assistant'` and `content: null` (indicating a prior tool-call step with no text), `buildConstrainedPrompt` serializes it as `assistant: [tool call]` — not `assistant: null`, not an empty string, and not omitted.
+
+**Rationale**: The literal string `"null"` in the prompt would be ambiguous (the model could interpret it as a keyword or a missing value). Omitting the message breaks conversation history integrity — the model would receive a gap in the turn sequence. The `[tool call]` sentinel is a recognizable, explicit placeholder that preserves turn order and signals "an action was declared here" without leaking content.
+
+**Rejected — serialize as `assistant: null`**: Injects the literal string "null" into the prompt; ambiguous and potentially confusing to the model.
+
+**Rejected — omit null-content messages**: Breaks the conversation history structure; the model sees a gap in the dialogue.
+
+_(Decision ID WS_02-D-T2-02. Implemented in TASK_WS02_T2, 2026-06-09. Confirmed by T-7 in `tests/adapters/buildConstrainedPrompt.test.ts`. Archived from Session State by /house-keeping, 2026-06-10.)_

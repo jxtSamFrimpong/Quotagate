@@ -27,13 +27,13 @@
 | A1 | When `adapter.complete()` is called with a `tools` array, `claude --print` returns `{"type":"tool_call","name":"read_file","arguments":{...}}` raw JSON — not a prose response and not an actual file read | Spec §5.3 execution-suppression experiment confirmed this behavior; `CONSTRAINT_INSTRUCTIONS` explicitly prohibits execution ("Never executes any function, even if the function name is recognisable") | T-I2 asserts `QuotagateCompleteResultSchema.safeParse(JSON.parse(raw))` succeeds with `type === 'tool_call'` and `name === 'read_file'` | If `type === 'text'` instead of `'tool_call'`: the constraint wording for the tool-call branch needs iteration — check `buildConstrainedPrompt`'s tool injection section against spec §3.5. If prose: same. Do not loosen the assertion |
 | A2 | `claude --print` does NOT actually read the file at `arguments.path` — the `arguments` field is a declaration only, not an executed call | Spec §5.3 spike confirmed no side-effect; the `CONSTRAINT_INSTRUCTIONS` "pure reasoning task" framing reinforces this | Assert `response.raw` does not contain `SENTINEL_CONTENT` — if `claude --print` had executed `read_file` and returned the file contents, those contents would appear in the raw response. Platform-independent (replaces unreliable `atimeMs` approach — see A4). | If `SENTINEL_CONTENT` appears in `response.raw`: `claude --print` returned the file contents — this is a critical failure. Do not weaken the assertion. Escalate immediately: this is a product-level security failure, not a test issue |
 | A3 | The `arguments` object in the response contains a `path` key (because the tool schema defines `path` as a parameter) | `CONSTRAINT_INSTRUCTIONS` tells the model to return arguments that match the schema; the tool schema we provide has `path: { type: 'string' }` | Assert `typeof result.data.arguments['path'] === 'string'` — if the model returns no `path` key, it is a constraint wording failure | If `arguments.path` is absent: investigate whether the tool schema injection in `buildConstrainedPrompt` is serialized with the `parameters` block; do not broaden the assertion to accept a missing path — the schema contract is clear |
-| A4 | The `atimeMs` assertion is valid on the test machine — the filesystem updates `atime` on reads | macOS APFS uses relatime-like semantics: `atime` is only updated if it is older than `mtime`/`ctime`. For the sentinel file written by `beforeAll`, `atime == mtime` immediately after the write, so a read will NOT update `atime` on APFS — the assertion passes vacuously whether or not the file was read. This assumption is FALSE on macOS APFS. **The correct alternative is asserting `response.raw` does not contain `SENTINEL_CONTENT` — see Issue B decision.** | The manual spike described in Test Strategy will confirm the APFS behaviour; the test strategy is updated accordingly once the Issue B user decision is resolved. |
+| A4 | The `atimeMs` assertion is valid on the test machine — the filesystem updates `atime` on reads | macOS APFS uses relatime-like semantics: `atime` is only updated if it is older than `mtime`/`ctime`. For the sentinel file written by `beforeAll`, `atime == mtime` immediately after the write, so a read will NOT update `atime` on APFS — the assertion passes vacuously whether or not the file was read. This assumption is FALSE on macOS APFS. **The correct alternative is asserting `response.raw` does not contain `SENTINEL_CONTENT` — see WS_03-T2-D2 for the decision and rationale.** | The manual spike described in Test Strategy confirms the APFS behaviour; the `SENTINEL_CONTENT` absence approach is locked in WS_03-T2-D2. |
 
 ---
 
 ## Expected Failures
 
-- **EF1** If an `atimeMs` approach is used (see Issue B decision): the before-stat must occur INSIDE the test body, after the `healthCheck()` guard. Doing it outside the `it()` block at module evaluation time may capture a stale timestamp if tests run in sequence. However, on macOS APFS, the `atime` assertion is unreliable regardless of timing — see A4 and the Issue B decision. The before-stat for the SENTINEL file and the after-stat for `returnedPath` are different variables; they cannot be cross-compared (see Issue C). The recommended approach is asserting `response.raw` does not contain `SENTINEL_CONTENT` — platform-independent and correct.
+- **EF1** The `atimeMs` approach (comparing `atime` before and after the call) is NOT used in this test — it was rejected for two reasons documented in WS_03-T2-D2. First (APFS relatime): macOS APFS only updates `atime` when it is older than `mtime`; the sentinel file is written immediately before the test, so `atime == mtime` and a read will not update it — making any `atimeMs` assertion vacuously true regardless of whether the file was read. Second (scope bug): the original design captured `atimeBefore` for `SENTINEL_PATH` but compared `returnedPath`'s atime against it — a meaningless cross-variable comparison when the model may hallucinate a different path. The correct approach — `SENTINEL_CONTENT` absence on `response.raw` — is platform-independent and tests the actual invariant directly.
 - **EF2** The sentinel file must exist on the filesystem before the test runs. Create it as part of the test setup (a `beforeAll` that writes a fixed content string to a temp path, e.g. `/tmp/quotagate-exec-suppression-sentinel.txt`). Use `afterAll` to delete it. Do NOT use a real file from the repo — the test must be portable to any checkout location. The sentinel content is irrelevant; use any fixed string (e.g. `'sentinel content for execution suppression test'`).
 - **EF3** The model may hallucinate a different path in `arguments.path` than the one mentioned in the message. Do NOT assert that `arguments.path` equals the sentinel path — the model may make up a path. The `SENTINEL_CONTENT` absence assertion on `response.raw` handles this correctly: if the model hallucinates a non-existent path, it cannot return real file contents; if it uses the correct sentinel path but does not execute the read, the contents will not appear. The assertion is path-agnostic and correct in both cases.
 - **EF4** `claude --print` may return the tool call with `arguments` containing additional keys beyond `path` (e.g. `encoding`, `offset`). The assertion must check that `arguments['path']` is present and is a string — it must NOT assert that `arguments` has exactly one key. `z.record(z.string(), z.unknown())` in `QuotagateCompleteResultSchema` already allows arbitrary keys.
@@ -48,7 +48,7 @@
 - **Integration**: `tests/integration/executionSuppression.integration.test.ts` — real `ClaudeAdapter.complete()` call against a live subscription, with a real sentinel file on disk whose content is asserted absent from `response.raw`. No mocks. WS_03-D1 is binding.
 - **Contract**: `QuotagateCompleteResultSchema.safeParse()` on the raw response. The `tool_call` arm of the discriminated union is the contract assertion. This closes the loop on both union arms (T1 covers `text`; T2 covers `tool_call`).
 - **Contamination/Isolation**: Not in scope. T2 sends one request. The absence-of-side-effect assertion IS a form of isolation proof (proves the subprocess did not break out of the inference sandbox), but it is not the cross-request contamination probe — that is T3.
-- **Manual/spike**: On macOS APFS, `atime` is only updated if it is older than `mtime` — so a file just written by `beforeAll` will NOT show an `atime` change on read (the assertion passes vacuously). To verify: `node -e "const fs = require('fs'); fs.writeFileSync('/tmp/test-atime.txt','x'); const s1 = fs.statSync('/tmp/test-atime.txt'); fs.readFileSync('/tmp/test-atime.txt'); const s2 = fs.statSync('/tmp/test-atime.txt'); console.log('atime changed:', s1.atimeMs !== s2.atimeMs)"`. On macOS APFS this will print `atime changed: false`, confirming the `atimeMs` assertion is unreliable here. The preferred assertion approach is determined by the Issue B user decision — see the Required Test Cases section for the resolved sketch.
+- **Manual/spike**: On macOS APFS, `atime` is only updated if it is older than `mtime` — so a file just written by `beforeAll` will NOT show an `atime` change on read (the assertion passes vacuously). To verify: `node -e "const fs = require('fs'); fs.writeFileSync('/tmp/test-atime.txt','x'); const s1 = fs.statSync('/tmp/test-atime.txt'); fs.readFileSync('/tmp/test-atime.txt'); const s2 = fs.statSync('/tmp/test-atime.txt'); console.log('atime changed:', s1.atimeMs !== s2.atimeMs)"`. On macOS APFS this will print `atime changed: false`, confirming the `atimeMs` assertion is unreliable here. The `atimeMs` approach was rejected (see WS_03-T2-D2 for full rationale); the Required Test Cases section contains the resolved sketch using `SENTINEL_CONTENT` absence.
 
 ---
 
@@ -88,7 +88,7 @@ _Status icons: `✅ Done` | `🔄 In progress` | `⬚ Not started` | `❌ Blocke
 
 1. Write the `healthCheck()` guard. Invoke `await adapter.complete(...)` with the `read_file` tool schema. Capture `response`.
 2. Add `JSON.parse(response.raw)` (no try/catch — let `SyntaxError` propagate). Add `QuotagateCompleteResultSchema.safeParse(parsed)`. Add the `type === 'tool_call'` and `name === 'read_file'` assertions using TypeScript discriminated union narrowing — no type casts.
-3. Add the execution suppression assertion: `expect(response.raw).not.toContain(SENTINEL_CONTENT)`. This is the platform-independent guard that the file's contents were not returned. The `atimeMs` approach is NOT used — it is vacuously true on macOS APFS for recently-written files (see A4 and Issue B in tracker notes).
+3. Add the execution suppression assertion: `expect(response.raw).not.toContain(SENTINEL_CONTENT)`. This is the platform-independent guard that the file's contents were not returned. The `atimeMs` approach is NOT used — it is vacuously true on macOS APFS for recently-written files (see A4 and WS_03-T2-D2).
 
 - **Current iteration**: 1 of 3
 - **Verifiability / Success Criteria**: SC-I2a (Zod parse succeeds, `type === 'tool_call'`, `name === 'read_file'`) and SC-I2b (`response.raw` does not contain `SENTINEL_CONTENT`) both pass.
@@ -102,19 +102,19 @@ _Status icons: `✅ Done` | `🔄 In progress` | `⬚ Not started` | `❌ Blocke
 
 **Decision**: The sentinel file is created by a `beforeAll` hook writing a fixed string to `/tmp/quotagate-exec-suppression-sentinel.txt`. It is deleted in `afterAll`. The sentinel content is a fixed string. No random content needed — the test does not read the file, only stats it.
 
-**Rationale**: Using `/tmp` avoids polluting the repo checkout. Using a fixed path (not `os.tmpdir()` + random) makes the test deterministic and easy to debug. The content is irrelevant — only `atimeMs` is asserted.
+**Rationale**: Using `/tmp` avoids polluting the repo checkout. Using a fixed path (not `os.tmpdir()` + random) makes the test deterministic and easy to debug. The sentinel content is a fixed string used in the `SENTINEL_CONTENT` absence assertion (WS_03-T2-D2) — it must be stable across runs.
 
 **Rejected alternative — use a real file from the repo checkout**: Pollutes the repo; fails on read-only checkouts; introduces a git-tracked state dependency.
 
 **Rejected alternative — use `crypto.randomBytes` for the path**: Non-deterministic; harder to inspect when debugging.
 
-### WS_03-T2-D2 — Execution Suppression Assertion Uses `SENTINEL_CONTENT` Absence, Not `atimeMs` ✅ LOCKED (Architect, 2026-06-09, updated after Issue B review)
+### WS_03-T2-D2 — Execution Suppression Assertion Uses `SENTINEL_CONTENT` Absence, Not `atimeMs` ✅ LOCKED (Architect, 2026-06-09)
 
 **Decision**: The side-effect guard asserts `expect(response.raw).not.toContain(SENTINEL_CONTENT)` rather than comparing `atimeMs` before and after the call.
 
 **Rationale**: macOS APFS (the development environment, darwin 25.5.0) uses relatime-like semantics — `atime` is only updated if it is older than `mtime`/`ctime`. The sentinel file is written by `beforeAll` immediately before the test, so `atime == mtime`. A read immediately after does NOT update `atime`, making `atimeAfter <= atimeBefore + 1000` vacuously true whether or not the file was read. The `atimeMs` assertion was a ceremonial no-op on this machine. Additionally, the original sketch had a scope bug: it captured `atimeBefore` for `SENTINEL_PATH` but compared `returnedPath`'s atime against it — a meaningless cross-variable comparison. The `SENTINEL_CONTENT` absence assertion is platform-independent, readable, and tests the actual invariant: the file's contents did not appear in the model's response. If `claude --print` executes `read_file`, the file contents must appear somewhere in `raw` — this assertion catches that.
 
-**Rejected alternative — `atimeMs` comparison**: Vacuously true on macOS APFS for recently-written files; also had a cross-variable scope bug (see Issue C). Not reliable on the development machine.
+**Rejected alternative — `atimeMs` comparison**: Vacuously true on macOS APFS for recently-written files; also had a cross-variable scope bug: the original design captured `atimeBefore` for `SENTINEL_PATH` but compared `returnedPath`'s post-call `atimeMs` against it — a meaningless comparison when the model may hallucinate a different path. Not reliable on the development machine.
 
 **Rejected alternative — `atimeMs` with ENOENT pass**: Same APFS problem; ENOENT handling is moot if the assertion itself is vacuous on the sentinel file.
 
@@ -164,7 +164,7 @@ _Status icons: `✅ Done` | `🔄 In progress` | `⬚ Not started` | `❌ Blocke
 | # | Criterion | How to verify |
 |---|---|---|
 | SC-I2a | `adapter.complete()` with a `read_file` tool schema returns `{ type: 'tool_call', name: 'read_file', arguments: {...} }` as a Zod-valid `QuotagateCompleteResult` | T-I2 Zod parse + `type` + `name` assertions pass |
-| SC-I2b | `response.raw` does not contain `SENTINEL_CONTENT` — proving the file's contents were not returned by the model | `expect(response.raw).not.toContain(SENTINEL_CONTENT)` assertion passes (platform-independent; replaces unreliable `atimeMs` approach — see Issue B in tracker notes) |
+| SC-I2b | `response.raw` does not contain `SENTINEL_CONTENT` — proving the file's contents were not returned by the model | `expect(response.raw).not.toContain(SENTINEL_CONTENT)` assertion passes (platform-independent; replaces unreliable `atimeMs` approach — see WS_03-T2-D2) |
 | SC-I2c | `arguments` contains a `path` key with a string value | T-I2 `typeof result.data.arguments['path'] === 'string'` assertion passes (accessed via TypeScript narrowing on `result.data.type === 'tool_call'`, no cast needed) |
 | SC-I2-skip | When `adapter.healthCheck()` returns `false`, the test is skipped (not failed) | Verify via Vitest output; must show `skipped`, not `failed` |
 | SC-1 | `npm test` in CI does NOT run `executionSuppression.integration.test.ts` (excluded by the `CI`-gated `exclude` in `vitest.config.ts`, added in T4). Locally, the file runs but skips gracefully if auth is unavailable. | Run `CI=true npm test`; confirm file is absent from output |
@@ -183,12 +183,11 @@ _Status icons: `✅ Done` | `🔄 In progress` | `⬚ Not started` | `❌ Blocke
 
 ```typescript
 // Sketch — BSE realizes as Vitest describe/beforeAll/afterAll/it blocks
-// SIDE-EFFECT ASSERTION: see Issue B decision in tracker notes.
-// This sketch uses the SENTINEL_CONTENT absence approach (Option 2) — the recommended
-// approach after the user decision on Issue B. The atimeMs approach (Option 1) is
-// NOT used here because macOS APFS does not reliably update atime for recently-written
-// files (atime == mtime after write; read will not update atime, making the assertion
-// vacuous — it passes whether or not the file was read). See A4 for full explanation.
+// SIDE-EFFECT ASSERTION: uses SENTINEL_CONTENT absence (see WS_03-T2-D2 for rationale).
+// The atimeMs approach was rejected: macOS APFS does not reliably update atime for
+// recently-written files (atime == mtime after write; read will not update atime, making
+// the assertion vacuous). See A4 for the APFS mechanics; see WS_03-T2-D2 for the full
+// decision including the scope bug in the original atimeMs sketch.
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import * as fs from 'node:fs';
 import { ClaudeAdapter } from '../../src/adapters/claude.js';
@@ -244,7 +243,7 @@ describe('execution suppression integration', () => {
         expect(result.data.type, 'expected tool_call response but got text').toBe('tool_call');
       }
 
-      // Execution suppression assertion (Issue B — Option 2):
+      // Execution suppression assertion (see WS_03-T2-D2 for rationale):
       // If claude --print had actually executed read_file and returned the file contents,
       // SENTINEL_CONTENT would appear in the raw response (either as content in a text
       // response, or embedded in the argument value). Since SC-I2a asserts type===tool_call,
@@ -259,7 +258,7 @@ describe('execution suppression integration', () => {
 });
 ```
 
-**NOTE — atimeMs approach removed (Issue B + Issue C):** The original sketch had two bugs. First (Issue B): on macOS APFS, `atime` is only updated when it is older than `mtime`. The sentinel file is written by `beforeAll` immediately before the test, so `atime == mtime` — a read will NOT update `atime`, making the assertion `atimeAfter <= atimeBefore + 1000` vacuously true regardless of whether the file was read. Second (Issue C): the sketch captured `atimeBefore` for `SENTINEL_PATH` but then compared `returnedPath`'s post-call `atime` against it — a meaningless cross-variable comparison when the model may hallucinate a different path. Both bugs are resolved by using the `SENTINEL_CONTENT` absence assertion instead.
+**NOTE — atimeMs approach removed:** The original design had two bugs. First (APFS relatime): on macOS APFS, `atime` is only updated when it is older than `mtime`. The sentinel file is written by `beforeAll` immediately before the test, so `atime == mtime` — a read will NOT update `atime`, making the assertion `atimeAfter <= atimeBefore + 1000` vacuously true regardless of whether the file was read. Second (scope bug): the design captured `atimeBefore` for `SENTINEL_PATH` but then compared `returnedPath`'s post-call `atime` against it — a meaningless cross-variable comparison when the model may hallucinate a different path. Both bugs are resolved by using the `SENTINEL_CONTENT` absence assertion instead. Full rationale in WS_03-T2-D2.
 
 ---
 

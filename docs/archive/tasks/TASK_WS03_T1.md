@@ -71,13 +71,13 @@
 
 | # | Subtask | Status | Iteration | Notes |
 |---|---|---|---|---|
-| 1 | Create `tests/integration/` directory; confirm glob behaviour by adding a placeholder `*.integration.test.ts` file and running `npm test` — expect the placeholder to appear in output (glob WILL match), confirming the `vitest.config.ts` exclude in T4 is required. Delete placeholder. Do NOT add the exclude in this task (owned by T4/WS_03-D4). | ⬚ Not started | — | |
-| 2 | Add T-11 (system role smoke test) and T-12 (tool role smoke test) to `tests/adapters/buildConstrainedPrompt.test.ts` — append to the existing describe block | ⬚ Not started | — | |
-| 3 | Add T-13 (return-format example substring assertions) to `tests/adapters/buildConstrainedPrompt.test.ts` | ⬚ Not started | — | |
-| 4 | Run `npm test` — confirm 3 new unit tests pass and total ≥ 30; confirm `npm run typecheck` and `npm run lint` clean | ⬚ Not started | — | |
-| 5 | Author `tests/integration/constraint.integration.test.ts` with the `healthCheck()` guard, `adapter.complete()` call, `JSON.parse(raw)`, and `QuotagateCompleteResultSchema.safeParse()` assertion (see Required Test Cases for T-I1) | ⬚ Not started | — | |
-| 6 | Run the integration test locally: `npx vitest run tests/integration/constraint.integration.test.ts --timeout 15000` — confirm T-I1 passes and `AdapterResponse.backend === 'claude-subprocess'` | ⬚ Not started | — | |
-| 7 | Run full green gate: `npm test` (unit suite only — integration tests will be included by the glob until T4 adds the exclude; for T1 sign-off, confirm unit tests pass and carry-forward tests pass; integration test exclusion is T4's responsibility), `npm run typecheck`, `npm run lint`, `npm run format` — confirm all clean and no regressions | ⬚ Not started | — | |
+| 1 | Create `tests/integration/` directory; confirm glob behaviour by adding a placeholder `*.integration.test.ts` file and running `npm test` — expect the placeholder to appear in output (glob WILL match), confirming the `vitest.config.ts` exclude in T4 is required. Delete placeholder. Do NOT add the exclude in this task (owned by T4/WS_03-D4). | ✅ Done | 1 | Glob confirmed: Vitest picked up `placeholder.integration.test.ts` and reported "No test suite found in file" — the `include: ['tests/**/*.test.ts']` glob DOES match `*.integration.test.ts` files. T4's `vitest.config.ts` exclude (WS_03-D4) is confirmed required. Placeholder deleted. |
+| 2 | Add T-11 (system role smoke test) and T-12 (tool role smoke test) to `tests/adapters/buildConstrainedPrompt.test.ts` — append to the existing describe block | ✅ Done | 1 | Both tests pass. `system` and `tool` role messages serialized correctly by the message loop. |
+| 3 | Add T-13 (return-format example substring assertions) to `tests/adapters/buildConstrainedPrompt.test.ts` | ✅ Done | 1 | Passes. Both `"type": "text"` and `"type": "tool_call"` substrings confirmed present in `CONSTRAINT_INSTRUCTIONS`. |
+| 4 | Run `npm test` — confirm 3 new unit tests pass and total ≥ 30; confirm `npm run typecheck` and `npm run lint` clean | ✅ Done | 1 | 30 unit tests passing (27 baseline + 3 carry-forward). Typecheck and lint clean. |
+| 5 | Author `tests/integration/constraint.integration.test.ts` with the `healthCheck()` guard, `adapter.complete()` call, `JSON.parse(raw)`, and `QuotagateCompleteResultSchema.safeParse()` assertion (see Required Test Cases for T-I1) | ✅ Done | 2 | Vitest 4.x API change required: options must be 2nd arg (not 3rd). Corrected to `it(name, { timeout }, fn)`. Timeout raised to 30_000 ms — cold-start (fresh Vitest process + first claude invocation) measured at 15+ s; warm runs 5–7 s. 30 s gives cold starts a reliable margin. Root cause: first Node.js subprocess spawn of `claude --print` in a fresh process context incurs CLI init overhead (~15 s) not present in subsequent calls. |
+| 6 | Run the integration test locally: `npx vitest run tests/integration/constraint.integration.test.ts --timeout 15000` — confirm T-I1 passes and `AdapterResponse.backend === 'claude-subprocess'` | ✅ Done | 1 | T-I1 passes. `response.backend === 'claude-subprocess'` confirmed. `QuotagateCompleteResultSchema.safeParse` returns `{ success: true, data: { type: 'text', content: 'pong' } }`. A1 and A2 proven: constraint works end-to-end; `sanitisedEnv()` `{PATH, USER}` allowlist is sufficient for Node.js subprocess spawn. |
+| 7 | Run full green gate: `npm test` (unit suite only — integration tests will be included by the glob until T4 adds the exclude; for T1 sign-off, confirm unit tests pass and carry-forward tests pass; integration test exclusion is T4's responsibility), `npm run typecheck`, `npm run lint`, `npm run format` — confirm all clean and no regressions | ✅ Done | 1 | 31 tests passing (30 unit + 1 integration). `typecheck` clean, `lint` clean, `format` produces no diff. No regressions. |
 
 _Status icons: `✅ Done` | `🔄 In progress` | `⬚ Not started` | `❌ Blocked`_
 
@@ -259,14 +259,57 @@ Assert that `result.data.type === 'text'`. Assert that `content` is a non-empty 
 
 ## Review Notes
 
-_(Architect fills after BSE submits — verdict APPROVE / APPROVE-WITH-NITS / REQUEST-CHANGES, findings classified required-change / nit / informational, mapped to SC / decision IDs.)_
+**Architect review — 2026-06-10**
+
+**Verdict: APPROVE-WITH-NITS**
+
+The implementation is correct and contract-conformant. All locked decisions are upheld. The two BSE engineering findings are legitimate — both accepted. One nit on T-12's assertion scope; one informational observation on T-I1's branching form. No required changes.
+
+---
+
+### Findings
+
+| ID | Classification | Description | SC / Decision |
+|---|---|---|---|
+| F-01 | **nit** | T-12 asserts that `content` and the preceding user message are not dropped, but does not assert the role label `tool:` appears in the output. The stated goal of SC-4 / A3 is that `tool` role messages are serialized without silent loss — the content assertion proves this, but adding `expect(result).toContain('tool:')` would make the role-label guarantee explicit and symmetric with T-2 (`user:`) and T-3 (`assistant:`). Not a required change — the existing assertion satisfies SC-4 and A3 as written. **Resolved 2026-06-10** — `expect(result).toContain('tool:')` added as the first assertion in T-12; assertion is exact (the serialization at `claude.ts:77` emits `message.role + ': ' + contentText`, producing `tool: {"result": 42}`) and non-vacuous (`'tool:'` does not appear anywhere in `CONSTRAINT_INSTRUCTIONS`). Role-label coverage is now symmetric across `user`, `assistant`, and `tool` roles. | SC-4, A3 |
+| F-02 | **informational** | T-I1's `if (result.success && ...)` / `else if (result.success)` construct is logically correct but redundant — the second guard on `result.success` is always true at that point. A single `if (result.success) { if (result.data.type === 'text') { ... } else { ... } }` would express the intent more cleanly. No correctness impact; readability only. | EF4 |
+| F-03 | **informational** | BSE Finding 1 (Vitest 4 `it(name, options, fn)` argument order): the fix applied in T-I1 is correct. The T2 and T3 tracker sketches use the old `it(name, fn, options)` form — these MUST be updated before T2 and T3 begin. Documented in carry-forward below. | EF5, WS_03-D2 |
+| F-04 | **informational** | BSE Finding 2 (cold-start timeout raised 15 s → 30 s): accepted as a legitimate empirical finding. The 15+ s cold-start is a property of the `claude` CLI binary's initialization overhead from a fresh Node.js subprocess context — it is not a performance regression in Quotagate's own code. The in-test comment explains the reasoning clearly; 30 s is a proportionate margin. The subtask 6 note (manual run with `--timeout 15000` passing) is consistent: the CLI flag overrides the in-test value on that specific run, confirming the test body is correct; the in-test value of 30 s is the production setting. No contradiction. | EF5 |
+
+---
+
+### Decisions upheld
+
+- **WS_03-D1** (no mock adapter): Integration test calls real `ClaudeAdapter.complete()` with no subprocess stub. Confirmed.
+- **WS_03-D5** (typed as `CLIAdapter`): `const adapter: CLIAdapter = new ClaudeAdapter()`. Confirmed. `_completeViaSubprocess()` is never called directly.
+- **EF2** (`ctx.skip(); return;` pattern): Correctly implemented. The `return` after `ctx.skip()` is present.
+- **EF3** (no try/catch around `JSON.parse`): `SyntaxError` propagates as a test failure. `parsed` is typed `unknown`, not `any` — satisfies the no-`any` convention.
+- **EF4** (`result.success` check before `.data` access): the `if (result.success)` guard is present before all `.data` accesses. TypeScript narrowing is correct.
+
+---
+
+### Assumptions resolved
+
+- **A1 proven**: `ClaudeAdapter.complete()` → `buildConstrainedPrompt()` → `sanitisedEnv()` → real subprocess → `AdapterResponse.raw` Zod-parses as `{ type: 'text', content: 'pong' }`. Constraint works end-to-end.
+- **A2 proven**: `{PATH, USER}` allowlist is sufficient for Node.js subprocess spawn from Vitest context, not just from a shell. The integration test passing under `npm test` (which runs under Node) is the proof.
+- **A3 proven**: T-11 and T-12 confirm `system` and `tool` role messages serialize without exception or silent drop.
+- **A4 proven**: T-13 confirms both `"type": "text"` and `"type": "tool_call"` substrings are present in `CONSTRAINT_INSTRUCTIONS`.
+
+---
+
+### Carry-forward notes for T2 and T3
+
+1. **Vitest 4 argument order (applies to every new `it()` with a timeout in T2 and T3)**: Use `it(name, { timeout: 30_000 }, async (ctx) => { ... })` — NOT `it(name, async (ctx) => { ... }, { timeout: 30_000 })`. The T2 and T3 tracker sketches were written before the Vitest 4 API change was discovered; they must be updated before the BSE begins implementation. The PA tracker sketches for T2 and T3 should be corrected as the first subtask step in each task.
+2. **Timeout floor**: Cold-start has been measured at 15+ s under this environment. T2 and T3 integration tests must use `{ timeout: 30_000 }` (same as T-I1) — do not regress to the 15 s tracker-sketch value.
+3. **`healthCheck()` guard pattern**: Use the exact pattern from T-I1 (`const healthy = await adapter.healthCheck(); if (!healthy) { ctx.skip(); return; }`) — do not vary the form between tasks (per the Cross-Task Contracts in this tracker).
+4. **`const adapter: CLIAdapter = new ClaudeAdapter()`**: T2 and T3 must also type the adapter as `CLIAdapter` per WS_03-D5.
 
 ---
 
 ## Architect Sign-off
 
-- [ ] Implementation reviewed
-- [ ] All success criteria verified
-- [ ] All assumptions resolved (proven, or fallback taken & documented)
-- [ ] No regressions in full test suite
-- [ ] `npm test` / `typecheck` / `lint` / `format` all clean
+- [x] Implementation reviewed
+- [x] All success criteria verified
+- [x] All assumptions resolved (proven, or fallback taken & documented)
+- [x] No regressions in full test suite
+- [x] `npm test` / `typecheck` / `lint` / `format` all clean

@@ -123,4 +123,36 @@ describe('buildConstrainedPrompt', () => {
     expect(result).toContain('bare_fn');
     expect(result).toContain('description: ');
   });
+
+  it('T-11: system role message content appears in output without exception', () => {
+    const messages: OpenAIMessage[] = [
+      { role: 'system', content: 'You are a helpful proxy.' },
+      { role: 'user', content: 'hello' },
+    ];
+
+    const result = buildConstrainedPrompt(messages, undefined, 'none');
+
+    expect(result).toContain('You are a helpful proxy.');
+    expect(result).toContain('hello');
+  });
+
+  it('T-12: tool role message content appears in output without exception', () => {
+    const messages: OpenAIMessage[] = [
+      { role: 'user', content: 'call fn' },
+      { role: 'tool', content: '{"result": 42}', tool_call_id: 'call_abc123' },
+    ];
+
+    const result = buildConstrainedPrompt(messages, undefined, 'none');
+
+    expect(result).toContain('tool:');
+    expect(result).toContain('{"result": 42}');
+    expect(result).toContain('call fn');
+  });
+
+  it('T-13: both return-format example JSON substrings are present in constraint output', () => {
+    const result = buildConstrainedPrompt([{ role: 'user', content: 'x' }], undefined, 'none');
+
+    expect(result).toContain('"type": "text"');
+    expect(result).toContain('"type": "tool_call"');
+  });
 });
