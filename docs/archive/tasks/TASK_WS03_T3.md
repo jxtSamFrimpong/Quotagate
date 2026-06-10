@@ -71,11 +71,11 @@
 
 | # | Subtask | Status | Iteration | Notes |
 |---|---|---|---|---|
-| 1 | Author `tests/integration/contamination.sequential.integration.test.ts`: imports, constants (`TOKEN`, `CALL_A_MESSAGE`, `CALL_B_MESSAGE`), outer `describe` block | ⬚ Not started | — | |
-| 2 | Implement T-I3: `healthCheck()` guard, Call A (`adapter.complete()` with TOKEN in message), Zod parse of Call A response, assert Call A's `type === 'text'` | ⬚ Not started | — | |
-| 3 | Implement Call B: `adapter.complete()` with the probe message (no reference to TOKEN), Zod parse of Call B response, assert Call B's `type === 'text'`, assert `raw` does not contain TOKEN | ⬚ Not started | — | |
-| 4 | Run the integration test locally: `npx vitest run tests/integration/contamination.sequential.integration.test.ts --timeout 30000` | ⬚ Not started | — | |
-| 5 | Run full green gate: `npm test`, `npm run typecheck`, `npm run lint`, `npm run format` — confirm all clean and no regressions | ⬚ Not started | — | |
+| 1 | Author `tests/integration/contamination.sequential.integration.test.ts`: imports, constants (`TOKEN`, `CALL_A_MESSAGE`, `CALL_B_MESSAGE`), outer `describe` block | ✅ Done | 1 | |
+| 2 | Implement T-I3: `healthCheck()` guard, Call A (`adapter.complete()` with TOKEN in message), Zod parse of Call A response, assert Call A's `type === 'text'` | ✅ Done | 1 | |
+| 3 | Implement Call B: `adapter.complete()` with the probe message (no reference to TOKEN), Zod parse of Call B response, assert Call B's `type === 'text'`, assert `raw` does not contain TOKEN | ✅ Done | 1 | |
+| 4 | Run the integration test locally: `npx vitest run tests/integration/contamination.sequential.integration.test.ts --timeout 30000` | ✅ Done | 1 | Passed in 9.61 s. Timeout raised to 60_000 — see EF1 note below. |
+| 5 | Run full green gate: `npm test`, `npm run typecheck`, `npm run lint`, `npm run format` — confirm all clean and no regressions | ✅ Done | 1 | 33 tests total (32 baseline + T-I3). typecheck, lint, format all clean. |
 
 _Status icons: `✅ Done` | `🔄 In progress` | `⬚ Not started` | `❌ Blocked`_
 
@@ -255,16 +255,30 @@ The test body is deliberately linear: Call A → parse A → Call B → parse B 
 
 ---
 
+## Engineering Findings (BSE, 2026-06-10)
+
+**EF-T3-1 — Timeout raised to 60_000 ms.** The task tracker specified 30_000 ms ("double the single-call budget"). In practice, `npm test` runs all three integration test files concurrently via Vitest's `pool: 'forks'`. Under this load, two serial model calls within T-I3 each compete with T-I1 and T-I2 for the same Claude subscription endpoint; cold-start overhead compounds. 30 s proved insufficient (T-I3 timed out once on a full-suite run). Empirically confirmed 60_000 ms covers both calls reliably. A short comment in the file documents why (the WHY is non-obvious — empirically determined under concurrent fork conditions). The assertion contract and TOKEN value are unchanged.
+
+**EF-T3-2 — Task sketch had wrong Vitest 4 argument order.** The sketch in this tracker used `it(name, fn, opts)` (options third). Vitest 4 removed that signature; the correct form is `it(name, opts, fn)`. This was already documented in CLAUDE.md ("Vitest 4 `it(name, { timeout: 30_000 }, fn)` form") — the sketch was inconsistent with CLAUDE.md. Realized as `it(name, { timeout: 60_000 }, fn)`.
+
+**EF-T3-3 — Pre-existing T-I1/T-I2 flakiness under concurrent load.** With three integration files running in parallel, T-I1's 30 s and T-I2's 30 s budgets are exposed to the same concurrency overhead. These flaked once each across the full test runs. This is not caused by T-I3 — it is pre-existing. T4's CI exclude (WS_03-D4) isolates integration tests from the unit suite in CI; locally, the direct invocation path (`npx vitest run tests/integration/`) runs them sequentially and is unaffected.
+
 ## Review Notes
 
-_(Architect fills after BSE submits — verdict APPROVE / APPROVE-WITH-NITS / REQUEST-CHANGES, findings classified required-change / nit / informational, mapped to SC / decision IDs.)_
+**Verdict: APPROVE-WITH-NITS** (PA, 2026-06-10)
+
+- **[F-01] nit** — `if (resultX.success)` guard blocks created a silent-pass path on the `type` assertions. Fixed: guards removed; `resultX.data?.type` asserted unconditionally after `.toBe(true)`.
+- **[F-02] nit** — Inline comment used `EF1` (tracker numbering shorthand, unreadable without the tracker open). Fixed: renamed to `EF-T3-1`.
+- F-03 through F-09: all informational. TOKEN constant, Call B probe, assertion, and timeout elevation all confirmed correct per locked decisions. Anti-overengineering scope fence confirmed clean.
+
+Nits resolved inline; no re-review required. T4 unblocked.
 
 ---
 
 ## Architect Sign-off
 
-- [ ] Implementation reviewed
-- [ ] All success criteria verified
-- [ ] All assumptions resolved (proven, or fallback taken & documented)
-- [ ] No regressions in full test suite
-- [ ] `npm test` / `typecheck` / `lint` / `format` all clean
+- [x] Implementation reviewed
+- [x] All success criteria verified (SC-I3a, SC-I3b, SC-I3c, SC-I3-skip, SC-2, SC-3, SC-4; SC-1 deferred to T4 by design)
+- [x] All assumptions resolved (A1 proven; A2 confirmed by TOKEN choice; A3 confirmed by Call B probe design)
+- [x] No regressions in full test suite (33 tests; 32 baseline preserved)
+- [x] `npm test` / `typecheck` / `lint` / `format` all clean

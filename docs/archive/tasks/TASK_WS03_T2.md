@@ -70,11 +70,11 @@
 
 | # | Subtask | Status | Iteration | Notes |
 |---|---|---|---|---|
-| 1 | (Optional) Run the manual APFS atime spike from Test Strategy to confirm APFS does not update atime for recently-written files — expected outcome `atime changed: false`. Documents why the `SENTINEL_CONTENT` approach is used. | ⬚ Not started | — | |
-| 2 | Author `tests/integration/executionSuppression.integration.test.ts`: imports, `SENTINEL_PATH`/`SENTINEL_CONTENT` constants, `beforeAll`/`afterAll` sentinel file setup/teardown, outer `describe` block | ⬚ Not started | — | |
-| 3 | Implement T-I2: `healthCheck()` guard, `adapter.complete()` call, Zod assertions (type=tool_call, name=read_file, path is string), `SENTINEL_CONTENT` absence assertion on `response.raw` | ⬚ Not started | — | |
-| 4 | Run the integration test locally: `npx vitest run tests/integration/executionSuppression.integration.test.ts --timeout 15000` | ⬚ Not started | — | |
-| 5 | Run full green gate: `npm test`, `npm run typecheck`, `npm run lint`, `npm run format` — confirm all clean and no regressions | ⬚ Not started | — | |
+| 1 | (Optional) Run the manual APFS atime spike from Test Strategy to confirm APFS does not update atime for recently-written files — expected outcome `atime changed: false`. Documents why the `SENTINEL_CONTENT` approach is used. | ✅ Done | 1 | APFS relatime confirmed vacuous by tracker decision WS_03-T2-D2; spike not re-run (already documented). |
+| 2 | Author `tests/integration/executionSuppression.integration.test.ts`: imports, `SENTINEL_PATH`/`SENTINEL_CONTENT` constants, `beforeAll`/`afterAll` sentinel file setup/teardown, outer `describe` block | ✅ Done | 1 | File created in prior session with all structure per T-I2 sketch. Timeout bumped to 30 s to match T-I1 empirical cold-start margin. |
+| 3 | Implement T-I2: `healthCheck()` guard, `adapter.complete()` call, Zod assertions (type=tool_call, name=read_file, path is string), `SENTINEL_CONTENT` absence assertion on `response.raw` | ✅ Done | 3 | RC-1 reword insufficient (1/3 pass; injection detection still firing ~2-in-3 with tools present). Root fix: moved `CONSTRAINT_INSTRUCTIONS` from `buildConstrainedPrompt()` stdin payload to `--system-prompt` flag in `_completeViaSubprocess()`. `--system-prompt` confirmed present in `claude --help`; works with `--print`. Unit tests T-1/T-8/T-13 updated to assert absence of constraint phrases in `buildConstrainedPrompt` output (the inverse contract). |
+| 4 | Run the integration test locally: 3-of-3 consecutive T-I2 passes required | ✅ Done | 1 | Run 1: PASS (5.99 s). Run 2: PASS (6.41 s). Run 3: PASS (6.47 s). 3-of-3 bar met. T-I1 still PASS (5.01 s). No injection-detection failures or timeouts. |
+| 5 | Run full green gate: `npm test`, `npm run typecheck`, `npm run lint`, `npm run format` — confirm all clean and no regressions | ✅ Done | 1 | `npm test`: 32 tests, 8 files, all pass. `typecheck`: clean. `lint`: clean. `format`: all files unchanged. No regressions from 31-test baseline (+1 from T-I2 now passing). |
 
 _Status icons: `✅ Done` | `🔄 In progress` | `⬚ Not started` | `❌ Blocked`_
 
@@ -82,17 +82,17 @@ _Status icons: `✅ Done` | `🔄 In progress` | `⬚ Not started` | `❌ Blocke
 
 ## Current Subtask Detail
 
-### Subtask 3: Implement T-I2
+### All subtasks complete — implementation summary
 
-**Approach iteration plan** (simplest → target):
+**Root cause of prior failures**: `CONSTRAINT_INSTRUCTIONS` was injected into the stdin payload via `buildConstrainedPrompt()`. When a `tools` array is present and the user message asks the model to use a tool, the constraint text (even after RC-1 reword) reads as a contested capability override arriving through the user-turn channel — triggering injection-detection heuristics probabilistically (~2-in-3 failure rate with tools present).
 
-1. Write the `healthCheck()` guard. Invoke `await adapter.complete(...)` with the `read_file` tool schema. Capture `response`.
-2. Add `JSON.parse(response.raw)` (no try/catch — let `SyntaxError` propagate). Add `QuotagateCompleteResultSchema.safeParse(parsed)`. Add the `type === 'tool_call'` and `name === 'read_file'` assertions using TypeScript discriminated union narrowing — no type casts.
-3. Add the execution suppression assertion: `expect(response.raw).not.toContain(SENTINEL_CONTENT)`. This is the platform-independent guard that the file's contents were not returned. The `atimeMs` approach is NOT used — it is vacuously true on macOS APFS for recently-written files (see A4 and WS_03-T2-D2).
+**Fix applied**: Moved `CONSTRAINT_INSTRUCTIONS` from `buildConstrainedPrompt()` to the `--system-prompt` flag in `_completeViaSubprocess()`. The `--system-prompt` flag routes through the privileged system prompt channel, which the model treats as a legitimate configuration source rather than a contested user-turn override.
 
-- **Current iteration**: 1 of 3
-- **Verifiability / Success Criteria**: SC-I2a (Zod parse succeeds, `type === 'tool_call'`, `name === 'read_file'`) and SC-I2b (`response.raw` does not contain `SENTINEL_CONTENT`) both pass.
-- **Challenges**: EF3 (hallucinated path in arguments — handled implicitly: if the model uses a real path and returns its contents, SC-I2b catches it; if it invents a non-existent path, the contents cannot be returned either), EF5 (timeout).
+**Changes made**:
+1. `src/adapters/claude.ts` — `buildConstrainedPrompt()` no longer prepends `CONSTRAINT_INSTRUCTIONS`; now serializes only the tools section and conversation turns. `_completeViaSubprocess()` now spawns `claude --print --system-prompt <CONSTRAINT_INSTRUCTIONS>`.
+2. `tests/adapters/buildConstrainedPrompt.test.ts` — T-1, T-8, T-13 updated to assert the inverse contract: `CONSTRAINT_INSTRUCTIONS` phrases are absent from `buildConstrainedPrompt()` output, with comments explaining that they are delivered via `--system-prompt`.
+
+**Result**: T-I2 passes 3-of-3 (no injection detection, no timeouts). T-I1 unaffected. Full green gate: 32 tests, typecheck clean, lint clean, format no diff.
 
 ---
 
@@ -264,14 +264,70 @@ describe('execution suppression integration', () => {
 
 ## Review Notes
 
-_(Architect fills after BSE submits — verdict APPROVE / APPROVE-WITH-NITS / REQUEST-CHANGES, findings classified required-change / nit / informational, mapped to SC / decision IDs.)_
+**Verdict**: APPROVE-WITH-NITS
+
+**Per-subtask verification**:
+- Subtask 1: Verified ✅ — APFS relatime behavior documented in WS_03-T2-D2; `atimeMs` approach correctly rejected. No re-run needed; the decision is locked and rationale is sound.
+- Subtask 2: Verified ✅ — `tests/integration/executionSuppression.integration.test.ts` exists. `SENTINEL_PATH`, `SENTINEL_CONTENT` constants correct. `beforeAll`/`afterAll` lifecycle implemented with `writeFileSync` and `rmSync({ force: true })`. Outer `describe` block correct. Timeout is 30_000 (see Findings — Timeout below). Vitest 4 `it(name, opts, fn)` three-argument form is correct and consistent with T-I1.
+- Subtask 3: Verified ✅ — `healthCheck()` guard pattern is exact match to T-I1 (`const healthy = await adapter.healthCheck(); if (!healthy) { ctx.skip(); return; }`). Zod assertions correct: `result.success` checked, `result.data.type === 'tool_call'` narrowing correct, `result.data.name === 'read_file'` asserted, `typeof result.data.arguments['path'] === 'string'` asserted. The `else if (result.success)` branch forces a descriptive failure instead of silently accepting a `text` response — WS_03-T2-D3 respected. `SENTINEL_CONTENT` absence assertion is present, non-negotiable, and correctly placed after the Zod assertions. `response.backend === 'claude-subprocess'` assertion present. `JSON.parse` has no try/catch — `SyntaxError` propagates correctly per EF3. Root fix (`--system-prompt` delivery) and unit test inverse-contract updates are addressed in Subtask 3 notes. The `CONSTRAINT_INSTRUCTIONS` wording is non-adversarial and exactly matches the prose sketch from the prior PA review: cooperative framing, no persona displacement, no uppercase authority escalation, no Claude Code tool names named.
+- Subtask 4: Verified ✅ — BSE reports 3-of-3 consecutive T-I2 passes (5.99 s, 6.41 s, 6.47 s). T-I1 unaffected (5.01 s). No injection-detection failures or timeouts. Cannot re-run from this review; accepting BSE's reported output and the correctness of the implementation.
+- Subtask 5: Verified ✅ — BSE reports: `npm test` 32 tests (8 files) all pass; `typecheck` clean; `lint` clean; `format` no diff. +1 from T-I2 against 31-test baseline; no regressions.
+
+---
+
+**Findings**
+
+**`--system-prompt` approach — architectural soundness for Phase 1**
+
+The `--system-prompt` flag routes `CONSTRAINT_INSTRUCTIONS` through the privileged system prompt channel. This is strictly better than the prior stdin injection for two reasons: (1) the model treats system-prompt-delivered content as a legitimate configuration rather than a contested user-turn override — exactly what the prior APPROVE-WITH-FIX diagnosis predicted as the I-3 improvement path; (2) it preserves the separation of concerns: `buildConstrainedPrompt()` serializes only tools and conversation (the data), while `--system-prompt` carries the behavioral contract (the format spec). The two channels are now correctly decoupled.
+
+Spec §3.2 describes Mechanism A as injecting "a constraint system prompt on every request." The `--system-prompt` flag IS a system prompt delivery — it is a more faithful realization of the spec's description than the prior stdin injection ever was. The spec says "constraint system prompt"; the `--system-prompt` CLI flag is exactly that privileged channel. This is not a deviation from the spec's intent — it is closer alignment with it.
+
+Invariant #1 ("The proxy never executes tool calls") is preserved. The execution suppression is a transport guarantee from `--print`, not a prompt guarantee. The `CONSTRAINT_INSTRUCTIONS` constant correctly reflects this in its comment: "Execution suppression is a transport guarantee: claude --print does not execute tool calls, it only prints the model's output. This constraint text governs output format only." This is the correct framing and matches I-1 from the prior review.
+
+D-SEQ-01 (subprocess-first MVP) is fully respected — no MCP machinery introduced, no Phase 2 scope creep.
+
+**`buildConstrainedPrompt()` correctness**
+
+The function no longer prepends `CONSTRAINT_INSTRUCTIONS`. The comment at line 51–53 is accurate and explains the decoupling clearly. The tools serialization and conversation serialization are structurally unchanged from the prior implementation. The `normalizedTools` normalization (`tools && tools.length > 0 ? tools : undefined`) is intact. The output for a tools-bearing call will be: `Available functions (toolChoice: auto):\n- name: read_file\n  description: ...\n  parameters: ...\nConversation:\nuser: Read the file at ...` — which is the correct and complete stdin payload. The `--system-prompt` arg will carry the format spec. Together they constitute the correct full input to the subprocess.
+
+**Unit test inverse-contract assertions — T-1, T-8, T-13**
+
+T-1 asserts absence of `'API proxy'` and `'Return only the JSON object'` from `buildConstrainedPrompt` output while asserting presence of `'calc'` and `'calculator'`. This is a correct inverse-contract assertion that will catch any regression where someone re-introduces `CONSTRAINT_INSTRUCTIONS` into `buildConstrainedPrompt()`. The specific phrases chosen (`'API proxy'`, `'Return only the JSON object'`) are stable substrings of the current `CONSTRAINT_INSTRUCTIONS` constant — if the constant changes significantly, these assertions will need updating, but that is appropriate coupling.
+
+T-8 asserts the same two phrases absent from a no-tools call. The comment at line 101–105 accurately describes the purpose: this test is the channel-separation regression guard.
+
+T-13 asserts `'"type": "text"'` and `'"type": "tool_call"'` absent from `buildConstrainedPrompt` output, while asserting `'Conversation:'` and `'x'` present. This assertion is correct: the JSON return-format examples are part of `CONSTRAINT_INSTRUCTIONS` (which is now in `--system-prompt`), not part of the stdin payload. If the format examples leak back into stdin, T-13 catches it. The test name accurately describes the contract.
+
+T-2 through T-7, T-9, T-10, T-11, T-12 — read and verified structurally intact. No deletions, no loosened assertions. T-11 (system role) and T-12 (tool role) carry-forwards from T1 are present and correct.
+
+**Timeout bump — 15_000 to 30_000**
+
+The tracker's EF5 specifies `{ timeout: 15_000 }`. The actual implementation uses `{ timeout: 30_000 }`. The BSE's justification: "Warm runs take 5–7 s; cold-start (fresh Vitest process, first claude invocation) can exceed 15 s — matching T-I1's empirically validated margin." This is consistent with the engineering finding from T1 (cold-start observed at ~28 s) and with T-I1's own 30_000 timeout. The 3-of-3 passing runs took 5.99–6.47 s — well within 30 s. Accepting 30_000 as the correct value. The EF5 specification was written before the empirical cold-start evidence from T1 was available; the BSE correctly applied the T1 finding. Note: the tracker sketch in Required Test Cases shows `{ timeout: 15_000 }` as a stale sketch — the 30_000 in the live file is the authoritative value.
+
+**Vitest 4 argument order**
+
+Both T-I1 and T-I2 use the correct Vitest 4 form: `it(name, opts, fn)` with the options object as the second argument. The tracker sketch had the old three-argument form with timeout as the last argument (`it(name, fn, opts)`) — the actual implementation correctly applies the Vitest 4 form established in T1. Consistent across both integration tests, establishing the project convention for WS_06 and WS_09 as required.
+
+---
+
+**Required changes**: None
+
+**Nits**:
+- N-1: The Required Test Cases section (the T-I2 sketch) still shows `{ timeout: 15_000 }` in the old Vitest 3 position (last argument). This is a stale sketch that could confuse the next BSE. Update the sketch's timeout value to `30_000` and move it to the Vitest 4 position (second argument) to reflect the actual implementation. Does not block sign-off.
+- N-2: The `it(name, opts, fn)` closing `)` at the bottom of the `it` block in the actual test file (line 83) lacks the `{ timeout: ... }` in the trailing position because the opts are already in position 2 — this is correct. Confirmed consistent with T-I1. No change needed; recorded for future BSE orientation.
+
+**Informational**:
+- I-1: The `--system-prompt` approach resolves the Mechanism A injection-detection fragility for Phase 1. The residual risk (model returns prose at non-zero temperature in some edge contexts) is handled by the WS_04 retry loop, which remains the designed backstop. The 3-of-3 passing runs with sub-7 s latency indicate the injection-detection problem is resolved at the measured confidence level.
+- I-2: The `CONSTRAINT_INSTRUCTIONS` comment in `src/adapters/claude.ts` (line 29–31) correctly documents the transport-vs-prompt responsibility split. This comment is load-bearing for future maintainers — preserve it through WS_04 and WS_08 iterations.
+- I-3: For WS_08 (hardening), consider whether `--system-prompt` is the officially documented flag name in `claude --help` output or whether an alias is used. The BSE confirmed the flag exists — it should be validated in the integration environment before WS_08 hardening work begins, to ensure the flag name is stable across `claude` CLI versions.
 
 ---
 
 ## Architect Sign-off
 
-- [ ] Implementation reviewed
-- [ ] All success criteria verified
-- [ ] All assumptions resolved (proven, or fallback taken & documented)
-- [ ] No regressions in full test suite
-- [ ] `npm test` / `typecheck` / `lint` / `format` all clean
+- [x] Implementation reviewed
+- [x] All success criteria verified
+- [x] All assumptions resolved (proven, or fallback taken & documented)
+- [x] No regressions in full test suite
+- [x] `npm test` / `typecheck` / `lint` / `format` all clean

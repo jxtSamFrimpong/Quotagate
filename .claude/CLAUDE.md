@@ -1,7 +1,7 @@
 # CLAUDE.md — Project Knowledge Base
 
 > **Last Updated**: 2026-06-10
-> **Status**: 🟢 **Phase 1A — WS_03 T2 complete (32 tests; execution suppression proven via `--system-prompt`).** Next: WS_03 T3 (contamination probe), then T4 close-out.
+> **Status**: 🟢 **Phase 1A — WS_03 T3 complete (33 tests; contamination isolation proven via subprocess statelessness).** Next: WS_03 T4 (green-gate close-out + Phase 1A sign-off).
 
 ---
 
@@ -267,10 +267,10 @@ current task and leaves no constraint behind, it is not a decision.
 
 **What was completed**:
 
-- **[Milestone — WS_01 + WS_02 complete + archived — 2026-06-08/09]** Spec + D-SEQ-01 locked; WS_01–WS_09 authored; `git init`. Toolchain, `src/types.ts`, `src/errors.ts`, `CLIAdapter`, `buildConstrainedPrompt`, `sanitisedEnv()`, `ClaudeAdapter`. Allowlist `{PATH, USER}` empirically confirmed. 27 tests. All decisions archived to `docs/archive/decisions.md`.
-- **[TASK_WS02_T4 complete + archived — 2026-06-09]** `src/adapters/claude.ts` — `ClaudeAdapter implements CLIAdapter`: `_completeViaSubprocess()` (spawn `claude --print`, stdin pipe + `end()`, Buffer chunk collection, `TransportError` on non-zero + empty stdout); `complete()` (one-line delegation); `healthCheck()` (`claude auth status` probe, ENOENT → `false`); `install()` (Phase 2 stub). `tests/adapters/claudeAdapter.healthCheck.test.ts` — 4 mocked tests. Smoke test confirmed: `healthCheck: true`, `complete.raw: {"type":"text","content":"pong"}`. 27 tests total. PA-reviewed APPROVE-WITH-NITS; nit applied. **WS_04 carry-forward**: `AdapterResponse` has no `exitCode` field. **WS_05 carry-forward**: `healthCheck()` has no internal timeout.
-- **[TASK_WS03_T1 complete + archived — 2026-06-10]** `tests/integration/` directory created; glob confirmed (Vitest `include` DOES match `*.integration.test.ts` — T4's CI exclude confirmed required). T-11/T-12/T-13 carry-forward unit tests added (`system`/`tool` role smoke tests + return-format tripwire; 30 unit tests). `tests/integration/constraint.integration.test.ts` (T-I1): real `ClaudeAdapter.complete()` against live subscription; `QuotagateCompleteResultSchema.safeParse` confirms `{type:'text', content:'pong'}`; A1 + A2 proven. Engineering findings: Vitest 4 requires `it(name, opts, fn)` argument order; cold-start timeout is 30 s (CLI init overhead). 31 tests total (30 unit + 1 integration). PA-reviewed APPROVE-WITH-NITS; F-01 nit applied and re-approved APPROVE.
-- **[TASK_WS03_T2 complete — 2026-06-10]** `tests/integration/executionSuppression.integration.test.ts` (T-I2): real `ClaudeAdapter.complete()` with `read_file` tool schema; asserts `{type:'tool_call', name:'read_file', arguments:{path:string}}`; `SENTINEL_CONTENT` absence on `response.raw` proves execution never occurred. Engineering finding: `CONSTRAINT_INSTRUCTIONS` delivered via stdin (user-turn) triggered Claude's injection-detection heuristics ~2-in-3 when a `tools` array was present — PA diagnosed as structural, not lexical. Fix: `CONSTRAINT_INSTRUCTIONS` moved to `--system-prompt` flag in `_completeViaSubprocess()` (privileged channel, correct spec §3.2 realization). `buildConstrainedPrompt()` now serializes tools + conversation only; unit tests T-1/T-8/T-13 updated to inverse-contract assertions confirming absence of constraint phrases from stdin payload. 3-of-3 T-I2 passes (5.99 s / 6.41 s / 6.47 s). 32 tests total (31 unit + T-I1 + T-I2). PA-reviewed APPROVE-WITH-NITS (all sign-off boxes checked). Timeout 30 s confirmed empirically (matches T-I1). WS_03-T2-SYSTEM-PROMPT in Resolved Decisions.
+- **[Milestone — WS_01–WS_02 complete + archived — 2026-06-09]** Toolchain, `src/types.ts`, `src/errors.ts`, `CLIAdapter`, `buildConstrainedPrompt`, `sanitisedEnv()`, `ClaudeAdapter`; allowlist `{PATH, USER}` confirmed; 27 tests. All decisions archived.
+- **[TASK_WS03_T1 complete + archived — 2026-06-10]** `tests/integration/` created; glob match confirmed (T4 CI exclude required). T-11/T-12/T-13 carry-forward unit tests added (30 unit). `tests/integration/constraint.integration.test.ts` (T-I1): real `ClaudeAdapter.complete()` proves constraint + JSON schema; Vitest 4 `it(name, opts, fn)` order confirmed; 30 s cold-start budget established. 31 tests. PA-reviewed APPROVE.
+- **[TASK_WS03_T2 complete + archived — 2026-06-10]** `tests/integration/executionSuppression.integration.test.ts` (T-I2): `read_file` tool schema; asserts `type:'tool_call'`; SENTINEL_CONTENT absence proves no execution. `CONSTRAINT_INSTRUCTIONS` moved to `--system-prompt` (injection-detection fix; spec §3.2); unit tests T-1/T-8/T-13 updated to inverse-contract assertions. 32 tests. PA-reviewed APPROVE-WITH-NITS. WS_03-T2-SYSTEM-PROMPT locked.
+- **[TASK_WS03_T3 complete + archived — 2026-06-10]** `tests/integration/contamination.sequential.integration.test.ts` (T-I3): two sequential real `adapter.complete()` calls; TOKEN injected in Call A; TOKEN-absence asserted on Call B's `raw`; both responses Zod-parsed. EF-T3-1: timeout raised to 60_000 ms (concurrent fork load empirical). 33 tests (32 unit + T-I1 + T-I2 + T-I3). PA-reviewed APPROVE-WITH-NITS; nits (silent-pass `if` guards removed; comment label `EF1`→`EF-T3-1`) applied inline.
 
 **What is being worked on**:
 
@@ -278,14 +278,12 @@ current task and leaves no constraint behind, it is not a decision.
 
 **Active task trackers**:
 
-- `docs/active/TASK_WS03_T3.md` — Sequential contamination probe (TOKEN-absence assertion)
 - `docs/active/TASK_WS03_T4.md` — Green-gate close-out + Phase 1A sign-off
 
 **What is next**:
 
-1. **WS_03 T3** — sequential contamination probe (`contamination.sequential.integration.test.ts`, TOKEN-absence). Inherits: Vitest 4 `it(name, { timeout: 30_000 }, fn)` form; `const adapter: CLIAdapter = new ClaudeAdapter()`; exact `healthCheck()` guard pattern from T-I1/T-I2. Note: `buildConstrainedPrompt()` no longer includes `CONSTRAINT_INSTRUCTIONS` in its output (moved to `--system-prompt`); BSE must not re-introduce it to stdin.
-2. **WS_03 T4** — green-gate close-out + `vitest.config.ts` CI exclude (WS_03-D4) + Phase 1A sign-off. Unblocked once T3 is PA-signed off.
-3. **Then WS_04** (validator + retry) → **WS_05** (proxy server).
+1. **WS_03 T4** — green-gate close-out: add CI-gated `exclude` to `vitest.config.ts` (WS_03-D4); run all three integration tests locally (`npx vitest run tests/integration/ --timeout 30000`); confirm ≥ 30 unit tests + 3 integration tests all pass; update `docs/plan/workstreams/ws03_adapter_proving.md` Status to `Complete`; Phase 1A sign-off. Note: T-I1/T-I2 use 30_000 ms timeout — may need raising to match T-I3's 60_000 ms under concurrent fork load (EF-T3-3 pre-existing concern).
+2. **Then WS_04** (validator + retry) → **WS_05** (proxy server).
 
 **Resolved decisions** (settled — ≤2 blocks inline; older ones in `docs/archive/decisions.md`):
 
