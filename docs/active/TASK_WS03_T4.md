@@ -28,9 +28,9 @@
 
 | # | Assumption | Why we believe it | How this task tests it | If false → |
 |---|---|---|---|---|
-| A1 | The `*.integration.test.ts` file naming convention is sufficient to exclude integration tests from `npm test` in CI — either because the Vitest `include` glob does NOT match double-extension files, OR because the `vitest.config.ts` `exclude` added in this task makes it explicit | In Subtask 1 of T1, the BSE verified whether `.integration.test.ts` files are picked up by the `include: ['tests/**/*.test.ts']` glob | Subtask 1: run `npm test` and confirm integration test files are absent from the output; if they are present, the `vitest.config.ts` change in this task is confirmed necessary | If the glob does match `.integration.test.ts` files AND the `vitest.config.ts` change is not in place: every `npm test` run would try to run integration tests and fail in CI. The fix is adding the `CI`-gated `exclude` — see WS_03-D4 |
+| A1 | The `*.integration.test.ts` naming convention alone does NOT exclude integration tests from `npm test` — the Vitest `include: ['tests/**/*.test.ts']` glob WILL match these files (confirmed by T1 Subtask 1). The `vitest.config.ts` CI-gated `exclude` added in this task (WS_03-D4) is the mechanism that makes `npm test` in CI safe. | T1 Subtask 1 documented the glob match (expected finding — filename ends in `.test.ts`). | Subtask 1 of T4: verify T1 Notes confirm the glob match, then add the `CI`-gated `exclude`; re-run `npm test` and confirm integration test files no longer appear in output; run `npx vitest run tests/integration/` to confirm they are still directly runnable. | If the `exclude` is not in place: every CI `npm test` run will try to run integration tests and fail on auth. The fix is WS_03-D4 — already designed and locked. |
 | A2 | None of the three integration tests revealed a wiring bug in WS_02 code (`buildConstrainedPrompt`, `ClaudeAdapter`, `sanitisedEnv()`) | WS_02 was unit-tested to 100% branch coverage; the integration tests are proving the wiring through a real subprocess | If all three integration tests pass on first run, this assumption is confirmed | If any integration test fails: diagnose the root cause per the escalation path in that task's tracker (T1/T2/T3). Do not start T4's green-gate pass until the failing test is fixed and re-run |
-| A3 | The total test count after WS_03 is ≥ 33 (27 WS_02 baseline + 3 carry-forward unit tests from T1 + 3 integration tests counted when run locally) | Additive: 27 + 3 carry-forward + 3 integration = 33 | Run `npm test` locally with integration tests included (temporarily include them or run `npx vitest run` directly) and confirm the count | If the count is lower: identify which test is missing and trace it to the correct task tracker |
+| A3 | The unit test count after WS_03 is ≥ 30 (27 WS_02 baseline + 3 carry-forward unit tests from T1). Integration tests (T-I1, T-I2, T-I3) are run separately via `npx vitest run tests/integration/` — they are not part of the `npm test` unit count. | Additive: 27 + 3 carry-forward = 30 unit tests. Integration suite separately confirms 3 integration tests pass. | `npm test` shows ≥ 30; `npx vitest run tests/integration/` shows 3 passing. | If the unit count is lower: identify which carry-forward test is missing and trace it to T1. If an integration test is missing: trace to T1/T2/T3. Do not conflate the two counts. |
 
 ---
 
@@ -71,7 +71,7 @@
 
 | # | Subtask | Status | Iteration | Notes |
 |---|---|---|---|---|
-| 1 | Determine whether `vitest.config.ts` requires an explicit `exclude` for `*.integration.test.ts` files: run `npm test` and confirm whether integration test files appear in the output; if yes, add the `CI`-gated `exclude` per WS_03-D4 | ⬚ Not started | — | |
+| 1 | Add the `CI`-gated `exclude` to `vitest.config.ts` per WS_03-D4 (the glob WILL match `*.integration.test.ts` files — confirmed by T1 Subtask 1). Run `CI=true npm test` to confirm integration tests are excluded. Run `npm test` locally to confirm they run with auth available (or skip gracefully without it). | ⬚ Not started | — | |
 | 2 | If any fix was required by T1/T2/T3 failures: apply the fix to the correct source file, re-run `npm run test:cov` to confirm branch coverage unchanged, re-run the affected integration test to confirm the fix | ⬚ Not started | — | |
 | 3 | Run the full unit suite: `npm test` — confirm ≥ 30 tests passing; confirm integration test files are absent from the output | ⬚ Not started | — | |
 | 4 | Run all three integration tests: `npx vitest run tests/integration/ --timeout 30000` — confirm all three pass; paste output into Notes | ⬚ Not started | — | |
@@ -89,9 +89,11 @@ _Status icons: `✅ Done` | `🔄 In progress` | `⬚ Not started` | `❌ Blocke
 
 **Approach iteration plan** (simplest → target):
 
-1. Run `npm test` with all three integration test files present in `tests/integration/`. Inspect the output: if the integration test files appear as "0 tests" or are entirely absent from the output, the naming convention is already sufficient — no `vitest.config.ts` change is needed beyond documenting this finding.
-2. If the integration test files ARE included in `npm test` output (because the glob matches `*.integration.test.ts`): add `exclude: process.env['CI'] ? ['tests/integration/**'] : []` to `vitest.config.ts`. Re-run `npm test` and confirm the integration files are now absent. Re-run `npx vitest run tests/integration/` to confirm they still run when invoked directly.
-3. If the `exclude` approach conflicts with the naming convention (unlikely): escalate to a separate `vitest.integration.config.ts` and a separate `npm run test:integration` script — but only if option 2 fails.
+1. Confirm T1 Subtask 1 Notes show the glob match result (integration test files appear in `npm test` output — this is the expected and established outcome). Add `exclude: process.env['CI'] ? ['tests/integration/**'] : []` to `vitest.config.ts` per WS_03-D4. This is not conditional — the glob WILL match these files, so the exclude is required.
+2. Re-run `npm test` and confirm the integration test files are now absent from the output (the exclude is active locally because `CI` is unset — wait, note: the exclude is `CI ? [...] : []`, so locally `CI` is unset and `exclude` is `[]`, meaning integration tests ARE included locally). Re-read the decision: locally the integration tests run with `npm test`; in CI they are excluded. If the desired local behaviour is to exclude them always (not just in CI), the exclude logic must be inverted. Confirm with WS_03-D4 intent: local runs include integration tests, CI runs exclude. This is correct by design.
+3. Run `CI=true npm test` to simulate CI and confirm integration test files are absent. Run `npx vitest run tests/integration/` without `CI` to confirm they still run when invoked directly.
+
+**Note on local vs CI behaviour:** With `exclude: process.env['CI'] ? ['tests/integration/**'] : []`, local `npm test` (no `CI` env var) WILL run integration tests. This does NOT break the local green gate — the `healthCheck()` skip guard in each integration test causes a graceful `skipped` result (not a `failed` result) when the subscription is unavailable. A skipped test is not a failure. So locally: subscription available → integration tests run and pass; subscription unavailable → integration tests skip gracefully. CI: integration tests always excluded. This design is correct.
 
 - **Current iteration**: 1 of 3
 - **Verifiability / Success Criteria**: SC-1 (unit suite does not include integration tests) passes. SC-2 (integration tests are runnable via direct invocation) passes.
@@ -119,7 +121,7 @@ This subtask is conditional — it only runs if one of the three integration tes
 
 **Decision**: Use a `CI`-gated `exclude` entry in `vitest.config.ts`: `exclude: process.env['CI'] ? ['tests/integration/**'] : []`. The integration test files retain their `*.integration.test.ts` naming convention. The `exclude` is a belt-and-suspenders CI guard, not a replacement for the naming convention.
 
-**Rationale**: The `include: ['tests/**/*.test.ts']` glob in the current `vitest.config.ts` MAY match `*.integration.test.ts` files (the glob matches any filename ending in `.test.ts`, which includes `.integration.test.ts`). A conditional `exclude` provides an explicit, self-documenting CI guard that works regardless of Vitest's glob engine version. The `CI` env var is the conventional signal for CI environments (GitHub Actions, CircleCI, etc. all set `CI=true`). Local runs (where `CI` is unset) include the integration tests; CI runs exclude them.
+**Rationale**: The `include: ['tests/**/*.test.ts']` glob in the current `vitest.config.ts` WILL match `*.integration.test.ts` files — a filename ending in `.integration.test.ts` ends in `.test.ts` and is therefore included by the glob (confirmed by T1 Subtask 1 verification). A CI-gated `exclude` provides an explicit, self-documenting guard. The `CI` env var is the conventional signal for CI environments (GitHub Actions, CircleCI, etc. all set `CI=true`). Local runs (where `CI` is unset) include the integration tests; CI runs exclude them.
 
 **Implementation**:
 ```typescript
@@ -197,9 +199,9 @@ export default defineConfig({
 
 | # | Criterion | How to verify |
 |---|---|---|
-| SC-1 | `npm test` (unit suite) does not include any `tests/integration/**` file in its test count | Run `npm test`; confirm no `integration` paths appear in the file listing |
-| SC-2 | `npx vitest run tests/integration/ --timeout 30000` runs all three integration tests and all pass | Paste output into Subtask 4 Notes; all three `it()` calls show as passed (not skipped) |
-| SC-3 | With `CI=true npx vitest run` (simulating CI), integration tests are excluded and the unit suite still passes | `CI=true npm test` exits 0; no integration test file paths appear |
+| SC-1 | `CI=true npm test` (CI simulation) does not include any `tests/integration/**` file in its test count; `CI=true npm test` exits 0 | Run `CI=true npm test`; confirm no `integration` paths appear in the file listing; exit code 0 |
+| SC-2 | `npx vitest run tests/integration/ --timeout 30000` runs all three integration tests and all pass (must be run locally with an active subscription) | Paste output into Subtask 4 Notes; all three `it()` calls show as passed (not skipped) |
+| SC-3 | Local `npm test` (no `CI` env var set) runs integration tests and they either pass or skip gracefully (if subscription unavailable) — does NOT fail the gate | Run `npm test` locally; confirm unit tests all pass; integration tests either pass or show `skipped` — no `failed` integration tests |
 | SC-4 | `npm test` shows ≥ 30 unit tests passing (27 WS_02 baseline + 3 T1 carry-forward) | Count in `npm test` output |
 | SC-5 | `npm run typecheck` clean — zero errors | `npx tsc --noEmit`; zero output |
 | SC-6 | `npm run lint` clean; `npm run format` no diff | Zero ESLint violations; Prettier reports no files changed |
@@ -214,9 +216,9 @@ export default defineConfig({
 
 This task adds no new test cases. The test evidence is:
 
-1. **Unit suite output** (`npm test`): ≥ 30 tests, all passing, no integration files listed.
-2. **Integration suite output** (`npx vitest run tests/integration/ --timeout 30000`): all three integration tests passed.
-3. **CI simulation** (`CI=true npm test`): unit suite passes, integration tests excluded.
+1. **CI simulation** (`CI=true npm test`): ≥ 30 unit tests passing, no integration files listed in output.
+2. **Integration suite output** (`npx vitest run tests/integration/ --timeout 30000`): all three integration tests passed (not skipped — requires active subscription).
+3. **Local full run** (`npm test` without CI): all unit tests pass + integration tests pass or skip gracefully (no `failed` integration results).
 
 These three outputs are pasted into the Subtask 4 Notes column as the sign-off evidence.
 

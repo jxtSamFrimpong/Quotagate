@@ -175,7 +175,7 @@ _Status icons: `✅ Done` | `🔄 In progress` | `⬚ Not started` | `❌ Blocke
 | SC-I3b | Call B's raw response does NOT contain the TOKEN string `"8f3a1c2d-9e4b-4f7a-b6c5-1d2e3f4a5b6c"` | `expect(responseB.raw).not.toContain(TOKEN)` passes |
 | SC-I3c | Call B's raw response Zod-parses as `QuotagateCompleteResult` with `type === 'text'` | T-I3 Zod parse + `type` assertion for Call B passes |
 | SC-I3-skip | When `adapter.healthCheck()` returns `false`, the test is skipped (not failed) | Verify via Vitest output; must show `skipped`, not `failed` |
-| SC-1 | `npm test` does NOT run `contamination.sequential.integration.test.ts` (excluded by naming convention) | File absent from `npm test` output |
+| SC-1 | `npm test` in CI does NOT run `contamination.sequential.integration.test.ts` (excluded by the `CI`-gated `exclude` in `vitest.config.ts`, added in T4). Locally, the file runs but skips gracefully if auth is unavailable. | Run `CI=true npm test`; confirm file is absent from output |
 | SC-2 | `npm run typecheck` clean — zero errors | `npx tsc --noEmit`; zero output |
 | SC-3 | `npm run lint` clean; `npm run format` no diff | Zero ESLint violations; Prettier reports no files changed |
 | SC-4 | `npm test` green; no regressions from prior baseline (≥ 30 unit tests from T1's carry-forwards) | `npm test` output shows all prior tests passing |

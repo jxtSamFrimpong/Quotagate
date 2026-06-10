@@ -35,7 +35,7 @@
 
 ## Expected Failures
 
-- **EF1** The integration test directory `tests/integration/` does not exist yet — the BSE must create it. Creating `tests/integration/constraint.integration.test.ts` requires `mkdir -p tests/integration/` first. Vitest's `include: ['tests/**/*.test.ts']` glob pattern does NOT include `.integration.test.ts` files — verifying the exclusion is part of Subtask 2 (run `npm test` without the integration test running; confirm the file is excluded).
+- **EF1** The integration test directory `tests/integration/` does not exist yet — the BSE must create it. Creating `tests/integration/constraint.integration.test.ts` requires `mkdir -p tests/integration/` first. Vitest's `include: ['tests/**/*.test.ts']` glob WILL match `.integration.test.ts` files — a filename ending in `.integration.test.ts` ends in `.test.ts` and is therefore included by the glob. This means `npm test` WILL run integration tests without an explicit `exclude`. The `vitest.config.ts` `CI`-gated `exclude` (WS_03-D4) is owned by T4 and is therefore certain to be required; T1 is not the task that adds it. However, T1 must create the directory and verify that the test file appears in `npm test` output (confirming the glob behaviour) so that T4 has a concrete basis for adding the exclude. Do NOT add the `vitest.config.ts` change in T1 — that is T4's deliverable per WS_03-D4.
 - **EF2** Vitest's `ctx.skip()` API for runtime test skipping: the correct pattern in Vitest is `test('name', async (ctx) => { if (!healthy) { ctx.skip(); return; } ... })`. The `ctx` parameter is a `TaskContext` passed by Vitest to the test function. Do NOT use `test.skip()` (marks the test as permanently skipped at parse time). The `ctx.skip()` call must be followed by `return` to halt the test body — omitting the `return` causes the remainder of the test body to execute despite the skip.
 - **EF3** `JSON.parse(raw)` can throw a `SyntaxError` if the model returns prose instead of JSON. The integration test must NOT catch this silently — let it propagate as a test failure. A `SyntaxError` here means the constraint is not working; it is not a test infrastructure bug. The failure message "SyntaxError: Unexpected token" in the test output is diagnostic signal.
 - **EF4** `QuotagateCompleteResultSchema.safeParse()` returns `{ success: false, error: ZodError }` on a valid JSON object that does not match either discriminated union arm (e.g. `{ type: "unknown" }`). The test must assert `result.success === true` before accessing `result.data` — TypeScript's discriminated union narrowing on `SafeParseReturn` enforces this at compile time. Use `.data` only inside an `if (result.success)` branch.
@@ -71,13 +71,13 @@
 
 | # | Subtask | Status | Iteration | Notes |
 |---|---|---|---|---|
-| 1 | Create `tests/integration/` directory; confirm `vitest.config.ts` excludes `*.integration.test.ts` files (by file-naming convention — they are NOT picked up by `include: ['tests/**/*.test.ts']`; verify this by adding a trivial file and confirming `npm test` does not count it) | ⬚ Not started | — | |
+| 1 | Create `tests/integration/` directory; confirm glob behaviour by adding a placeholder `*.integration.test.ts` file and running `npm test` — expect the placeholder to appear in output (glob WILL match), confirming the `vitest.config.ts` exclude in T4 is required. Delete placeholder. Do NOT add the exclude in this task (owned by T4/WS_03-D4). | ⬚ Not started | — | |
 | 2 | Add T-11 (system role smoke test) and T-12 (tool role smoke test) to `tests/adapters/buildConstrainedPrompt.test.ts` — append to the existing describe block | ⬚ Not started | — | |
 | 3 | Add T-13 (return-format example substring assertions) to `tests/adapters/buildConstrainedPrompt.test.ts` | ⬚ Not started | — | |
 | 4 | Run `npm test` — confirm 3 new unit tests pass and total ≥ 30; confirm `npm run typecheck` and `npm run lint` clean | ⬚ Not started | — | |
 | 5 | Author `tests/integration/constraint.integration.test.ts` with the `healthCheck()` guard, `adapter.complete()` call, `JSON.parse(raw)`, and `QuotagateCompleteResultSchema.safeParse()` assertion (see Required Test Cases for T-I1) | ⬚ Not started | — | |
 | 6 | Run the integration test locally: `npx vitest run tests/integration/constraint.integration.test.ts --timeout 15000` — confirm T-I1 passes and `AdapterResponse.backend === 'claude-subprocess'` | ⬚ Not started | — | |
-| 7 | Run full green gate: `npm test` (unit suite only — integration test excluded by naming convention), `npm run typecheck`, `npm run lint`, `npm run format` — confirm all clean and no regressions | ⬚ Not started | — | |
+| 7 | Run full green gate: `npm test` (unit suite only — integration tests will be included by the glob until T4 adds the exclude; for T1 sign-off, confirm unit tests pass and carry-forward tests pass; integration test exclusion is T4's responsibility), `npm run typecheck`, `npm run lint`, `npm run format` — confirm all clean and no regressions | ⬚ Not started | — | |
 
 _Status icons: `✅ Done` | `🔄 In progress` | `⬚ Not started` | `❌ Blocked`_
 
@@ -85,16 +85,16 @@ _Status icons: `✅ Done` | `🔄 In progress` | `⬚ Not started` | `❌ Blocke
 
 ## Current Subtask Detail
 
-### Subtask 1: Create integration directory + verify exclusion
+### Subtask 1: Create integration directory + confirm glob behaviour
 
 **Approach iteration plan** (simplest → target):
 
-1. `mkdir -p tests/integration/` and create a one-line placeholder (`// placeholder`) named `placeholder.integration.test.ts`. Run `npm test` and confirm the placeholder is not counted in the test output. Delete the placeholder. This confirms `.integration.test.ts` files are excluded from the unit suite by the `include: ['tests/**/*.test.ts']` glob (which matches `*.test.ts` but not `*.integration.test.ts`).
-2. If the glob unexpectedly DOES match `.integration.test.ts` files: update `vitest.config.ts` to add `exclude: process.env['CI'] ? ['tests/integration/**'] : []` — but first confirm this is actually needed, because the double-extension `*.integration.test.ts` should NOT match the single-star pattern `*.test.ts`. The Vitest glob engine matches the full filename against `*.test.ts`; a filename ending in `.integration.test.ts` ends in `.test.ts` and WILL match. In that case the exclude is necessary and must be added as part of this subtask, not deferred to T4.
+1. `mkdir -p tests/integration/` and create a one-line placeholder (`// placeholder`) named `placeholder.integration.test.ts`. Run `npm test` and confirm the placeholder IS counted in the test output (or appears as a test file with 0 tests). This confirms the known behaviour: `.integration.test.ts` files end in `.test.ts` and are matched by the `include: ['tests/**/*.test.ts']` glob. Delete the placeholder after confirming. Do NOT add the `vitest.config.ts` exclude here — that is T4's deliverable (WS_03-D4).
+2. Document the glob confirmation in the Subtask 1 Notes column so that T4's Subtask 1 has concrete evidence for applying the exclude without re-running the experiment.
 
 - **Current iteration**: 1 of 2
-- **Verifiability / Success Criteria**: `npm test` output does not include any file from `tests/integration/` in its test count.
-- **Challenges**: The `*.integration.test.ts` glob matching behavior of Vitest is the critical unknown here. If the glob matches, the vitest.config.ts change belongs in T4 (green-gate close-out) per WS_03-D4 — but the directory creation and the verification step belong here regardless.
+- **Verifiability / Success Criteria**: `mkdir -p tests/integration/` succeeds; the placeholder appears in `npm test` output (confirming the glob does match); the placeholder is deleted before T1 is submitted for review.
+- **Challenges**: None — the glob matching behaviour is already established. The BSE must not add the `vitest.config.ts` exclude in this task; that ownership is T4's (WS_03-D4).
 
 ### Subtask 5: Author the integration test
 
@@ -126,7 +126,7 @@ _Status icons: `✅ Done` | `🔄 In progress` | `⬚ Not started` | `❌ Blocke
 
 **Decision**: Integration tests are named `<name>.integration.test.ts` (not `<name>.test.ts`). This distinguishes them visually and — if the Vitest glob behavior requires it — allows a targeted `exclude` pattern in `vitest.config.ts` gated on `process.env['CI']`.
 
-**Rationale**: File-naming is the simplest and most legible convention. It requires zero Vitest config change in the common case (double-extension files may already be excluded by the `include` glob) and only requires a config change if the glob unexpectedly matches. Minimal config, maximum clarity.
+**Rationale**: File-naming is the simplest and most legible convention. The `include: ['tests/**/*.test.ts']` glob WILL match `*.integration.test.ts` files (they end in `.test.ts`), so a `CI`-gated `exclude` in `vitest.config.ts` is required — but that config change is owned by T4 (WS_03-D4), not by the naming decision itself. The naming convention makes the distinction visible to human readers and enables the targeted `exclude` pattern. Minimal config owned in one place (T4), maximum clarity everywhere.
 
 **Rejected alternative — Vitest workspace / `projects` config**: Adds a second configuration file and a separate test run invocation. Overkill for a naming problem.
 
@@ -181,7 +181,7 @@ _Status icons: `✅ Done` | `🔄 In progress` | `⬚ Not started` | `❌ Blocke
 | # | Criterion | How to verify |
 |---|---|---|
 | SC-1 | `tests/integration/` directory exists | `ls tests/integration/` |
-| SC-2 | `npm test` does NOT include `constraint.integration.test.ts` in its test count (unit suite only) | Run `npm test`; confirm test file path does not appear in output (or `vitest.config.ts` exclude is in place per T4's WS_03-D4) |
+| SC-2 | The integration test file is confirmed to be picked up by the `npm test` glob (expected — `*.integration.test.ts` ends in `.test.ts`); this is documented in Subtask 1 Notes as evidence for T4's WS_03-D4 exclude. The exclude itself is T4's responsibility — SC-2 for this task is that Subtask 1 evidence is recorded and the placeholder is cleaned up. | Subtask 1 Notes column shows glob confirmation; placeholder deleted before review |
 | SC-3 | T-11: `system` role message content appears in `buildConstrainedPrompt` output without exception | `npm test` — T-11 passes |
 | SC-4 | T-12: `tool` role message content appears in `buildConstrainedPrompt` output without exception | `npm test` — T-12 passes |
 | SC-5 | T-13: both return-format JSON example substrings (`"type": "text"` and `"type": "tool_call"`) are present in `buildConstrainedPrompt` output | `npm test` — T-13 passes |
@@ -240,9 +240,11 @@ describe('constraint integration', () => {
       const result = QuotagateCompleteResultSchema.safeParse(parsed);
 
       expect(result.success, 'raw response did not parse as QuotagateCompleteResult').toBe(true);
-      if (result.success) {
-        expect(result.data.type).toBe('text');
-        expect((result.data as { type: 'text'; content: string }).content.length).toBeGreaterThan(0);
+      if (result.success && result.data.type === 'text') {
+        expect(result.data.content.length).toBeGreaterThan(0);
+      } else if (result.success) {
+        // Force a descriptive failure if the type is wrong — do not silently pass
+        expect(result.data.type, 'expected text response but got tool_call').toBe('text');
       }
       expect(response.backend).toBe('claude-subprocess');
     },
