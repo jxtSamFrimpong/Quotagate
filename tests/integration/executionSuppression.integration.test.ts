@@ -20,9 +20,10 @@ describe('execution suppression integration', () => {
   it(
     'T-I2: adapter.complete() with read_file tool returns tool_call declaration without reading the sentinel file',
     // Warm runs take 5–7 s; cold-start (fresh Vitest process, first claude invocation) can
-    // exceed 15 s — matching T-I1's empirically validated margin. 30 s covers cold starts
-    // reliably without masking genuine hangs. Using the same it(name, opts, fn) form as T-I1.
-    { timeout: 30_000 },
+    // exceed 15 s — matching T-I1's empirically validated margin. EF-T3-3: when the full
+    // integration suite runs concurrently (3 fork workers), 30 s proved insufficient under
+    // concurrent fork load. Raised to 60 s to match T-I3 — same rationale, same evidence.
+    { timeout: 60_000 },
     async (ctx) => {
       const adapter: CLIAdapter = new ClaudeAdapter();
       const healthy = await adapter.healthCheck();

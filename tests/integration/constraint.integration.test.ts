@@ -7,8 +7,10 @@ describe('constraint integration', () => {
   it(
     'T-I1: adapter.complete() returns Zod-valid {type:"text"} for a no-tools message',
     // Warm runs take 5–7 s; cold-start (fresh Vitest process, first claude invocation) can
-    // exceed 15 s. 30 s gives cold starts a reliable margin without masking genuine hangs.
-    { timeout: 30_000 },
+    // exceed 15 s. EF-T3-3: when the full integration suite runs concurrently (3 fork workers),
+    // T-I1 bears the maximum cold-start penalty and 30 s proved insufficient empirically.
+    // Raised to 60 s to match T-I3 — same rationale, same empirical evidence.
+    { timeout: 60_000 },
     async (ctx) => {
       const adapter: CLIAdapter = new ClaudeAdapter();
       const healthy = await adapter.healthCheck();

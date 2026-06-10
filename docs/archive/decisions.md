@@ -75,3 +75,21 @@ _(Locked by Principal Architect in TASK_WS02_T4 planning, 2026-06-08. Implemente
 **Rejected — omit null-content messages**: Breaks the conversation history structure; the model sees a gap in the dialogue.
 
 _(Decision ID WS_02-D-T2-02. Implemented in TASK_WS02_T2, 2026-06-09. Confirmed by T-7 in `tests/adapters/buildConstrainedPrompt.test.ts`. Archived from Session State by /house-keeping, 2026-06-10.)_
+
+---
+
+## 2026-06-10
+
+### WS_03-D4 — `vitest.config.ts` CI-Gated Integration Test Exclusion [LOCKED, Architect, 2026-06-09]
+
+**Choice**: Add `exclude: process.env['CI'] ? ['tests/integration/**'] : []` to `vitest.config.ts`. Bracket notation (`process.env['CI']`) required for TypeScript strict mode. The `*.integration.test.ts` naming convention is preserved regardless — it is the human-readable signal; the `exclude` is a belt-and-suspenders CI guard.
+
+**Rationale**: The `include: ['tests/**/*.test.ts']` glob matches `*.integration.test.ts` files (filename ends in `.test.ts`). Without the `exclude`, every CI `npm test` run attempts integration tests and fails on missing auth. The `CI` env var is the conventional signal set by GitHub Actions, CircleCI, etc. Local runs (CI unset) include integration tests — they pass when a live subscription is available and skip gracefully otherwise; CI runs always exclude them.
+
+**Rejected — Vitest workspace / separate `vitest.integration.config.ts`**: Adds a second config file and a second `npm run test:integration` script; requires remembering to run both. Overkill for a naming problem.
+
+**Rejected — rename integration tests to `*.e2e.ts` (no `.test.ts` suffix)**: Vitest's `include` glob would not pick them up at all, breaking `npx vitest run tests/integration/`. Naming convention must preserve `.test.ts` suffix.
+
+**Rejected — require integration tests to pass in CI from day one**: Blocks every CI run on auth secrets. Phase 4 DX concern, not Phase 1A.
+
+_(Locked in TASK_WS03_T4 planning by Principal Architect, 2026-06-09. Implemented in TASK_WS03_T4 by BSE, 2026-06-10. Archived from task tracker by /house-keeping, 2026-06-10.)_

@@ -5,5 +5,6 @@ export default defineConfig({
     pool: 'forks',
     environment: 'node',
     include: ['tests/**/*.test.ts'],
+    exclude: process.env['CI'] ? ['tests/integration/**'] : [],
   },
 });

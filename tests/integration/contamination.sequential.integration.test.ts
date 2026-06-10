@@ -11,9 +11,11 @@ const TOKEN = '8f3a1c2d-9e4b-4f7a-b6c5-1d2e3f4a5b6c';
 describe('sequential contamination probe', () => {
   it(
     'T-I3: call B response contains no trace of call A token',
-    // EF-T3-1: two serial model calls — 60 s covers cold-start overhead for both calls under
-    // concurrent load (full suite runs 3 integration files in parallel; 30 s proved insufficient).
-    { timeout: 60_000 },
+    // EF-T3-1: two serial model calls — each call requires a fresh subprocess spawn.
+    // EF-T3-3: when the full integration suite runs concurrently (3 fork workers), T-I3 bears
+    // the two-call overhead under concurrent fork pressure; 60 s proved insufficient empirically.
+    // Raised to 90 s — provides ~45 s per call budget under concurrent load.
+    { timeout: 90_000 },
     async (ctx) => {
       const adapter: CLIAdapter = new ClaudeAdapter();
       const healthy = await adapter.healthCheck();

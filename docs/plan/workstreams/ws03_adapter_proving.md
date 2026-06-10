@@ -8,7 +8,7 @@
 
 - **Parent Phase**: [Phase 1A — Claude Subprocess Adapter & Constraint](../phases/01a_transport_and_constraint.md)
 - **Timeframe**: ~1 day
-- **Status**: Proposed
+- **Status**: Complete
 - **Dependencies**: WS_02 signed off — `ClaudeAdapter`, `build_constrained_prompt`, and `sanitised_env()` must be complete and unit-tested before integration tests can run against the real subscription.
 
 ---
@@ -71,10 +71,10 @@ WS_03 sign-off unlocks Phase 1B. WS_04 and WS_05 both depend on a proven `adapte
 
 | Task ID | Description                                                                                                                                                                                                                                                                                     | Est. Duration | Status        | Task Tracker Link              |
 | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- | ------------- | ------------------------------ |
-| T1      | Author `tests/integration/constraint.test.ts`: calls `adapter.complete()` with a no-tools message; asserts `AdapterResponse.raw` Zod-parses as `QuotagateCompleteResult` with `type:"text"` and non-empty `content`. Guards with `healthCheck()` skip if CLI unavailable.                       | ~1 hour       | ⬚ Not started | `../../active/TASK_WS03_T1.md` |
-| T2      | Author `tests/integration/executionSuppression.test.ts`: calls `adapter.complete()` with `tools:[{name:"read_file", ...}]`; asserts response is `{type:"tool_call", name:"read_file"}`; asserts the file path in `arguments` was not read (stat the path before and after; assert no new read). | ~1 hour       | ⬚ Not started | `../../active/TASK_WS03_T2.md` |
-| T3      | Author `tests/integration/contamination.sequential.test.ts`: two sequential `adapter.complete()` calls (A: inject distinctive UUID token; B: probe for the token); assert B's raw response does not contain the token string.                                                                   | ~45 min       | ⬚ Not started | `../../active/TASK_WS03_T3.md` |
-| T4      | Green-gate close-out: run the full suite (`npm test`, `typecheck`, `lint`, `format`). Fix any issues exposed by the integration tests (constraint wording, env vars, spawn flags). Update the CLAUDE.md Decision Log with the WS_02-D2-allowlist entry if not already recorded.                 | ~1 hour       | ⬚ Not started | `../../active/TASK_WS03_T4.md` |
+| T1      | Author `tests/integration/constraint.test.ts`: calls `adapter.complete()` with a no-tools message; asserts `AdapterResponse.raw` Zod-parses as `QuotagateCompleteResult` with `type:"text"` and non-empty `content`. Guards with `healthCheck()` skip if CLI unavailable.                       | ~1 hour       | ✅ Completed | `../../archive/tasks/TASK_WS03_T1.md` |
+| T2      | Author `tests/integration/executionSuppression.test.ts`: calls `adapter.complete()` with `tools:[{name:"read_file", ...}]`; asserts response is `{type:"tool_call", name:"read_file"}`; asserts the file path in `arguments` was not read (stat the path before and after; assert no new read). | ~1 hour       | ✅ Completed | `../../archive/tasks/TASK_WS03_T2.md` |
+| T3      | Author `tests/integration/contamination.sequential.test.ts`: two sequential `adapter.complete()` calls (A: inject distinctive UUID token; B: probe for the token); assert B's raw response does not contain the token string.                                                                   | ~45 min       | ✅ Completed | `../../archive/tasks/TASK_WS03_T3.md` |
+| T4      | Green-gate close-out: run the full suite (`npm test`, `typecheck`, `lint`, `format`). Fix any issues exposed by the integration tests (constraint wording, env vars, spawn flags). Update the CLAUDE.md Decision Log with the WS_02-D2-allowlist entry if not already recorded.                 | ~1 hour       | ✅ Completed | `../../archive/tasks/TASK_WS03_T4.md` |
 
 _Status: `✅ Completed` | `🔄 In Progress` | `⬚ Not started` | `❌ Blocked`_
 
@@ -105,21 +105,21 @@ WS_03 T4 completion is the formal gate for Phase 1B. WS_04 and WS_05 must not be
 ## Success & Evaluation Criteria
 
 - **Functional requirements**:
-  - [ ] `adapter.complete({ messages:[{role:"user", content:"Hello"}] })` returns an `AdapterResponse` where `QuotagateCompleteResult.safeParse(JSON.parse(raw))` succeeds with `type:"text"` and non-empty `content`.
-  - [ ] `adapter.complete()` with `tools:[{name:"read_file", ...}]` returns `{type:"tool_call", name:"read_file"}` and the file was not read (no side effect).
-  - [ ] Two sequential `adapter.complete()` calls: call B's response does not contain call A's UUID token. Fresh-process isolation confirmed.
-  - [ ] `sanitised_env()` allowlist confirmed: `claude --print` auth holds under the stripped environment (evidenced by the integration tests passing, not just `healthCheck()`).
+  - [x] `adapter.complete({ messages:[{role:"user", content:"Hello"}] })` returns an `AdapterResponse` where `QuotagateCompleteResult.safeParse(JSON.parse(raw))` succeeds with `type:"text"` and non-empty `content`.
+  - [x] `adapter.complete()` with `tools:[{name:"read_file", ...}]` returns `{type:"tool_call", name:"read_file"}` and the file was not read (no side effect).
+  - [x] Two sequential `adapter.complete()` calls: call B's response does not contain call A's UUID token. Fresh-process isolation confirmed.
+  - [x] `sanitised_env()` allowlist confirmed: `claude --print` auth holds under the stripped environment (evidenced by the integration tests passing, not just `healthCheck()`).
 
 - **Named tests that prove this workstream done**:
-  - [ ] `tests/integration/constraint.test.ts` — Zod parse of raw response succeeds as `{type:"text"}`; content is non-empty string.
-  - [ ] `tests/integration/executionSuppression.test.ts` — response is `{type:"tool_call"}`; absence-of-side-effect assertion passes.
-  - [ ] `tests/integration/contamination.sequential.test.ts` — call B's response contains no trace of call A's UUID token.
+  - [x] `tests/integration/constraint.integration.test.ts` — Zod parse of raw response succeeds as `{type:"text"}`; content is non-empty string.
+  - [x] `tests/integration/executionSuppression.integration.test.ts` — response is `{type:"tool_call"}`; absence-of-side-effect assertion passes.
+  - [x] `tests/integration/contamination.sequential.integration.test.ts` — call B's response contains no trace of call A's UUID token.
 
 - **Quality gates**:
-  - [ ] `npm test` green; integration tests counted in the suite; no test-count regression from WS_02 baseline
-  - [ ] `npm run typecheck` clean
-  - [ ] `npm run lint` clean; `npm run format` produces no diff
-  - [ ] WS_02-D2-allowlist decision recorded in CLAUDE.md Decision Log (the empirical env allowlist finding is a resolved decision, not just a code comment)
+  - [x] `npm test` green; integration tests counted in the suite; no test-count regression from WS_02 baseline
+  - [x] `npm run typecheck` clean
+  - [x] `npm run lint` clean; `npm run format` produces no diff
+  - [x] WS_02-D2-allowlist decision recorded in CLAUDE.md Decision Log (the empirical env allowlist finding is a resolved decision, not just a code comment)
 
 ---
 
