@@ -1,7 +1,7 @@
 # CLAUDE.md — Project Knowledge Base
 
 > **Last Updated**: 2026-06-10
-> **Status**: 🟢 **Phase 1A — WS_03 T1 complete (31 tests; constraint integration proven).** Next: WS_03 T2 + T3 (execution suppression + contamination probes), then T4 close-out.
+> **Status**: 🟢 **Phase 1A — WS_03 T2 complete (32 tests; execution suppression proven via `--system-prompt`).** Next: WS_03 T3 (contamination probe), then T4 close-out.
 
 ---
 
@@ -267,10 +267,10 @@ current task and leaves no constraint behind, it is not a decision.
 
 **What was completed**:
 
-- **[Milestone — WS_01 + WS_02 T1/T2 foundations — 2026-06-08/09]** Spec + D-SEQ-01 locked; WS_01–WS_09 authored; `git init`. WS_01 complete (toolchain, `src/types.ts`, `src/errors.ts`, 7 tests). WS_02 T1 (`CLIAdapter`). WS_02 T2 (`CONSTRAINT_INSTRUCTIONS` + `buildConstrainedPrompt`, 10 tests, 100% branch coverage; WS_02-D-T2-02 → `docs/archive/decisions.md`). 18 tests total.
-- **[TASK_WS02_T3 complete + archived — 2026-06-09]** Empirical `claude --print` env-stripping spike; confirmed allowlist `{PATH, USER}` (HOME excluded — passwd UID fallback; macOS-empirical, re-validate on Linux). `sanitisedEnv()` added to `src/adapters/claude.ts`. `tests/adapters/sanitisedEnv.test.ts` — 5 tests; 23 total. `claude auth status` confirmed as healthCheck probe. PA-reviewed APPROVE-WITH-NITS; nits applied. WS_02-D2-allowlist in Resolved Decisions.
+- **[Milestone — WS_01 + WS_02 complete + archived — 2026-06-08/09]** Spec + D-SEQ-01 locked; WS_01–WS_09 authored; `git init`. Toolchain, `src/types.ts`, `src/errors.ts`, `CLIAdapter`, `buildConstrainedPrompt`, `sanitisedEnv()`, `ClaudeAdapter`. Allowlist `{PATH, USER}` empirically confirmed. 27 tests. All decisions archived to `docs/archive/decisions.md`.
 - **[TASK_WS02_T4 complete + archived — 2026-06-09]** `src/adapters/claude.ts` — `ClaudeAdapter implements CLIAdapter`: `_completeViaSubprocess()` (spawn `claude --print`, stdin pipe + `end()`, Buffer chunk collection, `TransportError` on non-zero + empty stdout); `complete()` (one-line delegation); `healthCheck()` (`claude auth status` probe, ENOENT → `false`); `install()` (Phase 2 stub). `tests/adapters/claudeAdapter.healthCheck.test.ts` — 4 mocked tests. Smoke test confirmed: `healthCheck: true`, `complete.raw: {"type":"text","content":"pong"}`. 27 tests total. PA-reviewed APPROVE-WITH-NITS; nit applied. **WS_04 carry-forward**: `AdapterResponse` has no `exitCode` field. **WS_05 carry-forward**: `healthCheck()` has no internal timeout.
 - **[TASK_WS03_T1 complete + archived — 2026-06-10]** `tests/integration/` directory created; glob confirmed (Vitest `include` DOES match `*.integration.test.ts` — T4's CI exclude confirmed required). T-11/T-12/T-13 carry-forward unit tests added (`system`/`tool` role smoke tests + return-format tripwire; 30 unit tests). `tests/integration/constraint.integration.test.ts` (T-I1): real `ClaudeAdapter.complete()` against live subscription; `QuotagateCompleteResultSchema.safeParse` confirms `{type:'text', content:'pong'}`; A1 + A2 proven. Engineering findings: Vitest 4 requires `it(name, opts, fn)` argument order; cold-start timeout is 30 s (CLI init overhead). 31 tests total (30 unit + 1 integration). PA-reviewed APPROVE-WITH-NITS; F-01 nit applied and re-approved APPROVE.
+- **[TASK_WS03_T2 complete — 2026-06-10]** `tests/integration/executionSuppression.integration.test.ts` (T-I2): real `ClaudeAdapter.complete()` with `read_file` tool schema; asserts `{type:'tool_call', name:'read_file', arguments:{path:string}}`; `SENTINEL_CONTENT` absence on `response.raw` proves execution never occurred. Engineering finding: `CONSTRAINT_INSTRUCTIONS` delivered via stdin (user-turn) triggered Claude's injection-detection heuristics ~2-in-3 when a `tools` array was present — PA diagnosed as structural, not lexical. Fix: `CONSTRAINT_INSTRUCTIONS` moved to `--system-prompt` flag in `_completeViaSubprocess()` (privileged channel, correct spec §3.2 realization). `buildConstrainedPrompt()` now serializes tools + conversation only; unit tests T-1/T-8/T-13 updated to inverse-contract assertions confirming absence of constraint phrases from stdin payload. 3-of-3 T-I2 passes (5.99 s / 6.41 s / 6.47 s). 32 tests total (31 unit + T-I1 + T-I2). PA-reviewed APPROVE-WITH-NITS (all sign-off boxes checked). Timeout 30 s confirmed empirically (matches T-I1). WS_03-T2-SYSTEM-PROMPT in Resolved Decisions.
 
 **What is being worked on**:
 
@@ -278,33 +278,16 @@ current task and leaves no constraint behind, it is not a decision.
 
 **Active task trackers**:
 
-- `docs/active/TASK_WS03_T2.md` — Execution suppression integration test (`SENTINEL_CONTENT` absence assertion)
 - `docs/active/TASK_WS03_T3.md` — Sequential contamination probe (TOKEN-absence assertion)
 - `docs/active/TASK_WS03_T4.md` — Green-gate close-out + Phase 1A sign-off
 
 **What is next**:
 
-1. **WS_03 T2 + T3 in parallel** — T2: execution suppression (`executionSuppression.integration.test.ts`, `SENTINEL_CONTENT` absence); T3: sequential contamination probe (`contamination.sequential.integration.test.ts`, TOKEN-absence). Both inherit: Vitest 4 `it(name, { timeout: 30_000 }, fn)` form; `const adapter: CLIAdapter = new ClaudeAdapter()`; exact `healthCheck()` guard pattern from T-I1.
-2. **WS_03 T4** — green-gate close-out + `vitest.config.ts` CI exclude (WS_03-D4) + Phase 1A sign-off. Unblocked once T2 and T3 are PA-signed off.
+1. **WS_03 T3** — sequential contamination probe (`contamination.sequential.integration.test.ts`, TOKEN-absence). Inherits: Vitest 4 `it(name, { timeout: 30_000 }, fn)` form; `const adapter: CLIAdapter = new ClaudeAdapter()`; exact `healthCheck()` guard pattern from T-I1/T-I2. Note: `buildConstrainedPrompt()` no longer includes `CONSTRAINT_INSTRUCTIONS` in its output (moved to `--system-prompt`); BSE must not re-introduce it to stdin.
+2. **WS_03 T4** — green-gate close-out + `vitest.config.ts` CI exclude (WS_03-D4) + Phase 1A sign-off. Unblocked once T3 is PA-signed off.
 3. **Then WS_04** (validator + retry) → **WS_05** (proxy server).
 
 **Resolved decisions** (settled — ≤2 blocks inline; older ones in `docs/archive/decisions.md`):
-
-**Decisions resolved (2026-06-08)**:
-
-- **D-SEQ-01 — subprocess-first MVP; MCP upgrade is the head of Phase 2 [LOCKED, user].** Build all
-  of Phase 1 on the _proven_ `claude --print` subprocess transport with the **Mechanism-A
-  prompt-engineering constraint** (validated by spec §5.2/§5.3), to prove the product end-to-end. The
-  entire MCP stack — persistent `quotagate_complete` tool server, Mechanism-B constraint (tool def +
-  `~/.quotagate/CLAUDE.md`), `installer.ts` + `claude mcp add`, MCP client, `_mcp_lock`, and the
-  Anthropic-ecosystem feasibility investigation — becomes the **head of Phase 2**, ahead of
-  Gemini/Codex. _Rationale:_ subprocess is proven; MCP-server mode is unproven, so front-loading it
-  bet the whole phase on an unknown. On subprocess, statelessness + concurrency-isolation are FREE
-  (fresh process per request), so invariants #10/#11 need no machinery in Phase 1. _Reconciles
-  invariant #6_ ("never subprocess-only in production"): Phase 1 is an explicit pre-production
-  validation MVP, not the production end-state — Phase 2's MCP upgrade is the end-state. _Rejected —
-  MCP-first / front-loaded feasibility spike:_ bets the phase on an unproven capability and forces a
-  transport rework if it fails. (Recorded in `docs/plan/phases/01a_*.md` as D-SEQ-01; spec file unchanged.)
 
 **Decisions resolved (2026-06-09)**:
 
@@ -329,6 +312,10 @@ current task and leaves no constraint behind, it is not a decision.
   - _Rejected — include HOME_: unnecessary on macOS/Linux (passwd UID fallback); reveals a filesystem
     path to the subprocess environment.
   - _Rejected — include all common CI vars_: speculative; not confirmed by spike.
+
+**Decisions resolved (2026-06-10)**:
+
+- **WS_03-T2-SYSTEM-PROMPT — `CONSTRAINT_INSTRUCTIONS` delivered via `--system-prompt`, not stdin [LOCKED].** `_completeViaSubprocess()` spawns `claude ['--print', '--system-prompt', CONSTRAINT_INSTRUCTIONS]`. `buildConstrainedPrompt()` serializes tools + conversation only — `CONSTRAINT_INSTRUCTIONS` is absent from the stdin payload. _Rationale:_ sending constraint text via stdin (user-turn channel) triggers Claude's injection-detection safety heuristics ~2-in-3 when a `tools` array is present — the model correctly identifies user-turn behavioral overrides as adversarial. The `--system-prompt` flag delivers the constraint through the privileged system prompt channel, where the model treats it as a legitimate configuration directive. This is also a more faithful realization of spec §3.2's "constraint system prompt on every request." Unit tests T-1/T-8/T-13 in `buildConstrainedPrompt.test.ts` assert the inverse contract (constraint phrases absent from stdin payload) as a regression guard. _Rejected — stdin injection with rewording:_ probabilistic failure rate persists regardless of phrasing because the issue is structural (channel), not lexical (words). _Rejected — early Mechanism B upgrade:_ D-SEQ-01 is locked; Phase 2 is the correct home for MCP transport.
 
 > Older decisions archived to `docs/archive/decisions.md` (D-LANG, D-STATELESS, WS_02-D3).
 

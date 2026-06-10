@@ -73,15 +73,17 @@ OpenAI SDK client
 |  → _completeViaSubprocess()                  |
 |                                                |
 |  Step 1 — buildConstrainedPrompt()           |
-|    Mechanism A (spec §3.2, §5.2):              |
-|    Serializes messages + tool schemas +        |
-|    constraint instructions into a single       |
-|    stdin prompt string.                        |
-|    "Return ONLY raw JSON. Never execute        |
-|    tools. Declare, do not act."                |
-|    (This is Phase 1's primary constraint.      |
-|     Mechanism B — tool def + CLAUDE.md —       |
-|     is Phase 2 MCP work.)                      |
+|    Serializes tools + conversation turns       |
+|    into the stdin prompt string ONLY.          |
+|    CONSTRAINT_INSTRUCTIONS are NOT in the      |
+|    stdin payload — they are delivered via      |
+|    --system-prompt (privileged channel).       |
+|    (WS_03-T2-SYSTEM-PROMPT decision: stdin     |
+|     injection triggered injection-detection    |
+|     heuristics ~2-in-3 with tools present.     |
+|     --system-prompt is the correct Mechanism A |
+|     channel per spec §3.2 "constraint system   |
+|     prompt on every request".)                 |
 |                                                |
 |  Step 2 — sanitisedEnv()  [D-1A-07]          |
 |    Strips HOME, PWD, OLDPWD and other          |
@@ -93,9 +95,14 @@ OpenAI SDK client
 |    Decision Log).                              |
 |                                                |
 |  Step 3 — spawn `claude --print`               |
+|    Args: ['--print',                           |
+|           '--system-prompt',                   |
+|           CONSTRAINT_INSTRUCTIONS]             |
 |    Child process: fresh OS process, exits      |
-|    after one response. Prompt piped via        |
-|    stdin. stdout collected and returned.       |
+|    after one response. Prompt (tools +         |
+|    conversation) piped via stdin. Constraint   |
+|    delivered via --system-prompt. stdout       |
+|    collected and returned.                     |
 |    (Statelessness by construction — see the    |
 |    "Statelessness is free here" note below.)  |
 |                                                |
@@ -272,12 +279,19 @@ Module owner: `adapters/claude.ts` (WS_02).
 Invariants upheld: #2 (no credentials — `claude --print` handles auth), #10 (stateless by
 construction — see note below).
 
-`buildConstrainedPrompt` assembles the stdin prompt from the caller's messages plus the
-Mechanism A constraint instructions (spec §3.2, §5.2). This is Phase 1's sole constraint
-mechanism. `sanitisedEnv` strips machine-context environment variables before the child
-process is spawned, preventing the path-leak class observed in the Haiku experiment (spec §5.3).
-The child process — `claude --print` — reads the prompt from stdin, writes its response to
-stdout, and exits. Its stdout string becomes `AdapterResponse.raw`.
+`buildConstrainedPrompt` serializes the caller's tools and conversation turns into the stdin
+prompt. It does **not** include `CONSTRAINT_INSTRUCTIONS` — those are delivered as the
+`--system-prompt` CLI flag argument on every spawn (decision WS_03-T2-SYSTEM-PROMPT). This
+channel separation is load-bearing: the model's injection-detection heuristics treat user-turn
+stdin content with adversarial suspicion when it contests an active tool-use path; the system
+prompt channel is treated as a legitimate configuration directive. The unit tests T-1/T-8/T-13
+in `buildConstrainedPrompt.test.ts` assert this separation as a regression guard (they assert
+constraint phrases absent from the stdin payload). `sanitisedEnv` strips machine-context
+environment variables before the child process is spawned, preventing the path-leak class
+observed in the Haiku experiment (spec §5.3). The child process — `claude --print
+--system-prompt <CONSTRAINT_INSTRUCTIONS>` — reads the serialized prompt from stdin, applies
+the constraint from the system prompt channel, writes its response to stdout, and exits. Its
+stdout string becomes `AdapterResponse.raw`.
 
 ### 5. `src/validator.ts` — JSON parse, Zod validation, retry loop
 

@@ -4,7 +4,7 @@ import { buildConstrainedPrompt } from '../../src/adapters/claude.js';
 import type { OpenAIMessage, OpenAITool } from '../../src/types.js';
 
 describe('buildConstrainedPrompt', () => {
-  it('T-1: constraint instructions and tool schemas present when tools provided', () => {
+  it('T-1: tool schemas and conversation serialized when tools provided (constraint instructions delivered via --system-prompt, not here)', () => {
     const messages: OpenAIMessage[] = [{ role: 'user', content: 'what is 2+2?' }];
     const tools: OpenAITool[] = [
       {
@@ -15,8 +15,11 @@ describe('buildConstrainedPrompt', () => {
 
     const result = buildConstrainedPrompt(messages, tools, 'auto');
 
-    expect(result).toContain('Returns ONLY a raw JSON object');
-    expect(result).toContain('Never executes any function');
+    // Constraint instructions are delivered via --system-prompt by _completeViaSubprocess,
+    // not prepended here — assert they are absent from the serialized payload.
+    expect(result).not.toContain('API proxy');
+    expect(result).not.toContain('Return only the JSON object');
+    // Tool schema and conversation content must still be present.
     expect(result).toContain('calc');
     expect(result).toContain('calculator');
   });
@@ -93,11 +96,17 @@ describe('buildConstrainedPrompt', () => {
     expect(result).toContain('call fn');
   });
 
-  it('T-8: constraint instructions present even without tools', () => {
+  it('T-8: buildConstrainedPrompt contains only conversation (no constraint instructions — they are delivered via --system-prompt)', () => {
     const result = buildConstrainedPrompt([{ role: 'user', content: 'y' }], undefined, 'none');
 
-    expect(result).toContain('Returns ONLY a raw JSON object');
-    expect(result).toContain('Never executes any function');
+    // Constraint instructions belong to the --system-prompt channel, not the stdin payload.
+    // Asserting absence here ensures the separation of concerns is preserved: if someone
+    // accidentally re-introduces CONSTRAINT_INSTRUCTIONS into buildConstrainedPrompt, this
+    // test will catch the regression.
+    expect(result).not.toContain('API proxy');
+    expect(result).not.toContain('Return only the JSON object');
+    // Conversation content must be present.
+    expect(result).toContain('y');
   });
 
   it('T-9: input messages array is not mutated', () => {
@@ -149,10 +158,16 @@ describe('buildConstrainedPrompt', () => {
     expect(result).toContain('call fn');
   });
 
-  it('T-13: both return-format example JSON substrings are present in constraint output', () => {
+  it('T-13: buildConstrainedPrompt output contains only serialized conversation and tools (return-format examples are in --system-prompt, not here)', () => {
     const result = buildConstrainedPrompt([{ role: 'user', content: 'x' }], undefined, 'none');
 
-    expect(result).toContain('"type": "text"');
-    expect(result).toContain('"type": "tool_call"');
+    // Return-format example JSON is part of CONSTRAINT_INSTRUCTIONS, delivered via
+    // --system-prompt. Asserting absence here is the inverse contract of T-8: if the
+    // format examples leak back into the stdin payload, injection detection may retrigger.
+    expect(result).not.toContain('"type": "text"');
+    expect(result).not.toContain('"type": "tool_call"');
+    // Conversation must still be serialized.
+    expect(result).toContain('Conversation:');
+    expect(result).toContain('x');
   });
 });

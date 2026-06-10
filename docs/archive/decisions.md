@@ -12,6 +12,18 @@ in CLAUDE.md's Session State, and to the **Inherited DECIDED architecture** that
 
 ## 2026-06-08
 
+### D-SEQ-01 — Subprocess-First MVP; MCP Upgrade Is the Head of Phase 2 [LOCKED, user]
+
+**Choice**: Build all of Phase 1 on the proven `claude --print` subprocess transport with the Mechanism-A prompt-engineering constraint (validated by spec §5.2/§5.3), to prove the product end-to-end. The entire MCP stack — persistent `quotagate_complete` tool server, Mechanism-B constraint (tool def + `~/.quotagate/CLAUDE.md`), `installer.ts` + `claude mcp add`, MCP client, `_mcp_lock`, and the Anthropic-ecosystem feasibility investigation — becomes the head of Phase 2, ahead of Gemini/Codex.
+
+**Rationale**: Subprocess is proven; MCP-server mode is unproven, so front-loading it bet the whole phase on an unknown. On subprocess, statelessness + concurrency-isolation are FREE (fresh process per request), so invariants #10/#11 need no machinery in Phase 1. Reconciles invariant #6 ("never subprocess-only in production"): Phase 1 is an explicit pre-production validation MVP, not the production end-state — Phase 2's MCP upgrade is the end-state.
+
+**Rejected — MCP-first / front-loaded feasibility spike**: Bets the phase on an unproven capability and forces a transport rework if it fails.
+
+_(Recorded in `docs/plan/phases/01a_*.md` as D-SEQ-01. Archived from inline Session State by /house-keeping, 2026-06-10.)_
+
+---
+
 ### D-STATELESS — Persist the Process, Never the Conversation [LOCKED]
 
 **Choice**: MCP persistence reuses the _process/connection_ only; each `quotagate_complete` call runs in a fresh context seeded solely by its args (`adapter.complete()` is a pure function of its inputs). Concurrency is handled by serializing one request per session (a lock wrapping call→response→reset); shard a pool to scale; never interleave. `/clear`-between-requests is a serialized best-effort fallback only, not the contract.
