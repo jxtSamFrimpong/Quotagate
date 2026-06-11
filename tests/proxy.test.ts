@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { FastifyInstance } from 'fastify';
+import type { ChatCompletion } from 'openai/resources/chat/completions';
 
 import type { CLIAdapter } from '../src/adapters/base.js';
 import { TransportError, ValidationError } from '../src/errors.js';
@@ -249,5 +250,126 @@ describe('proxy — createServer factory (WS_05 T2)', () => {
     // The generic message must be returned verbatim — the raw error message must NOT appear.
     expect(errorObj['message']).toBe('An internal error occurred');
     expect(errorObj['stack']).toBeUndefined();
+  });
+});
+
+describe('proxy — pipeline wiring (WS_05 T3)', () => {
+  let server: FastifyInstance;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    server = createServer(minimalConfig, stubAdapter);
+  });
+
+  afterEach(async () => {
+    await server.close();
+  });
+
+  // -------------------------------------------------------------------------
+  // T-1: success path → HTTP 200 with valid ChatCompletion shape (SC-1, SC-7)
+  // -------------------------------------------------------------------------
+  it('T-1: valid adapter response → HTTP 200 with correct ChatCompletion shape', async () => {
+    stubAdapter.complete.mockResolvedValueOnce({
+      raw: '{"type":"text","content":"Hello, world!"}',
+      backend: 'claude-subprocess',
+    });
+
+    const response = await server.inject({
+      method: 'POST',
+      url: '/v1/chat/completions',
+      payload: { model: 'claude-sonnet-4-6', messages: [{ role: 'user', content: 'Hi' }] },
+      headers: { 'content-type': 'application/json' },
+    });
+
+    expect(response.statusCode).toBe(200);
+
+    const body = response.json<ChatCompletion>();
+    expect(body.choices[0].finish_reason).toBe('stop');
+    expect(body.choices[0].message.role).toBe('assistant');
+    expect(body.choices[0].message.content).toBe('Hello, world!');
+    expect(body.id).toMatch(/^chatcmpl-/);
+
+    // Compile-time contract: body is assignable to ChatCompletion without a cast.
+    const _typed: ChatCompletion = body;
+    void _typed;
+  });
+
+  // -------------------------------------------------------------------------
+  // T-2: TransportError from adapter → HTTP 500, transport_error, no stack trace (SC-2)
+  // Exercises TransportError propagation through the real pipeline post-T3 wiring;
+  // T2 block T-4b is the pre-pipeline error-handler unit.
+  // -------------------------------------------------------------------------
+  it('T-2: TransportError from adapter → HTTP 500 transport_error, no stack trace leaked', async () => {
+    stubAdapter.complete.mockRejectedValueOnce(new TransportError('spawn failed'));
+
+    const response = await server.inject({
+      method: 'POST',
+      url: '/v1/chat/completions',
+      payload: validPayload(),
+      headers: { 'content-type': 'application/json' },
+    });
+
+    expect(response.statusCode).toBe(500);
+
+    const body = response.json<{ error: { message: string; code: string; stack?: unknown } }>();
+    expect(body.error.code).toBe('transport_error');
+    expect(typeof body.error.message).toBe('string');
+    expect(body.error.message.length).toBeGreaterThan(0);
+    expect(body.error.stack).toBeUndefined();
+  });
+
+  // -------------------------------------------------------------------------
+  // T-3: retry path — malformed then valid → HTTP 200; invoker receives corrected messages (SC-3, SC-4)
+  // -------------------------------------------------------------------------
+  it('T-3: retry path — malformed first response, valid second → HTTP 200; invoker receives corrected messages', async () => {
+    stubAdapter.complete
+      .mockResolvedValueOnce({ raw: 'not json', backend: 'claude-subprocess' })
+      .mockResolvedValueOnce({
+        raw: '{"type":"text","content":"Retry worked"}',
+        backend: 'claude-subprocess',
+      });
+
+    const response = await server.inject({
+      method: 'POST',
+      url: '/v1/chat/completions',
+      payload: { model: 'claude-sonnet-4-6', messages: [{ role: 'user', content: 'Test' }] },
+      headers: { 'content-type': 'application/json' },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(stubAdapter.complete).toHaveBeenCalledTimes(2);
+
+    // The first adapter call must receive the original message only (length 1).
+    const firstCallArg = stubAdapter.complete.mock.calls[0][0] as { messages: unknown[] };
+    expect(firstCallArg.messages).toHaveLength(1);
+
+    // The second adapter call must receive the original message + CORRECTION_NOTE (length 2).
+    const secondCallArg = stubAdapter.complete.mock.calls[1][0] as { messages: unknown[] };
+    expect(secondCallArg.messages).toHaveLength(2);
+
+    const body = response.json<ChatCompletion>();
+    expect(body.choices[0].message.content).toBe('Retry worked');
+  });
+
+  // -------------------------------------------------------------------------
+  // T-4: {type:"tool_call"} from adapter → HTTP 500 (QuotagateError from buildChatCompletion) (SC-5)
+  // -------------------------------------------------------------------------
+  it('T-4: tool_call result from adapter → HTTP 500 proxy_error (buildChatCompletion Phase 1 stub)', async () => {
+    stubAdapter.complete.mockResolvedValueOnce({
+      raw: '{"type":"tool_call","name":"fn","arguments":{}}',
+      backend: 'claude-subprocess',
+    });
+
+    const response = await server.inject({
+      method: 'POST',
+      url: '/v1/chat/completions',
+      payload: validPayload(),
+      headers: { 'content-type': 'application/json' },
+    });
+
+    expect(response.statusCode).toBe(500);
+
+    const body = response.json<{ error: { code: string } }>();
+    expect(body.error.code).toBe('proxy_error');
   });
 });

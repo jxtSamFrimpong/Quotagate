@@ -117,11 +117,11 @@
 
 | #  | Subtask                                                                                                                   | Status        | Iteration | Notes |
 |----|---------------------------------------------------------------------------------------------------------------------------|---------------|-----------|-------|
-| 1  | Import `buildAdapterRequest`, `validateWithRetry`, `buildChatCompletion`, `OpenAIMessage` in `src/proxy.ts`               | ⬚ Not started | —         |       |
-| 2  | Replace the T2 stub pipeline body with the real pipeline call sequence                                                    | ⬚ Not started | —         |       |
-| 3  | Construct and pass the `invoker` closure: `(msgs) => adapter.complete(buildAdapterRequest({ ...parsed.data, messages: msgs }))` | ⬚ Not started | — | |
-| 4  | Write pipeline-wired test cases in `tests/proxy.test.ts`: success path (T-1), TransportError path (T-2), retry path (T-3), tool_call throw path (T-4) | ⬚ Not started | — | |
-| 5  | Green gate: `npm test` · `typecheck` · `lint` · `format`                                                                  | ⬚ Not started | —         |       |
+| 1  | Import `buildAdapterRequest`, `validateWithRetry`, `buildChatCompletion`, `OpenAIMessage` in `src/proxy.ts`               | ✅ Done       | 1         |       |
+| 2  | Replace the T2 stub pipeline body with the real pipeline call sequence                                                    | ✅ Done       | 1         |       |
+| 3  | Construct and pass the `invoker` closure: `(msgs) => adapter.complete(buildAdapterRequest({ ...parsed.data, messages: msgs }))` | ✅ Done | 1 | |
+| 4  | Write pipeline-wired test cases in `tests/proxy.test.ts`: success path (T-1), TransportError path (T-2), retry path (T-3), tool_call throw path (T-4) | ✅ Done | 1 | |
+| 5  | Green gate: `npm test` · `typecheck` · `lint` · `format`                                                                  | ✅ Done       | 1         | 74 tests (70 + 4 new); all commands exit 0 |
 
 _Status icons: `✅ Done` | `🔄 In progress` | `⬚ Not started` | `❌ Blocked`_
 
@@ -258,14 +258,26 @@ on `tool_call` in Phase 1 — WS_04 OD-4).
 
 ## Review Notes
 
-_(Architect fills after BSE submits.)_
+**Verdict**: APPROVED WITH ADVISORIES (2026-06-11)
+
+Two advisories applied before sign-off:
+
+1. **[ADVISORY 1 — applied]** T-3 did not assert the first adapter call's message shape. Added `expect(firstCallArg.messages).toHaveLength(1)` immediately before the existing second-call assertion. Closes the coverage gap: proves the invoker sends the original messages on attempt 1, not just that it sends the corrected messages on attempt 2.
+
+2. **[ADVISORY 2 — applied]** Added a clarifying comment above T3-T-2 distinguishing it from T2 block's T-4b: the T3 block's T-2 exercises `TransportError` propagation through the real wired pipeline; T2's T-4b is the pre-pipeline error-handler unit test.
+
+**Observations (no action required):**
+- ValidationError exhaustion (EF2, all 3 retries fail) has no dedicated test. SC-1 through SC-9 do not require it; D2 defers the full retry/contamination suite to WS_08. Known and accepted.
+- The `const _typed: ChatCompletion = body` assertion is compile-time only. Runtime field assertions (`finish_reason`, `role`, `content`, `id`) are present and sufficient for Phase 1.
+
+SC-1 through SC-9: all PASS. A1–A5: all confirmed. No regressions (74 tests).
 
 ---
 
 ## Architect Sign-off
 
-- [ ] Implementation reviewed
-- [ ] All success criteria verified
-- [ ] All assumptions resolved (proven, or fallback taken & documented)
-- [ ] No regressions in full test suite
-- [ ] `npm test` / `typecheck` / `lint` / `format` all clean
+- [x] Implementation reviewed
+- [x] All success criteria verified
+- [x] All assumptions resolved (proven, or fallback taken & documented)
+- [x] No regressions in full test suite
+- [x] `npm test` / `typecheck` / `lint` / `format` all clean

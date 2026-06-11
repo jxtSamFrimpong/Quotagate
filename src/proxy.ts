@@ -1,7 +1,11 @@
 import Fastify, { FastifyInstance } from 'fastify';
 
 import { QuotagateError, TransportError, ValidationError } from './errors.js';
+import { buildAdapterRequest } from './argumentBuilder.js';
+import { validateWithRetry } from './validator.js';
+import { buildChatCompletion } from './responseBuilder.js';
 import { OpenAIChatRequestSchema } from './types.js';
+import type { OpenAIMessage } from './types.js';
 import type { CLIAdapter } from './adapters/base.js';
 import type { QuotagateConfig } from './config.js';
 
@@ -118,13 +122,15 @@ export function createServer(config: QuotagateConfig, adapter: CLIAdapter): Fast
       return;
     }
 
-    // STUB — T3 replaces this with the real pipeline:
-    // buildAdapterRequest → adapter.complete() → validateWithRetry → buildChatCompletion → reply.send()
-    // adapter.complete is called here (not invoked in the real pipeline shape yet) so that
-    // T2 tests can control what error is thrown via mockRejectedValueOnce, exercising the
-    // correct setErrorHandler branches. T3 replaces this with the full pipeline call.
-    await adapter.complete({ messages: [] });
-    return reply.status(200).send({ stub: true });
+    const adapterReq = buildAdapterRequest(parsed.data);
+    const response = await adapter.complete(adapterReq);
+
+    const invoker = (msgs: OpenAIMessage[]) =>
+      adapter.complete(buildAdapterRequest({ ...parsed.data, messages: msgs }));
+
+    const result = await validateWithRetry(response.raw, parsed.data.messages, invoker);
+    const completion = buildChatCompletion(result, parsed.data.model);
+    return reply.send(completion);
   });
 
   return server;
