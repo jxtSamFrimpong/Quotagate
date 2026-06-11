@@ -118,10 +118,10 @@
 
 | #   | Subtask                                                                                                                                   | Status        | Iteration | Notes |
 | --- | --------------------------------------------------------------------------------------------------------------------------------------- | ------------- | --------- | ----- |
-| 1   | Add `OpenAIChatRequest` to `src/types.ts` as a hand-rolled Zod schema (OD-3 LOCKED) for `model`/`messages`/`tools?`/`tool_choice?`/`stream?`; export schema + inferred type. | ⬚ Not started | —         | OD-3 resolved |
-| 2   | Author `src/argumentBuilder.ts`: `buildAdapterRequest(body)` — map `messages`/`tools`/`tool_choice`; normalize `tools` (`[]`→`undefined`); pass `tool_choice` through verbatim (OD-1 LOCKED). | ⬚ Not started | —         | OD-1 resolved (pass-through) |
-| 3   | Write `tests/argumentBuilder.test.ts`: T-1 … T-5 (see Required Test Cases).                                                              | ⬚ Not started | —         |       |
-| 4   | Run green gate: `npm test`, `npm run typecheck`, `npm run lint`, `npm run format`; confirm no regression from 33-test baseline.          | ⬚ Not started | —         |       |
+| 1   | Add `OpenAIChatRequest` to `src/types.ts` as a hand-rolled Zod schema (OD-3 LOCKED) for `model`/`messages`/`tools?`/`tool_choice?`/`stream?`; export schema + inferred type. | ✅ Done | 1 of 1 | OD-3 resolved |
+| 2   | Author `src/argumentBuilder.ts`: `buildAdapterRequest(body)` — map `messages`/`tools`/`tool_choice`; normalize `tools` (`[]`→`undefined`); pass `tool_choice` through verbatim (OD-1 LOCKED). | ✅ Done | 1 of 1 | OD-1 resolved (pass-through) |
+| 3   | Write `tests/argumentBuilder.test.ts`: T-1 … T-5 (see Required Test Cases).                                                              | ✅ Done | 1 of 1 |       |
+| 4   | Run green gate: `npm test`, `npm run typecheck`, `npm run lint`, `npm run format`; confirm no regression from 33-test baseline.          | ✅ Done | 1 of 1 | 43 tests (was 33); typecheck · lint · format clean |
 
 _Status icons: `✅ Done` | `🔄 In progress` | `⬚ Not started` | `❌ Blocked`_
 
@@ -251,14 +251,22 @@ Pass a 3-message conversation (`system`, `user`, `assistant`); assert order and 
 
 ## Review Notes
 
-_(Architect fills after BSE submits.)_
+**Architect review — 2026-06-11 — APPROVED WITH NOTES**
+
+All locked decisions in scope for T1 confirmed: OD-1 (pass-through verbatim — `argumentBuilder.ts:8` injects nothing; `?? 'auto'` stays exclusively in `claude.ts:90`) and OD-3 (hand-rolled Zod schema — no `openai` import in `types.ts`). Four post-review notes implemented:
+
+- **Note 2 (T1's own):** `tool_choice` tightened from `z.string()` to `z.enum(['auto','required','none'])` in `src/types.ts`. Correct per spec §3.5; `z.string()` was accepting arbitrary strings and forwarding them to `buildConstrainedPrompt` rather than failing loudly at the parse boundary. Tests still pass — T-4 uses `'none'` which is in the enum.
+- **Note 3 (T1's downstream concern):** Object-form `tool_choice` gap documented in `ws07_tool_call_response_path.md` Known Pitfalls as a scope decision required before WS_07 begins.
+- Notes 1 and 4 are T4-scope items.
+
+Separation-of-concerns guard in T-1 confirmed load-bearing: structural check (no injected system message) is independent of phrase matching and catches any injection regardless of content. T-3's `as unknown as OpenAIChatRequest` cast is correct test technique — proves the builder is clean even if the Zod boundary is circumvented at runtime before `proxy.ts` validates. All 5 success criteria verified.
 
 ---
 
 ## Architect Sign-off
 
-- [ ] Implementation reviewed
-- [ ] All success criteria verified
-- [ ] All assumptions resolved (proven, or fallback taken & documented)
-- [ ] No regressions in full test suite
-- [ ] `npm test` / `typecheck` / `lint` / `format` all clean
+- [x] Implementation reviewed
+- [x] All success criteria verified
+- [x] All assumptions resolved (proven, or fallback taken & documented)
+- [x] No regressions in full test suite
+- [x] `npm test` / `typecheck` / `lint` / `format` all clean

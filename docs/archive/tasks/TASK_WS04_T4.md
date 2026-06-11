@@ -118,11 +118,11 @@
 
 | #   | Subtask                                                                                                                         | Status        | Iteration | Notes |
 | --- | ----------------------------------------------------------------------------------------------------------------------------- | ------------- | --------- | ----- |
-| 1   | Add `openai` to `package.json` (pinned major, OD-2 LOCKED); `import type { ChatCompletion }`. Confirm `typecheck` + `build` stay green. | ⬚ Not started | —         | OD-2 resolved |
-| 2   | Author `src/responseBuilder.ts`: `buildChatCompletion(result, model)` — text branch builds the full contract object (incl. `created`, `logprobs`). | ⬚ Not started | —         |       |
-| 3   | Add the explicit throw for `type:"tool_call"`: base `QuotagateError` (OD-4 LOCKED), descriptive message. | ⬚ Not started | —         | OD-4 resolved |
-| 4   | Write `tests/responseBuilder.test.ts`: T-1 … T-5 (see Required Test Cases), including the compile-time `ChatCompletion` check. | ⬚ Not started | —         |       |
-| 5   | Run green gate: `npm test`, `typecheck`, `lint`, `format`; confirm no regression from the 33-test baseline.                   | ⬚ Not started | —         |       |
+| 1   | Add `openai` to `package.json` (pinned major, OD-2 LOCKED); `import type { ChatCompletion }`. Confirm `typecheck` + `build` stay green. | ✅ Done | 1 of 1 | Pinned `^6.0.0` (installed 6.42.0); `import type` from `openai/resources/chat/completions` |
+| 2   | Author `src/responseBuilder.ts`: `buildChatCompletion(result, model)` — text branch builds the full contract object (incl. `created`, `logprobs`). | ✅ Done | 1 of 1 | `refusal: null` required in v6 — added; `randomUUID` from `node:crypto` |
+| 3   | Add the explicit throw for `type:"tool_call"`: base `QuotagateError` (OD-4 LOCKED), descriptive message. | ✅ Done | 1 of 1 | OD-4 resolved |
+| 4   | Write `tests/responseBuilder.test.ts`: T-1 … T-5 (see Required Test Cases), including the compile-time `ChatCompletion` check. | ✅ Done | 1 of 1 |       |
+| 5   | Run green gate: `npm test`, `typecheck`, `lint`, `format`; confirm no regression from the 33-test baseline.                   | ✅ Done | 1 of 1 | 43 tests (was 33); typecheck · lint · format clean |
 
 _Status icons: `✅ Done` | `🔄 In progress` | `⬚ Not started` | `❌ Blocked`_
 
@@ -251,14 +251,22 @@ not throw.
 
 ## Review Notes
 
-_(Architect fills after BSE submits.)_
+**Architect review — 2026-06-11 — APPROVED WITH NOTES**
+
+All locked decisions in scope for T4 confirmed: OD-2 (`openai` pinned `^6.0.0`, `import type` only — `responseBuilder.ts:3` has zero runtime reference) and OD-4 (base `QuotagateError` thrown on `tool_call` branch — confirmed; `responseBuilder.test.ts:38` asserts exact class). Four post-review notes implemented:
+
+- **Note 1 (T4's own):** `openai` moved from `dependencies` → `devDependencies`. Correct — every byte of usage is `import type`, erased by TypeScript before the binary is emitted. OD-2's "regular dependency" reasoning was correct about tsup tree-shaking the bundle but incomplete about `npm install` behavior for consumers. Zero behavioral impact on the compiled output.
+- **Note 4 (T4's downstream concern):** `usage: undefined` vs `null` verification documented in `ws06_e2e_no_tools.md` Known Pitfalls as a WS_06 T2 assertion item. `refusal: null` correctly included (required field in openai v6 `ChatCompletionMessage`). `randomUUID` from `node:crypto` confirmed correct — `globalThis.crypto` is not typed in this tsconfig's lib.
+- Notes 2 and 3 are T1-scope items.
+
+Compile-time `const out: ChatCompletion = buildChatCompletion(...)` assignment in T-3 confirmed genuine invariant-#5 guard — the function's `: ChatCompletion` return annotation (not `as` cast) is the primary enforcement point; `tsc` fails if any required field is missing or mistyped. All 10 success criteria verified.
 
 ---
 
 ## Architect Sign-off
 
-- [ ] Implementation reviewed
-- [ ] All success criteria verified
-- [ ] All assumptions resolved (proven, or fallback taken & documented)
-- [ ] No regressions in full test suite
-- [ ] `npm test` / `typecheck` / `lint` / `format` all clean
+- [x] Implementation reviewed
+- [x] All success criteria verified
+- [x] All assumptions resolved (proven, or fallback taken & documented)
+- [x] No regressions in full test suite
+- [x] `npm test` / `typecheck` / `lint` / `format` all clean

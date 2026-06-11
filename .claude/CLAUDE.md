@@ -1,7 +1,7 @@
 # CLAUDE.md — Project Knowledge Base
 
 > **Last Updated**: 2026-06-11
-> **Status**: 🟢 **WS_04 T1+T4 signed off (43 tests). `argumentBuilder.ts`, `responseBuilder.ts`, `OpenAIChatRequest` schema complete + PA-reviewed.** Next: WS_04 T2 (`parseAndValidate`), then T3 (`validateWithRetry`).
+> **Status**: 🟢 **WS_04 T1+T2+T3+T4 signed off (56 tests). `validator.ts` complete: `parseAndValidate` + `validateWithRetry` + full test suite.** Next: WS_05 (Fastify proxy server).
 
 ---
 
@@ -267,23 +267,22 @@ current task and leaves no constraint behind, it is not a decision.
 
 **What was completed**:
 
-- **[Milestone — WS_01–WS_03 complete + Phase 1A signed off — 2026-06-10]** Toolchain; `src/types.ts`, `src/errors.ts`, `CLIAdapter`, `buildConstrainedPrompt`, `sanitisedEnv()`, `ClaudeAdapter`; 33 tests green. All WS_01–WS_03 decisions archived.
-- **[WS_04 elevated to implementation-ready — 2026-06-10]** 7 open decisions locked (OD-1…OD-7); 4 task trackers staged; schematic synced. Committed `45d7db3`.
-- **[WS_04 T1+T4 implemented + PA-reviewed + signed off — 2026-06-11]** Implemented `src/argumentBuilder.ts` (`buildAdapterRequest`), `src/responseBuilder.ts` (`buildChatCompletion`, text branch + `tool_call` throw), `OpenAIChatRequest` Zod schema in `src/types.ts`. Added `openai@^6` (devDep — `import type` only; OD-2 corrected from deps post-review). PA review APPROVED WITH NOTES; all 4 notes implemented: `openai`→devDeps, `tool_choice` tightened to `z.enum(['auto','required','none'])` (spec §3.5 — was open `z.string()`), object-form `tool_choice` gap documented in WS_07 Known Pitfalls, `usage` null-vs-undefined check documented in WS_06 Known Pitfalls. Schematic updated (+`OpenAIChatRequest` row). Green gate: 43 tests (was 33); typecheck · lint · format clean.
+- **[Milestone — WS_01–WS_03 + WS_04 elevated — 2026-06-10]** Phase 1A complete (33 tests); `src/types.ts`, `src/errors.ts`, `CLIAdapter`, `ClaudeAdapter`, `buildConstrainedPrompt`, `sanitisedEnv()`; WS_04 elevated with 7 decisions locked (OD-1…OD-7); 4 task trackers staged.
+- **[WS_04 T1+T4 implemented + PA-reviewed + signed off — 2026-06-11]** `src/argumentBuilder.ts` (`buildAdapterRequest`), `src/responseBuilder.ts` (`buildChatCompletion`, text branch + `tool_call` throw), `OpenAIChatRequest` Zod schema in `src/types.ts`. PA: APPROVED WITH NOTES; all 4 notes addressed. Green gate: 43 tests.
+- **[WS_04 T2+T3 implemented + PA-reviewed + signed off — 2026-06-11]** `src/validator.ts` complete: `parseAndValidate(raw): QuotagateCompleteResult` (pure core — OD-5) + `validateWithRetry(raw, messages, invoker)` (retry orchestrator, max 3 attempts, `ValidationError`-only retry, content-free `CORRECTION_NOTE` — WS_04-D3). T2: PA APPROVED WITH NOTES (2 notes applied: T-2 dual-assert, T-4 split). T3: PA APPROVED (1 carry-forward: T-3 content-free assert addressed inline; 1 doc-only note). Green gate: 56 tests (was 43); typecheck · lint · format clean.
 
 **What is being worked on**:
 
-- Nothing mid-flight — T1 and T4 signed off and archived; ready for T2.
+- Nothing mid-flight.
 
 **Active task trackers**:
 
-- `docs/active/TASK_WS04_T2.md` — validator core (`parseAndValidate`). ⬚ Not started, implementation-ready.
-- `docs/active/TASK_WS04_T3.md` — retry orchestrator (`validateWithRetry`). ⬚ Not started, implementation-ready.
+- None — `docs/active/` holds only `TEMPLATE.md`.
 
 **What is next**:
 
-1. **WS_04 T2** (BSE) — `parseAndValidate(raw): QuotagateCompleteResult` in `src/validator.ts`. Pure function; throws `ValidationError` on bad JSON or failed Zod parse. Then **T3** (same file, sequential) — `validateWithRetry` retry orchestrator around T2's core.
-2. **Then WS_05** — Fastify proxy server (`src/proxy.ts`); wires `buildAdapterRequest` → `adapter.complete()` → `validateWithRetry` → `buildChatCompletion`.
+1. **WS_05** — Fastify proxy server (`src/proxy.ts`); wires `buildAdapterRequest` → `adapter.complete()` → `validateWithRetry` → `buildChatCompletion`. Zod-parses the incoming OpenAI request body; guards `stream:true` with HTTP 400; inline model-alias lookup (Phase 1B: no `router.ts` yet); maps `ValidationError` → HTTP 500 and unknown alias → HTTP 400.
+2. **Then WS_06** — no-tools E2E integration test (live `ClaudeAdapter` + `parseAndValidate` + `buildChatCompletion` on the success path).
 
 **Resolved decisions** (settled — ≤2 blocks inline; older ones in `docs/archive/decisions.md`):
 

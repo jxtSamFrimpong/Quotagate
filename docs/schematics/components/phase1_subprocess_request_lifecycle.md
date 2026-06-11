@@ -218,7 +218,7 @@ QuotagateCompleteResult.type
 | `AdapterRequest`, `AdapterResponse`, `QuotagateCompleteResult` Zod schema | `types.ts`           | Phase 1A      | WS_01      |
 | `OpenAIChatRequest` Zod schema (proxy parse target + builder input)       | `types.ts`           | Phase 1B      | WS_04      |
 | `buildAdapterRequest`                                                     | `argumentBuilder.ts` | Phase 1B      | WS_04      |
-| `parseAndValidate` (T2) + `validateWithRetry` (T3, scaffold)             | `validator.ts`       | Phase 1B      | WS_04      |
+| `parseAndValidate` (T2) + `validateWithRetry` (T3)                        | `validator.ts`       | Phase 1B      | WS_04      |
 | `buildChatCompletion` (text branch)                                       | `responseBuilder.ts` | Phase 1B      | WS_04      |
 | Fastify server, Zod body parse, `stream:true` guard                       | `proxy.ts`           | Phase 1B      | WS_05      |
 | `loadConfig`                                                              | `config.ts`          | Phase 1B      | WS_05      |
