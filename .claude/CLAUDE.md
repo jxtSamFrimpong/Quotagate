@@ -1,7 +1,7 @@
 # CLAUDE.md — Project Knowledge Base
 
 > **Last Updated**: 2026-06-11
-> **Status**: 🟢 **WS_05 elevated to Implementation-Ready (56 tests, docs only). 4 decisions locked (WS_05-D5…D8: `yaml` dep · `~/.quotagate/config.yaml` · `priority?` · fail-loud config); 4 trackers authored.** Next: WS_05 T1 (`src/config.ts`).
+> **Status**: 🟢 **WS_05 T1 signed off — `src/config.ts` config loader implemented, reviewed, advisories applied (61 tests). T2 next (`src/proxy.ts` skeleton).**
 
 ---
 
@@ -268,20 +268,22 @@ current task and leaves no constraint behind, it is not a decision.
 **What was completed**:
 
 - **[Milestone — Phase 1A + WS_04 complete — 2026-06-11]** Phase 1A (WS_01–WS_03, 33 tests): `types.ts`, `errors.ts`, `CLIAdapter`, `ClaudeAdapter`, `buildConstrainedPrompt`, `sanitisedEnv()`. WS_04 OpenAI translation pipeline signed off (56 tests): `argumentBuilder.ts` (`buildAdapterRequest`), `responseBuilder.ts` (`buildChatCompletion`), `validator.ts` (`parseAndValidate` + `validateWithRetry`), `OpenAIChatRequest` Zod schema.
-- **[WS_05 elevated to Implementation-Ready — 2026-06-11]** Principal-architect critical-review elevation of the Fastify proxy & config workstream. Caught + fixed stale `validate()` → `validateWithRetry(raw, messages, invoker)` pipeline wiring and a dependency-correction (T3/T4 _do_ depend on WS_04). Authored 4 task trackers (`TASK_WS05_T1…T4`). Resolved 4 user decisions → locked as **WS_05-D5…D8**: `yaml` runtime dep · default config path `~/.quotagate/config.yaml` (via `os.homedir()`) · `models` entries carry `priority?` · absent config is fail-loud (no auto-write). Spec finding: `~/.quotagate/config.yaml` is the spec-canonical location (spec line 798) — the path is spec-aligned, and the elevation's own `process.cwd()` recommendation was the divergent one. Docs only; green gate unchanged (56 tests).
+- **[WS_05 T1 signed off — 2026-06-11]** `src/config.ts` implemented by BSE and reviewed by principal architect (APPROVED WITH ADVISORIES). `QuotagateConfigSchema` (Zod), `QuotagateConfig` + `ModelEntry` type exports, `loadConfig(path?)` — three-boundary error wrapping (ENOENT / YAML / Zod), all failures collapse to `QuotagateError`. 4 fixture files in `tests/fixtures/`. 3 PA advisories applied inline: `nodePath` alias removed, T-5 `result.mcp` assertion added, `ModelEntry` type exported. 61 tests (56 baseline + 5 new). All WS_05-D5…D8 decisions implemented and confirmed.
 
 **What is being worked on**:
 
-- Nothing mid-flight — WS_05 elevation is complete; implementation (T1) not yet started.
+- Nothing mid-flight.
 
 **Active task trackers**:
 
-- **`TASK_WS05_T1…T4`** in `docs/active/` — authored this session, all ⬚ Not started. **T1** (`config.ts`) is unblocked and ready; T2→T1, T3→T2 (+ WS_04, signed off), T4→T2+T3.
+- **`TASK_WS05_T2`** — proxy skeleton (`createServer`, `setErrorHandler`, stream/alias guards). Unblocked (T1 signed off).
+- **`TASK_WS05_T3`** — full pipeline wiring. Blocked on T2.
+- **`TASK_WS05_T4`** — CLI `index.ts`. Blocked on T2 + T3.
 
 **What is next**:
 
-1. **WS_05 T1** — `src/config.ts`: add `yaml` dep; Zod `QuotagateConfig` schema (`models` alias → `{ backend; priority? }`, `retry.max_attempts`, `mcp` stub); `loadConfig(path?)` reads `~/.quotagate/config.yaml` via `os.homedir()` and wraps all failures (ENOENT/YAML/Zod) as `QuotagateError` — fail-loud with create-it guidance (WS_05-D8). Plus `tests/fixtures/config.minimal.yaml` + `tests/config.test.ts`.
-2. **Then T2 → T3 → T4** — proxy skeleton (`createServer`, `setErrorHandler`, `stream:true`/alias guards) → full pipeline wiring (`buildAdapterRequest` → `adapter.complete()` → `validateWithRetry` → `buildChatCompletion`) → CLI `index.ts` (`quotagate start`, health-check-before-listen).
+1. **WS_05 T2** — `src/proxy.ts` skeleton: `createServer(config, adapter)` factory, `setErrorHandler` (exhaustive `QuotagateError` → HTTP mapping), `POST /v1/chat/completions` route with Zod body parse + `stream:true` guard + unknown-alias guard + stub pipeline body. Plus `tests/proxy.test.ts` (T-0 through T-5).
+2. **Then T3 → T4** — full pipeline wiring (`buildAdapterRequest` → `adapter.complete()` → `validateWithRetry` → `buildChatCompletion`) → CLI `index.ts` (`quotagate start`, health-check-before-listen).
 3. **Then WS_06** — no-tools E2E integration test (live `ClaudeAdapter` + `validateWithRetry`/`parseAndValidate` + `buildChatCompletion` on the success path).
 
 **Resolved decisions** (settled — ≤2 blocks inline; older ones in `docs/archive/decisions.md`):

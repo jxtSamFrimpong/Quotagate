@@ -1,0 +1,9 @@
+models:
+  claude-sonnet-4-6:
+    backend: claude
+    priority: 1
+retry:
+  max_attempts: 3
+mcp:
+  claude_server_startup_timeout_s: 10
+  health_check_interval_s: 30

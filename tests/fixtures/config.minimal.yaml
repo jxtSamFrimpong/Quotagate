@@ -1,0 +1,6 @@
+models:
+  claude-sonnet-4-6:
+    backend: claude
+    priority: 1
+retry:
+  max_attempts: 3

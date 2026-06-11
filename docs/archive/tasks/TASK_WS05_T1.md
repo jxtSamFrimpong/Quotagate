@@ -104,12 +104,12 @@ All decisions affecting this task are resolved and locked in the WS_05 plan (WS_
 
 | #  | Subtask                                                                                         | Status        | Iteration | Notes |
 |----|-------------------------------------------------------------------------------------------------|---------------|-----------|-------|
-| 1  | Add `yaml` to `dependencies` (`npm install yaml`) — runtime dep, not dev (WS_05-D5)             | ⬚ Not started | —         |       |
-| 2  | Define `QuotagateConfigSchema` Zod schema in `src/config.ts`; export inferred `QuotagateConfig` type | ⬚ Not started | —     |       |
-| 3  | Implement `loadConfig(path?)`: resolve default path, read file, parse YAML, Zod-validate, wrap errors as `QuotagateError` | ⬚ Not started | — | |
-| 4  | Create `tests/fixtures/config.minimal.yaml` fixture (minimal valid config matching spec §3.9)   | ⬚ Not started | —         |       |
-| 5  | Write `tests/config.test.ts`: valid fixture parses; missing `models` throws `QuotagateError`; unknown fields stripped; MCP keys pass; file-not-found throws with path in message | ⬚ Not started | — | |
-| 6  | Green gate: `npm test` · `typecheck` · `lint` · `format`                                        | ⬚ Not started | —         |       |
+| 1  | Add `yaml` to `dependencies` (`npm install yaml`) — runtime dep, not dev (WS_05-D5)             | ✅ Done       | 1         | `yaml@^2.9.0` in `dependencies`; `npm install` exited 0 |
+| 2  | Define `QuotagateConfigSchema` Zod schema in `src/config.ts`; export inferred `QuotagateConfig` type | ✅ Done  | 1         | Schema covers models, retry, mcp stub (z.record(z.unknown()).optional()); `fallback_to_subprocess_after_failures` optional |
+| 3  | Implement `loadConfig(path?)`: resolve default path, read file, parse YAML, Zod-validate, wrap errors as `QuotagateError` | ✅ Done | 1 | All three failure paths (ENOENT, YAML parse, ZodError) re-thrown as QuotagateError; raw errors never escape |
+| 4  | Create `tests/fixtures/config.minimal.yaml` fixture (minimal valid config matching spec §3.9)   | ✅ Done       | 1         | Plus `config.no_models.yaml`, `config.unknown_key.yaml`, `config.with_mcp.yaml` |
+| 5  | Write `tests/config.test.ts`: valid fixture parses; missing `models` throws `QuotagateError`; unknown fields stripped; MCP keys pass; file-not-found throws with path in message | ✅ Done | 1 | T-2 assertion corrected during gate run: `not.toBeInstanceOf(ZodError)` instead of `Error.prototype.constructor` |
+| 6  | Green gate: `npm test` · `typecheck` · `lint` · `format`                                        | ✅ Done       | 1         | 61 tests (56 baseline + 5 new); typecheck clean; lint clean; format no diff |
 
 _Status icons: `✅ Done` | `🔄 In progress` | `⬚ Not started` | `❌ Blocked`_
 
@@ -245,14 +245,155 @@ accepted — either is acceptable as long as it does not throw).
 
 ## Review Notes
 
-_(Architect fills after BSE submits.)_
+**Reviewed by**: Principal Architect, 2026-06-11
+**Verdict**: APPROVED WITH ADVISORIES
+
+Gate confirmed live: 61 tests / typecheck clean / lint clean / format no diff.
+
+---
+
+### Blocking Findings
+
+None.
+
+---
+
+### Advisory Findings (non-blocking — should address in a follow-up or the relevant downstream task)
+
+**ADV-1 — `nodePath` alias is unnecessary noise**
+
+`import nodePath from 'node:path'` exists solely to avoid shadowing a local named `path`. But the
+parameter is named `configPath`, so there is no actual shadowing. The alias adds cognitive overhead
+for every reader who has to check why `path` was renamed. The correct fix is straightforward:
+`import path from 'node:path'` and leave the parameter name unchanged. This is a readability issue
+per the Principle of Least Astonishment — a reader should not have to stop and ask "why is this
+called nodePath?". Suggested fix for the BSE in T2 or as a standalone cleanup commit: rename the
+import back to `path`.
+
+**ADV-2 — T-5 assertion gap: `result.mcp` is never asserted as defined**
+
+T-5 asserts only `expect(result).toBeDefined()`, which passes even if the YAML parser silently
+dropped the `mcp` block or if the schema coerced it to `undefined`. The fixture contains an
+explicit `mcp:` block, so the test should confirm what it claims to prove: that MCP keys survive
+the parse round-trip. A minimal additional assertion `expect(result.mcp).toBeDefined()` would
+catch a regression where `mcp` becomes accidentally required or the `z.record().optional()` is
+replaced with a stricter schema that rejects the fixture. The assertion adds one line and eliminates
+the gap between what the test name says and what the test checks. Suggested fix: add
+`expect(result.mcp).toBeDefined()` immediately after the existing assertion in T-5. This is
+advisory rather than blocking because A4 (the `z.record(z.unknown()).optional()` acceptance) is
+confirmed by the gate passing; the gap is test expressiveness, not a correctness defect.
+
+**ADV-3 — `ModelEntrySchema` not exported; downstream test construction will need the inferred type
+only**
+
+T2 (`proxy.ts`) and T4 (`index.ts`) will construct `QuotagateConfig` literals in tests. The
+inferred `QuotagateConfig` type (exported) is sufficient for TypeScript assignability checks.
+However, if a downstream test ever needs to build a `ModelEntry` value and get type feedback, it
+will construct `{ backend: string; priority?: number }` inline — which is fine structurally but
+adds fragility if the schema changes and the inline literal is not updated. There are two acceptable
+resolutions: (a) export `ModelEntrySchema` so downstream tests can import the Zod type directly, or
+(b) add a `ModelEntry` type alias (`export type ModelEntry = z.infer<typeof ModelEntrySchema>`) as a
+named export. Option (b) costs one line and closes the gap without exposing the Zod artifact. I
+recommend option (b) as a preparatory step before T2, where the type will first be needed. Either
+way, this is advisory — the current gate is clean, and a future BSE can resolve this when T2 tests
+are authored and the absence of the export causes friction.
+
+---
+
+### Observations (no action required)
+
+**OBS-1 — `err as NodeJS.ErrnoException` cast is safe for this call site**
+
+The concern raised about the cast: `fs.readFileSync` with the `'utf8'` encoding flag can only throw
+a `NodeJS.ErrnoException` in Node 20+ (the ENOENT, EACCES, and all other fs errors are typed as
+`ErrnoException` by `@types/node`). The non-ENOENT branch (`Could not read config at …:
+${nodeErr.message}`) handles EACCES and every other errno correctly — `nodeErr.message` on an
+EACCES produces a human-readable string like `"EACCES: permission denied, open '/path'"`, which is
+informative without leaking internals. The cast is justified and the fallthrough branch is correct.
+
+**OBS-2 — YAML error summary truncation at `split('\n')[0]` is an adequate boundary**
+
+The first line of a `yaml` parse error contains the failure type and character offset (e.g.,
+`"Implicit keys need to be on a single line at line 3, column 5"`), which is actionable for a
+developer. Truncating at `\n` prevents multi-line raw parser output from appearing in a public
+error message while retaining the essential location signal. This satisfies EF2's "non-leaking
+message" requirement. No change needed.
+
+**OBS-3 — `DEFAULT_CONFIG_PATH` computed at module load time is acceptable for Phase 1**
+
+`os.homedir()` is evaluated once when the module is first imported. In the current test suite, no
+test manipulates `HOME` or `USERPROFILE`, so there is no isolation risk today. If a future test
+needs to override the default path it passes an explicit `configPath` argument — the function
+signature already supports this. The module-load evaluation is correct for a startup-gate pattern
+where the config path is a deployment constant, not a per-request variable. No change needed.
+
+**OBS-4 — `backend: z.string()` open-string is the correct Phase 1 choice**
+
+Locking `backend` to an enum of `"claude" | "gemini" | "codex"` today would be premature: Phase 2
+adds Gemini and Codex adapters, and the spec does not enumerate the exact string set in §3.9. An
+open string allows a developer to add a provider name in config before the adapter lands, avoiding a
+config-breaking schema change. The right time to narrow this to an enum is when the adapter set
+stabilises (likely at Phase 2 completion). No change needed in Phase 1.
+
+**OBS-5 — `QuotagateConfigSchema` export is correct and necessary**
+
+WS_06's integration test boot sequence may need to assert schema-level properties. Exporting the
+schema (alongside the inferred type) is the right call — it costs nothing and enables downstream
+consumers to do programmatic schema introspection without reimplementing the shape. Confirmed
+correct.
+
+**OBS-6 — Synchronous I/O is correct at the startup gate**
+
+CLAUDE.md's "async-first" rule applies to adapter/transport I/O on the request path, not to
+module-import-time initialization. `loadConfig` is called once during `quotagate start`, before
+the Fastify server begins accepting connections. Using `fs.readFileSync` here is the right call:
+it makes the failure mode synchronous and immediate, which is exactly what a fail-loud startup
+gate should do. Using `fs.promises.readFile` at startup would require the caller to `await` the
+call, adding async plumbing to `index.ts` for no benefit. The distinction between "startup
+initialization" and "request-path I/O" should be documented in `index.ts` when T4 is implemented,
+so future maintainers do not reflexively convert this to async.
+
+---
+
+### Success Criteria Verification
+
+| # | Criterion | Result |
+|---|-----------|--------|
+| SC-1 | `loadConfig("tests/fixtures/config.minimal.yaml")` returns `QuotagateConfig` | PASS — T-1 passes; gate green |
+| SC-2 | Missing `models` key → `QuotagateError` (not `ZodError`) | PASS — T-2 passes; `instanceof QuotagateError` + `not.toBeInstanceOf(ZodError)` both assert |
+| SC-3 | File not found → `QuotagateError` with resolved path in message | PASS — T-3 passes; message `.toContain(missingPath)` asserts |
+| SC-4 | Unknown top-level key stripped from result | PASS — T-4 passes; `not.toHaveProperty('unknown_key')` asserts |
+| SC-5 | Spec §3.9 MCP keys parse without error | PASS — T-5 passes (assertion gap noted in ADV-2, non-blocking) |
+| SC-6 | `QuotagateConfig` TypeScript type exported; `tsc --noEmit` clean; zero `any` casts | PASS — type exported; typecheck exits 0; no `any` in the file |
+| SC-7 | `npm test` green; test count ≥56 | PASS — 61 tests, all passing |
+| SC-8 | typecheck · lint · format all clean | PASS — all three commands exit clean; format reports no diff |
+
+### Assumptions Verification
+
+| # | Assumption | Verdict |
+|---|-----------|---------|
+| A1 | `yaml` parses YAML into a plain JS object | CONFIRMED — T-1 passes with the fixture round-trip |
+| A2 | Zod `.strip()` drops unknown top-level keys | CONFIRMED — T-4 passes; `unknown_key` absent from result |
+| A3 | `QuotagateError` wrapping retains path info | CONFIRMED — T-3 passes; path in message asserted |
+| A4 | `z.record(z.unknown()).optional()` accepts Phase-2 MCP keys | CONFIRMED — T-5 passes; no Zod error thrown |
+
+### Scope Fence Verification
+
+Checked `src/config.ts` line by line. None of the following are present:
+- Config hot-reload — absent
+- Auto-creating `~/.quotagate/` or default config file — absent (D8 honored)
+- Validation of `mcp.*` field values — absent (stub only)
+- `retry.fallback_to_subprocess_after_failures` validation logic — stubbed as optional, not read
+- Any `proxy.ts` or `index.ts` code — absent
+
+Scope fence is clean.
 
 ---
 
 ## Architect Sign-off
 
-- [ ] Implementation reviewed
-- [ ] All success criteria verified
-- [ ] All assumptions resolved (proven, or fallback taken & documented)
-- [ ] No regressions in full test suite
-- [ ] `npm test` / `typecheck` / `lint` / `format` all clean
+- [x] Implementation reviewed
+- [x] All success criteria verified
+- [x] All assumptions resolved (proven, or fallback taken & documented)
+- [x] No regressions in full test suite
+- [x] `npm test` / `typecheck` / `lint` / `format` all clean
