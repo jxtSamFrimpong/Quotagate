@@ -1,7 +1,7 @@
 # CLAUDE.md — Project Knowledge Base
 
 > **Last Updated**: 2026-06-10
-> **Status**: 🟢 **Phase 1A — WS_03 complete (33 tests; all integration tests passing; Phase 1A signed off).** Next: WS_04 (validator + retry).
+> **Status**: 🟢 **Phase 1A signed off (33 tests). WS_04 (Phase 1B OpenAI translation pipeline) elevated to implementation-ready — 7 open decisions locked, 4 task trackers staged.** Next: implement WS_04 T1.
 
 ---
 
@@ -267,55 +267,34 @@ current task and leaves no constraint behind, it is not a decision.
 
 **What was completed**:
 
-- **[Milestone — WS_01–WS_03 T1 complete — 2026-06-10]** Toolchain, `src/types.ts`, `src/errors.ts`, `CLIAdapter`, `buildConstrainedPrompt`, `sanitisedEnv()`, `ClaudeAdapter`; allowlist `{PATH, USER}` confirmed; 30 unit tests + T-I1 (constraint integration test) passing. All WS_01–WS_02 decisions archived.
-- **[TASK_WS03_T2 complete + archived — 2026-06-10]** `tests/integration/executionSuppression.integration.test.ts` (T-I2): `read_file` tool schema; asserts `type:'tool_call'`; SENTINEL_CONTENT absence proves no execution. `CONSTRAINT_INSTRUCTIONS` moved to `--system-prompt` (injection-detection fix; spec §3.2); unit tests T-1/T-8/T-13 updated to inverse-contract assertions. 32 tests. PA-reviewed APPROVE-WITH-NITS. WS_03-T2-SYSTEM-PROMPT locked.
-- **[TASK_WS03_T3 complete + archived — 2026-06-10]** `tests/integration/contamination.sequential.integration.test.ts` (T-I3): two sequential real `adapter.complete()` calls; TOKEN injected in Call A; TOKEN-absence asserted on Call B's `raw`; both responses Zod-parsed. EF-T3-1: timeout raised to 60_000 ms (concurrent fork load empirical). 33 tests. PA-reviewed APPROVE-WITH-NITS; nits applied inline.
-- **[TASK_WS03_T4 complete + archived — 2026-06-10]** `vitest.config.ts` updated with CI-gated integration test exclude (WS_03-D4). EF-T3-3 resolved: T-I1/T-I2 raised to 60 s, T-I3 raised to 90 s under concurrent fork load (empirical). All three integration tests pass locally (T-I1, T-I2, T-I3). Green gate clean: 30 unit tests · typecheck · lint · format. WS_03 marked Complete. Phase 1A signed off.
+- **[Milestone — WS_01–WS_03 complete + Phase 1A signed off — 2026-06-10]** Toolchain; `src/types.ts`, `src/errors.ts`, `CLIAdapter`, `buildConstrainedPrompt`, `sanitisedEnv()` (allowlist `{PATH, USER}`), `ClaudeAdapter`; constraint delivered via `--system-prompt` (WS_03-T2). Three integration tests prove the adapter against the real subscription — T-I1 (constraint), T-I2 (execution-suppression), T-I3 (sequential contamination) — CI-gated exclude (WS_03-D4). Green gate: 30 unit + 3 integration = 33; typecheck · lint · format clean. All WS_01–WS_03 decisions archived.
+- **[WS_04 elevated to implementation-ready — 2026-06-10]** PA elevation pass on the Phase-1B OpenAI translation pipeline. Architect surfaced 7 open decisions; user resolved all 7 (OD-1…OD-7, see WS_04-D5 below). Created 4 task trackers (`TASK_WS04_T1–T4` in `docs/active/`); fixed workstream doc bugs (contradictory `validate()` signature → OD-5 split; `toolChoice:"auto"` SC → pass-through; `ChatCompletion` SC missing `created`/`logprobs`; estimate/status). Synced the `phase1_subprocess_request_lifecycle.md` schematic to the OD-5 split + OD-7. Committed `45d7db3`. No code yet — trackers' Review/Sign-off left for post-implementation.
 
 **What is being worked on**:
 
-- Nothing mid-flight.
+- Nothing mid-flight — WS_04 elevation complete and committed; ready to implement T1.
 
 **Active task trackers**:
 
-- None.
+- `docs/active/TASK_WS04_T1.md` — argumentBuilder (`buildAdapterRequest`). ⬚ Not started, implementation-ready.
+- `docs/active/TASK_WS04_T2.md` — validator core (`parseAndValidate`). ⬚ Not started, implementation-ready.
+- `docs/active/TASK_WS04_T3.md` — retry orchestrator (`validateWithRetry`). ⬚ Not started, implementation-ready.
+- `docs/active/TASK_WS04_T4.md` — responseBuilder (`buildChatCompletion`). ⬚ Not started, implementation-ready.
 
 **What is next**:
 
-1. **WS_04** — validator + retry loop (`src/validator.ts`; `QuotagateCompleteResultSchema` Zod parsing, retry logic).
-2. **Then WS_05** — Fastify proxy server (`src/proxy.ts`).
+1. **Implement WS_04** (BSE) — order: **T1 ∥ T4** in parallel (independent; T4 first adds the pinned `openai` dep), then **T2 → T3** (same file, sequential). Green gate per task.
+2. **Then WS_05** — Fastify proxy server (`src/proxy.ts`); wires `buildAdapterRequest` → `adapter.complete()` → `validateWithRetry` → `buildChatCompletion`.
 
 **Resolved decisions** (settled — ≤2 blocks inline; older ones in `docs/archive/decisions.md`):
-
-**Decisions resolved (2026-06-09)**:
-
-- **WS_02-D2-allowlist — `sanitisedEnv()` confirmed allowlist [LOCKED].** Empirical spike on macOS
-  (darwin 25.5.0, claude 2.1.170). **Confirmed minimum allowlist: `{PATH, USER}`.**
-  - `PATH`: required for OS subprocess binary resolution.
-  - `USER`: required for `claude` subscription auth — the auth token lookup path requires USER identity.
-    Removing USER while keeping HOME causes auth failure ("Not logged in").
-  - `HOME`: NOT required — Node's `os.homedir()` resolves from `/etc/passwd` via UID lookup when
-    `$HOME` is absent, so `claude`'s config path works without it. Intentionally excluded to avoid
-    leaking a filesystem path.
-  - **healthCheck probe command**: `claude auth status` — exits 0 and returns a structured JSON object
-    (`{ loggedIn, authMethod, apiProvider, email, ... }`) when authenticated; exits non-zero otherwise.
-    Confirmed working under stripped env (`{PATH, USER}` only).
-  - **Haiku path-leak class vars confirmed absent**: `PWD`, `OLDPWD`, `HOME`, `SHELL`, `SHLVL`,
-    `TERM`, `TERM_PROGRAM`, `ITERM_SESSION_ID`, `COLORTERM`, `NVM_DIR`, `JAVA_HOME`, `GOPATH`,
-    `CARGO_HOME`, `npm_config_prefix` — none required; all safely stripped. No Haiku leak class var
-    was unavoidably retained.
-  - **macOS-specific note** (EF4): spike run on macOS only. The `/etc/passwd` UID fallback for
-    `os.homedir()` is POSIX-standard; Linux should behave identically. However, the confirmed
-    allowlist is macOS-empirical — a Linux CI run should re-validate before production.
-  - _Rejected — include HOME_: unnecessary on macOS/Linux (passwd UID fallback); reveals a filesystem
-    path to the subprocess environment.
-  - _Rejected — include all common CI vars_: speculative; not confirmed by spike.
 
 **Decisions resolved (2026-06-10)**:
 
 - **WS_03-T2-SYSTEM-PROMPT — `CONSTRAINT_INSTRUCTIONS` delivered via `--system-prompt`, not stdin [LOCKED].** `_completeViaSubprocess()` spawns `claude ['--print', '--system-prompt', CONSTRAINT_INSTRUCTIONS]`. `buildConstrainedPrompt()` serializes tools + conversation only — `CONSTRAINT_INSTRUCTIONS` is absent from the stdin payload. _Rationale:_ sending constraint text via stdin (user-turn channel) triggers Claude's injection-detection safety heuristics ~2-in-3 when a `tools` array is present — the model correctly identifies user-turn behavioral overrides as adversarial. The `--system-prompt` flag delivers the constraint through the privileged system prompt channel, where the model treats it as a legitimate configuration directive. This is also a more faithful realization of spec §3.2's "constraint system prompt on every request." Unit tests T-1/T-8/T-13 in `buildConstrainedPrompt.test.ts` assert the inverse contract (constraint phrases absent from stdin payload) as a regression guard. _Rejected — stdin injection with rewording:_ probabilistic failure rate persists regardless of phrasing because the issue is structural (channel), not lexical (words). _Rejected — early Mechanism B upgrade:_ D-SEQ-01 is locked; Phase 2 is the correct home for MCP transport.
 
-> Older decisions archived to `docs/archive/decisions.md` (D-LANG, D-STATELESS, WS_02-D3, WS_02-D-T2-02, WS_03-D4).
+- **WS_04-D5 — OpenAI translation-pipeline open decisions resolved (OD-1…OD-7) [LOCKED].** WS_04 elevation locked 7 decisions. Load-bearing: **OD-5 — validator split:** pure `parseAndValidate(raw)` (T2) + `validateWithRetry(raw, messages, invoker)` orchestrator (T3), both in `validator.ts`; the `invoker` callback is the seam the Phase-2 MCP transport substitutes into (neither function changes). **OD-1 — `toolChoice`:** the builder passes `tool_choice` through verbatim; the adapter's `?? 'auto'` (claude.ts:90) is the sole default (honors WS_04-D1). **OD-7 — `tool_call`:** the validator returns a schema-valid `tool_call` faithfully; `responseBuilder` is the single loud rejection point. Supporting: **OD-2** add `openai` dep (pinned major, `import type` only); **OD-3** hand-rolled `OpenAIChatRequest` Zod schema in `types.ts`; **OD-4** `tool_call` stub throws base `QuotagateError`; **OD-6** validator does not strip markdown fences (fenced → retry, never silently normalized). Full dated blocks + rejected alternatives in `docs/plan/workstreams/ws04_translation_pipeline.md` §Locked Decisions. _Rejected (OD-5) — single inline `validate(raw, invoker, attempt)`:_ fuses parse/validate to re-invocation, untestable in isolation. _Rejected (OD-1) — inject `"auto"` at the builder:_ duplicates the default and binds all future backends to it.
+
+> Older decisions archived to `docs/archive/decisions.md` (D-LANG, D-STATELESS, WS_02-D3, WS_02-D-T2-02, WS_02-D2-allowlist, WS_03-D4).
 
 **Open decisions for user**:
 

@@ -76,6 +76,23 @@ _(Locked by Principal Architect in TASK_WS02_T4 planning, 2026-06-08. Implemente
 
 _(Decision ID WS_02-D-T2-02. Implemented in TASK_WS02_T2, 2026-06-09. Confirmed by T-7 in `tests/adapters/buildConstrainedPrompt.test.ts`. Archived from Session State by /house-keeping, 2026-06-10.)_
 
+### WS_02-D2-allowlist — `sanitisedEnv()` Minimum Env Allowlist `{PATH, USER}` [LOCKED, empirical spike, 2026-06-09]
+
+**Choice**: `sanitisedEnv()` passes only `{PATH, USER}` to the `claude --print` subprocess. Empirical spike on macOS (darwin 25.5.0, claude 2.1.170) confirmed this minimum allowlist.
+
+- `PATH`: required for OS subprocess binary resolution.
+- `USER`: required for `claude` subscription auth — the auth token lookup path requires USER identity. Removing USER while keeping HOME causes auth failure ("Not logged in").
+- `HOME`: NOT required — Node's `os.homedir()` resolves from `/etc/passwd` via UID lookup when `$HOME` is absent, so `claude`'s config path works without it. Intentionally excluded to avoid leaking a filesystem path.
+- **healthCheck probe command**: `claude auth status` — exits 0 and returns a structured JSON object (`{ loggedIn, authMethod, apiProvider, email, ... }`) when authenticated; exits non-zero otherwise. Confirmed working under stripped env (`{PATH, USER}` only).
+- **Haiku path-leak class vars confirmed absent**: `PWD`, `OLDPWD`, `HOME`, `SHELL`, `SHLVL`, `TERM`, `TERM_PROGRAM`, `ITERM_SESSION_ID`, `COLORTERM`, `NVM_DIR`, `JAVA_HOME`, `GOPATH`, `CARGO_HOME`, `npm_config_prefix` — none required; all safely stripped.
+- **macOS-specific note** (EF4): spike run on macOS only. The `/etc/passwd` UID fallback for `os.homedir()` is POSIX-standard; Linux should behave identically, but the confirmed allowlist is macOS-empirical — a Linux CI run should re-validate before production.
+
+**Rejected — include HOME**: unnecessary on macOS/Linux (passwd UID fallback); reveals a filesystem path to the subprocess environment.
+
+**Rejected — include all common CI vars**: speculative; not confirmed by spike.
+
+_(Decision ID WS_02-D2-allowlist. Confirmed by empirical spike, 2026-06-09. Archived from `.claude/CLAUDE.md` Session State by /house-keeping, 2026-06-10.)_
+
 ---
 
 ## 2026-06-10

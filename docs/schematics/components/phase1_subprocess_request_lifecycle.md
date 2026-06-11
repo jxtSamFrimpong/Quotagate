@@ -114,7 +114,7 @@ OpenAI SDK client
         v
 +-----------------------------------------------+
 |  src/validator.ts  [Phase 1B/1C — WS_04/07/08]|
-|  validate(raw, invoker, attempt)               |
+|  parseAndValidate + retry-loop                 |
 |                                                |
 |  1. JSON.parse(raw)                            |
 |     fails → retry (see retry loop below)       |
@@ -217,11 +217,10 @@ QuotagateCompleteResult.type
 | `sanitisedEnv`                                                           | `adapters/claude.ts` | Phase 1A      | WS_02      |
 | `AdapterRequest`, `AdapterResponse`, `QuotagateCompleteResult` Zod schema | `types.ts`           | Phase 1A      | WS_01      |
 | `buildAdapterRequest`                                                     | `argumentBuilder.ts` | Phase 1B      | WS_04      |
-| `validate` (success path, text branch, retry loop scaffolded)             | `validator.ts`       | Phase 1B      | WS_04      |
+| `parseAndValidate` (T2) + `validateWithRetry` (T3, scaffold)             | `validator.ts`       | Phase 1B      | WS_04      |
 | `buildChatCompletion` (text branch)                                       | `responseBuilder.ts` | Phase 1B      | WS_04      |
 | Fastify server, Zod body parse, `stream:true` guard                       | `proxy.ts`           | Phase 1B      | WS_05      |
 | `loadConfig`                                                              | `config.ts`          | Phase 1B      | WS_05      |
-| `validate` tool-call Zod branch                                           | `validator.ts`       | Phase 1C      | WS_07      |
 | `buildChatCompletion` tool-call branch                                    | `responseBuilder.ts` | Phase 1C      | WS_07      |
 | Retry loop fully exercised (live path, exhaustion → HTTP 500)             | `validator.ts`       | Phase 1C      | WS_08      |
 | `resolve` (single-backend alias resolver)                                 | `router.ts`          | Phase 1C      | WS_08      |
