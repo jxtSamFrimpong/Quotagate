@@ -110,3 +110,15 @@ _(Decision ID WS_02-D2-allowlist. Confirmed by empirical spike, 2026-06-09. Arch
 **Rejected — require integration tests to pass in CI from day one**: Blocks every CI run on auth secrets. Phase 4 DX concern, not Phase 1A.
 
 _(Locked in TASK_WS03_T4 planning by Principal Architect, 2026-06-09. Implemented in TASK_WS03_T4 by BSE, 2026-06-10. Archived from task tracker by /house-keeping, 2026-06-10.)_
+
+---
+
+### WS_03-T2-SYSTEM-PROMPT — `CONSTRAINT_INSTRUCTIONS` delivered via `--system-prompt`, not stdin [LOCKED]
+
+**Choice**: `_completeViaSubprocess()` spawns `claude ['--print', '--system-prompt', CONSTRAINT_INSTRUCTIONS]`. `buildConstrainedPrompt()` serializes tools + conversation only — `CONSTRAINT_INSTRUCTIONS` is absent from the stdin payload.
+
+**Rationale**: sending constraint text via stdin (user-turn channel) triggers Claude's injection-detection safety heuristics ~2-in-3 when a `tools` array is present — the model correctly identifies user-turn behavioral overrides as adversarial. The `--system-prompt` flag delivers the constraint through the privileged system prompt channel, where the model treats it as a legitimate configuration directive. This is also a more faithful realization of spec §3.2's "constraint system prompt on every request." Unit tests T-1/T-8/T-13 in `buildConstrainedPrompt.test.ts` assert the inverse contract (constraint phrases absent from stdin payload) as a regression guard.
+
+**Rejected — stdin injection with rewording**: probabilistic failure rate persists regardless of phrasing because the issue is structural (channel), not lexical (words). **Rejected — early Mechanism B upgrade**: D-SEQ-01 is locked; Phase 2 is the correct home for MCP transport.
+
+_(Decision ID WS_03-T2-SYSTEM-PROMPT. Locked 2026-06-10. Archived from `.claude/CLAUDE.md` Session State by /house-keeping, 2026-06-11.)_

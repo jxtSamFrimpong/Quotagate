@@ -1,7 +1,7 @@
 # CLAUDE.md — Project Knowledge Base
 
 > **Last Updated**: 2026-06-11
-> **Status**: 🟢 **WS_04 T1+T2+T3+T4 signed off (56 tests). `validator.ts` complete: `parseAndValidate` + `validateWithRetry` + full test suite.** Next: WS_05 (Fastify proxy server).
+> **Status**: 🟢 **WS_05 elevated to Implementation-Ready (56 tests, docs only). 4 decisions locked (WS_05-D5…D8: `yaml` dep · `~/.quotagate/config.yaml` · `priority?` · fail-loud config); 4 trackers authored.** Next: WS_05 T1 (`src/config.ts`).
 
 ---
 
@@ -267,32 +267,34 @@ current task and leaves no constraint behind, it is not a decision.
 
 **What was completed**:
 
-- **[Milestone — WS_01–WS_03 + WS_04 elevated — 2026-06-10]** Phase 1A complete (33 tests); `src/types.ts`, `src/errors.ts`, `CLIAdapter`, `ClaudeAdapter`, `buildConstrainedPrompt`, `sanitisedEnv()`; WS_04 elevated with 7 decisions locked (OD-1…OD-7); 4 task trackers staged.
-- **[WS_04 T1+T4 implemented + PA-reviewed + signed off — 2026-06-11]** `src/argumentBuilder.ts` (`buildAdapterRequest`), `src/responseBuilder.ts` (`buildChatCompletion`, text branch + `tool_call` throw), `OpenAIChatRequest` Zod schema in `src/types.ts`. PA: APPROVED WITH NOTES; all 4 notes addressed. Green gate: 43 tests.
-- **[WS_04 T2+T3 implemented + PA-reviewed + signed off — 2026-06-11]** `src/validator.ts` complete: `parseAndValidate(raw): QuotagateCompleteResult` (pure core — OD-5) + `validateWithRetry(raw, messages, invoker)` (retry orchestrator, max 3 attempts, `ValidationError`-only retry, content-free `CORRECTION_NOTE` — WS_04-D3). T2: PA APPROVED WITH NOTES (2 notes applied: T-2 dual-assert, T-4 split). T3: PA APPROVED (1 carry-forward: T-3 content-free assert addressed inline; 1 doc-only note). Green gate: 56 tests (was 43); typecheck · lint · format clean.
+- **[Milestone — Phase 1A + WS_04 complete — 2026-06-11]** Phase 1A (WS_01–WS_03, 33 tests): `types.ts`, `errors.ts`, `CLIAdapter`, `ClaudeAdapter`, `buildConstrainedPrompt`, `sanitisedEnv()`. WS_04 OpenAI translation pipeline signed off (56 tests): `argumentBuilder.ts` (`buildAdapterRequest`), `responseBuilder.ts` (`buildChatCompletion`), `validator.ts` (`parseAndValidate` + `validateWithRetry`), `OpenAIChatRequest` Zod schema.
+- **[WS_05 elevated to Implementation-Ready — 2026-06-11]** Principal-architect critical-review elevation of the Fastify proxy & config workstream. Caught + fixed stale `validate()` → `validateWithRetry(raw, messages, invoker)` pipeline wiring and a dependency-correction (T3/T4 _do_ depend on WS_04). Authored 4 task trackers (`TASK_WS05_T1…T4`). Resolved 4 user decisions → locked as **WS_05-D5…D8**: `yaml` runtime dep · default config path `~/.quotagate/config.yaml` (via `os.homedir()`) · `models` entries carry `priority?` · absent config is fail-loud (no auto-write). Spec finding: `~/.quotagate/config.yaml` is the spec-canonical location (spec line 798) — the path is spec-aligned, and the elevation's own `process.cwd()` recommendation was the divergent one. Docs only; green gate unchanged (56 tests).
 
 **What is being worked on**:
 
-- Nothing mid-flight.
+- Nothing mid-flight — WS_05 elevation is complete; implementation (T1) not yet started.
 
 **Active task trackers**:
 
-- None — `docs/active/` holds only `TEMPLATE.md`.
+- **`TASK_WS05_T1…T4`** in `docs/active/` — authored this session, all ⬚ Not started. **T1** (`config.ts`) is unblocked and ready; T2→T1, T3→T2 (+ WS_04, signed off), T4→T2+T3.
 
 **What is next**:
 
-1. **WS_05** — Fastify proxy server (`src/proxy.ts`); wires `buildAdapterRequest` → `adapter.complete()` → `validateWithRetry` → `buildChatCompletion`. Zod-parses the incoming OpenAI request body; guards `stream:true` with HTTP 400; inline model-alias lookup (Phase 1B: no `router.ts` yet); maps `ValidationError` → HTTP 500 and unknown alias → HTTP 400.
-2. **Then WS_06** — no-tools E2E integration test (live `ClaudeAdapter` + `parseAndValidate` + `buildChatCompletion` on the success path).
+1. **WS_05 T1** — `src/config.ts`: add `yaml` dep; Zod `QuotagateConfig` schema (`models` alias → `{ backend; priority? }`, `retry.max_attempts`, `mcp` stub); `loadConfig(path?)` reads `~/.quotagate/config.yaml` via `os.homedir()` and wraps all failures (ENOENT/YAML/Zod) as `QuotagateError` — fail-loud with create-it guidance (WS_05-D8). Plus `tests/fixtures/config.minimal.yaml` + `tests/config.test.ts`.
+2. **Then T2 → T3 → T4** — proxy skeleton (`createServer`, `setErrorHandler`, `stream:true`/alias guards) → full pipeline wiring (`buildAdapterRequest` → `adapter.complete()` → `validateWithRetry` → `buildChatCompletion`) → CLI `index.ts` (`quotagate start`, health-check-before-listen).
+3. **Then WS_06** — no-tools E2E integration test (live `ClaudeAdapter` + `validateWithRetry`/`parseAndValidate` + `buildChatCompletion` on the success path).
 
 **Resolved decisions** (settled — ≤2 blocks inline; older ones in `docs/archive/decisions.md`):
 
-**Decisions resolved (2026-06-10)**:
+**Decisions resolved (2026-06-11)**:
 
-- **WS_03-T2-SYSTEM-PROMPT — `CONSTRAINT_INSTRUCTIONS` delivered via `--system-prompt`, not stdin [LOCKED].** `_completeViaSubprocess()` spawns `claude ['--print', '--system-prompt', CONSTRAINT_INSTRUCTIONS]`. `buildConstrainedPrompt()` serializes tools + conversation only — `CONSTRAINT_INSTRUCTIONS` is absent from the stdin payload. _Rationale:_ sending constraint text via stdin (user-turn channel) triggers Claude's injection-detection safety heuristics ~2-in-3 when a `tools` array is present — the model correctly identifies user-turn behavioral overrides as adversarial. The `--system-prompt` flag delivers the constraint through the privileged system prompt channel, where the model treats it as a legitimate configuration directive. This is also a more faithful realization of spec §3.2's "constraint system prompt on every request." Unit tests T-1/T-8/T-13 in `buildConstrainedPrompt.test.ts` assert the inverse contract (constraint phrases absent from stdin payload) as a regression guard. _Rejected — stdin injection with rewording:_ probabilistic failure rate persists regardless of phrasing because the issue is structural (channel), not lexical (words). _Rejected — early Mechanism B upgrade:_ D-SEQ-01 is locked; Phase 2 is the correct home for MCP transport.
+- **WS_05-D5…D8 — Fastify proxy & config open decisions resolved (OD-1/OD-2/OD-3 + DD-1) [LOCKED].** WS_05 elevation locked 4 decisions. **D5 (OD-1):** add `yaml` as a runtime dep (`import { parse }`) — pure-JS, zero-dep, spec §3.9-aligned. **D6 (OD-2):** default config path `~/.quotagate/config.yaml` via `os.homedir()` (never `process.cwd()` / literal `~`) — the spec-canonical location (spec line 798), pulled forward from Phase-4 DX and co-located with invariant-#9's `~/.quotagate/` home. **D7 (OD-3):** `QuotagateConfig.models` entry is `{ backend; priority? }` — matches spec §3.9, zero migration when `router.ts` arrives. **D8 (DD-1):** absent config is fail-loud (throw create-it `QuotagateError` → `process.exit(1)`); no auto-write, honoring D-SEQ-01's no-installer fence. Full dated blocks + rejected alternatives in `docs/plan/workstreams/ws05_fastify_proxy_and_config.md` §Locked Decisions. _This pass corrected the elevation's own OD-2 analysis, which had recommended the spec-unnamed `process.cwd()`._ _Rejected (OD-2) — `process.cwd()`:_ spec names no project-local path; misses config when run from a subdirectory. _Rejected (DD-1) — auto-write a default config:_ installer-class disk write deferred by D-SEQ-01.
+
+**Decisions resolved (2026-06-10)**:
 
 - **WS_04-D5 — OpenAI translation-pipeline open decisions resolved (OD-1…OD-7) [LOCKED].** WS_04 elevation locked 7 decisions. Load-bearing: **OD-5 — validator split:** pure `parseAndValidate(raw)` (T2) + `validateWithRetry(raw, messages, invoker)` orchestrator (T3), both in `validator.ts`; the `invoker` callback is the seam the Phase-2 MCP transport substitutes into (neither function changes). **OD-1 — `toolChoice`:** the builder passes `tool_choice` through verbatim; the adapter's `?? 'auto'` (claude.ts:90) is the sole default (honors WS_04-D1). **OD-7 — `tool_call`:** the validator returns a schema-valid `tool_call` faithfully; `responseBuilder` is the single loud rejection point. Supporting: **OD-2** add `openai` dep (pinned major, `import type` only); **OD-3** hand-rolled `OpenAIChatRequest` Zod schema in `types.ts`; **OD-4** `tool_call` stub throws base `QuotagateError`; **OD-6** validator does not strip markdown fences (fenced → retry, never silently normalized). Full dated blocks + rejected alternatives in `docs/plan/workstreams/ws04_translation_pipeline.md` §Locked Decisions. _Rejected (OD-5) — single inline `validate(raw, invoker, attempt)`:_ fuses parse/validate to re-invocation, untestable in isolation. _Rejected (OD-1) — inject `"auto"` at the builder:_ duplicates the default and binds all future backends to it.
 
-> Older decisions archived to `docs/archive/decisions.md` (D-LANG, D-STATELESS, WS_02-D3, WS_02-D-T2-02, WS_02-D2-allowlist, WS_03-D4).
+> Older decisions archived to `docs/archive/decisions.md` (D-LANG, D-STATELESS, WS_02-D3, WS_02-D-T2-02, WS_02-D2-allowlist, WS_03-D4, WS_03-T2-SYSTEM-PROMPT).
 
 **Open decisions for user**:
 
