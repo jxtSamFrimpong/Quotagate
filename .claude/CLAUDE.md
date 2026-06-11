@@ -1,7 +1,7 @@
 # CLAUDE.md — Project Knowledge Base
 
 > **Last Updated**: 2026-06-11
-> **Status**: 🟢 **WS_05 T1 signed off — `src/config.ts` config loader implemented, reviewed, advisories applied (61 tests). T2 next (`src/proxy.ts` skeleton).**
+> **Status**: 🟢 **WS_05 T2 signed off — `src/proxy.ts` skeleton implemented, reviewed, advisories applied (70 tests). T3 next (full pipeline wiring).**
 
 ---
 
@@ -267,8 +267,8 @@ current task and leaves no constraint behind, it is not a decision.
 
 **What was completed**:
 
-- **[Milestone — Phase 1A + WS_04 complete — 2026-06-11]** Phase 1A (WS_01–WS_03, 33 tests): `types.ts`, `errors.ts`, `CLIAdapter`, `ClaudeAdapter`, `buildConstrainedPrompt`, `sanitisedEnv()`. WS_04 OpenAI translation pipeline signed off (56 tests): `argumentBuilder.ts` (`buildAdapterRequest`), `responseBuilder.ts` (`buildChatCompletion`), `validator.ts` (`parseAndValidate` + `validateWithRetry`), `OpenAIChatRequest` Zod schema.
-- **[WS_05 T1 signed off — 2026-06-11]** `src/config.ts` implemented by BSE and reviewed by principal architect (APPROVED WITH ADVISORIES). `QuotagateConfigSchema` (Zod), `QuotagateConfig` + `ModelEntry` type exports, `loadConfig(path?)` — three-boundary error wrapping (ENOENT / YAML / Zod), all failures collapse to `QuotagateError`. 4 fixture files in `tests/fixtures/`. 3 PA advisories applied inline: `nodePath` alias removed, T-5 `result.mcp` assertion added, `ModelEntry` type exported. 61 tests (56 baseline + 5 new). All WS_05-D5…D8 decisions implemented and confirmed.
+- **[Milestone — Phase 1A + WS_04 + WS_05 T1 complete — 2026-06-11]** Phase 1A (WS_01–WS_03, 33 tests): core types/errors/adapters. WS_04 translation pipeline (56 tests): `argumentBuilder.ts`, `responseBuilder.ts`, `validator.ts`. WS_05 T1: `src/config.ts` `loadConfig` (61 tests).
+- **[WS_05 T2 signed off — 2026-06-11]** `src/proxy.ts` skeleton implemented (BSE) and reviewed (PA: APPROVED WITH ADVISORIES, all advisories applied). `createServer(config, adapter)` Fastify factory; `setErrorHandler` exhaustive mapping (ValidationError/TransportError/QuotagateError/Fastify-internal/catch-all); `POST /v1/chat/completions` with Zod parse + stream guard + alias guard + configurable stub. `tests/proxy.test.ts` (T-0…T-5 + T-3c + T-4b = 9 test cases). Key advisories: Fastify-internal JSON-parse errors re-mapped from 500 → 400 (Invariant #5 fix); all `setErrorHandler` branches now exercised; `backend !== "claude"` alias-guard branch covered. 70 tests (61 baseline + 9 new).
 
 **What is being worked on**:
 
@@ -276,15 +276,14 @@ current task and leaves no constraint behind, it is not a decision.
 
 **Active task trackers**:
 
-- **`TASK_WS05_T2`** — proxy skeleton (`createServer`, `setErrorHandler`, stream/alias guards). Unblocked (T1 signed off).
-- **`TASK_WS05_T3`** — full pipeline wiring. Blocked on T2.
-- **`TASK_WS05_T4`** — CLI `index.ts`. Blocked on T2 + T3.
+- **`TASK_WS05_T3`** — full pipeline wiring. Unblocked (T2 signed off).
+- **`TASK_WS05_T4`** — CLI `index.ts`. Blocked on T3.
 
 **What is next**:
 
-1. **WS_05 T2** — `src/proxy.ts` skeleton: `createServer(config, adapter)` factory, `setErrorHandler` (exhaustive `QuotagateError` → HTTP mapping), `POST /v1/chat/completions` route with Zod body parse + `stream:true` guard + unknown-alias guard + stub pipeline body. Plus `tests/proxy.test.ts` (T-0 through T-5).
-2. **Then T3 → T4** — full pipeline wiring (`buildAdapterRequest` → `adapter.complete()` → `validateWithRetry` → `buildChatCompletion`) → CLI `index.ts` (`quotagate start`, health-check-before-listen).
-3. **Then WS_06** — no-tools E2E integration test (live `ClaudeAdapter` + `validateWithRetry`/`parseAndValidate` + `buildChatCompletion` on the success path).
+1. **WS_05 T3** — replace stub in `src/proxy.ts` route handler with real pipeline: `buildAdapterRequest` → `adapter.complete()` → `validateWithRetry(raw, messages, invoker)` → `buildChatCompletion` → `reply.send()`. Plus pipeline-wired test cases in `tests/proxy.test.ts` (success path, TransportError path, retry path, tool_call throw path).
+2. **Then T4** — CLI `src/index.ts`: `main(argv)` export, `quotagate start` (loadConfig → healthCheck → createServer → listen), stub `status`/`backends`. Tests in `tests/index.test.ts`.
+3. **Then WS_06** — no-tools E2E integration test (live `ClaudeAdapter` + full pipeline on the success path).
 
 **Resolved decisions** (settled — ≤2 blocks inline; older ones in `docs/archive/decisions.md`):
 

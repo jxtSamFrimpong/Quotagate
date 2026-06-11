@@ -131,11 +131,11 @@ Recommendation below is direct-send.
 
 | #  | Subtask                                                                                                   | Status        | Iteration | Notes |
 |----|-----------------------------------------------------------------------------------------------------------|---------------|-----------|-------|
-| 1  | Scaffold `src/proxy.ts`: `import Fastify`, define `createServer(config, adapter)` factory returning `FastifyInstance` | ⬚ Not started | — | |
-| 2  | Register `setErrorHandler` with exhaustive `QuotagateError` → HTTP mapping (V, T, Q, catch-all)          | ⬚ Not started | —         |       |
-| 3  | Register `POST /v1/chat/completions` route: parse body with `OpenAIChatRequestSchema.safeParse`; `stream` guard; alias guard; stub body | ⬚ Not started | — | |
-| 4  | Write `tests/proxy.test.ts` — T2 guard/error-handler cases (see Required Test Cases below)               | ⬚ Not started | —         |       |
-| 5  | Green gate: `npm test` · `typecheck` · `lint` · `format`                                                  | ⬚ Not started | —         |       |
+| 1  | Scaffold `src/proxy.ts`: `import Fastify`, define `createServer(config, adapter)` factory returning `FastifyInstance` | ✅ Done | 1 | |
+| 2  | Register `setErrorHandler` with exhaustive `QuotagateError` → HTTP mapping (V, T, Q, catch-all)          | ✅ Done | 1 | Fastify-internal pre-check added (Advisory A1) |
+| 3  | Register `POST /v1/chat/completions` route: parse body with `OpenAIChatRequestSchema.safeParse`; `stream` guard; alias guard; stub body | ✅ Done | 1 | stub calls `adapter.complete` to allow per-test error injection |
+| 4  | Write `tests/proxy.test.ts` — T2 guard/error-handler cases (see Required Test Cases below)               | ✅ Done | 2 | T-3c, T-4b added; T-4/T-5 rewritten to hit correct branches (Advisories A2/A3) |
+| 5  | Green gate: `npm test` · `typecheck` · `lint` · `format`                                                  | ✅ Done | 1 | 70 tests passing |
 
 _Status icons: `✅ Done` | `🔄 In progress` | `⬚ Not started` | `❌ Blocked`_
 
@@ -278,14 +278,21 @@ error" (i.e., the internal error message is NOT leaked); no `stack` field in the
 
 ## Review Notes
 
-_(Architect fills after BSE submits.)_
+**Verdict**: APPROVED WITH ADVISORIES (Principal Architect, 2026-06-11)
+
+**Advisories applied by BSE before T3:**
+
+- **A1 — setErrorHandler Fastify-internal pre-check**: Added a `statusCode < 500` pre-check as the first branch in `setErrorHandler` to re-map Fastify JSON-parse failures from HTTP 500 → 400 with OpenAI-shaped body. EF3 in this tracker incorrectly stated Fastify would emit a 400 by itself — it does not; the error reaches `setErrorHandler` as a `FastifyError` with a numeric `statusCode`.
+- **A2 — T-4/T-5 branch coverage**: Rewrote T-4 to throw `ValidationError` (asserts `code: "validation_error"`), added T-4b for `TransportError`, and rewrote T-5 to throw a raw `Error` and assert the internal message is NOT leaked (`error.message === "An internal error occurred"`). All three previously-untested `setErrorHandler` branches are now exercised.
+- **A3 — T-3c alias guard second branch**: Added T-3c to cover the `entry.backend !== 'claude'` branch (model present in config but wrong backend).
+- **SC-6 deferral note**: The catch-all raw-`Error` non-leaking behavior is now fully tested in T-5 (not deferred to T3/WS_06 as originally noted in the implementation).
 
 ---
 
 ## Architect Sign-off
 
-- [ ] Implementation reviewed
-- [ ] All success criteria verified
-- [ ] All assumptions resolved (proven, or fallback taken & documented)
-- [ ] No regressions in full test suite
-- [ ] `npm test` / `typecheck` / `lint` / `format` all clean
+- [x] Implementation reviewed
+- [x] All success criteria verified
+- [x] All assumptions resolved (proven, or fallback taken & documented)
+- [x] No regressions in full test suite
+- [x] `npm test` / `typecheck` / `lint` / `format` all clean
