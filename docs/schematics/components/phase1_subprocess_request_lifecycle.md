@@ -216,6 +216,7 @@ QuotagateCompleteResult.type
 | `buildConstrainedPrompt`                                                | `adapters/claude.ts` | Phase 1A      | WS_02      |
 | `sanitisedEnv`                                                           | `adapters/claude.ts` | Phase 1A      | WS_02      |
 | `AdapterRequest`, `AdapterResponse`, `QuotagateCompleteResult` Zod schema | `types.ts`           | Phase 1A      | WS_01      |
+| `OpenAIChatRequest` Zod schema (proxy parse target + builder input)       | `types.ts`           | Phase 1B      | WS_04      |
 | `buildAdapterRequest`                                                     | `argumentBuilder.ts` | Phase 1B      | WS_04      |
 | `parseAndValidate` (T2) + `validateWithRetry` (T3, scaffold)             | `validator.ts`       | Phase 1B      | WS_04      |
 | `buildChatCompletion` (text branch)                                       | `responseBuilder.ts` | Phase 1B      | WS_04      |

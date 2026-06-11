@@ -1,7 +1,7 @@
 # CLAUDE.md — Project Knowledge Base
 
-> **Last Updated**: 2026-06-10
-> **Status**: 🟢 **Phase 1A signed off (33 tests). WS_04 (Phase 1B OpenAI translation pipeline) elevated to implementation-ready — 7 open decisions locked, 4 task trackers staged.** Next: implement WS_04 T1.
+> **Last Updated**: 2026-06-11
+> **Status**: 🟢 **WS_04 T1+T4 signed off (43 tests). `argumentBuilder.ts`, `responseBuilder.ts`, `OpenAIChatRequest` schema complete + PA-reviewed.** Next: WS_04 T2 (`parseAndValidate`), then T3 (`validateWithRetry`).
 
 ---
 
@@ -263,27 +263,26 @@ current task and leaves no constraint behind, it is not a decision.
 
 ## Session State
 
-### Current Session (2026-06-10)
+### Current Session (2026-06-11)
 
 **What was completed**:
 
-- **[Milestone — WS_01–WS_03 complete + Phase 1A signed off — 2026-06-10]** Toolchain; `src/types.ts`, `src/errors.ts`, `CLIAdapter`, `buildConstrainedPrompt`, `sanitisedEnv()` (allowlist `{PATH, USER}`), `ClaudeAdapter`; constraint delivered via `--system-prompt` (WS_03-T2). Three integration tests prove the adapter against the real subscription — T-I1 (constraint), T-I2 (execution-suppression), T-I3 (sequential contamination) — CI-gated exclude (WS_03-D4). Green gate: 30 unit + 3 integration = 33; typecheck · lint · format clean. All WS_01–WS_03 decisions archived.
-- **[WS_04 elevated to implementation-ready — 2026-06-10]** PA elevation pass on the Phase-1B OpenAI translation pipeline. Architect surfaced 7 open decisions; user resolved all 7 (OD-1…OD-7, see WS_04-D5 below). Created 4 task trackers (`TASK_WS04_T1–T4` in `docs/active/`); fixed workstream doc bugs (contradictory `validate()` signature → OD-5 split; `toolChoice:"auto"` SC → pass-through; `ChatCompletion` SC missing `created`/`logprobs`; estimate/status). Synced the `phase1_subprocess_request_lifecycle.md` schematic to the OD-5 split + OD-7. Committed `45d7db3`. No code yet — trackers' Review/Sign-off left for post-implementation.
+- **[Milestone — WS_01–WS_03 complete + Phase 1A signed off — 2026-06-10]** Toolchain; `src/types.ts`, `src/errors.ts`, `CLIAdapter`, `buildConstrainedPrompt`, `sanitisedEnv()`, `ClaudeAdapter`; 33 tests green. All WS_01–WS_03 decisions archived.
+- **[WS_04 elevated to implementation-ready — 2026-06-10]** 7 open decisions locked (OD-1…OD-7); 4 task trackers staged; schematic synced. Committed `45d7db3`.
+- **[WS_04 T1+T4 implemented + PA-reviewed + signed off — 2026-06-11]** Implemented `src/argumentBuilder.ts` (`buildAdapterRequest`), `src/responseBuilder.ts` (`buildChatCompletion`, text branch + `tool_call` throw), `OpenAIChatRequest` Zod schema in `src/types.ts`. Added `openai@^6` (devDep — `import type` only; OD-2 corrected from deps post-review). PA review APPROVED WITH NOTES; all 4 notes implemented: `openai`→devDeps, `tool_choice` tightened to `z.enum(['auto','required','none'])` (spec §3.5 — was open `z.string()`), object-form `tool_choice` gap documented in WS_07 Known Pitfalls, `usage` null-vs-undefined check documented in WS_06 Known Pitfalls. Schematic updated (+`OpenAIChatRequest` row). Green gate: 43 tests (was 33); typecheck · lint · format clean.
 
 **What is being worked on**:
 
-- Nothing mid-flight — WS_04 elevation complete and committed; ready to implement T1.
+- Nothing mid-flight — T1 and T4 signed off and archived; ready for T2.
 
 **Active task trackers**:
 
-- `docs/active/TASK_WS04_T1.md` — argumentBuilder (`buildAdapterRequest`). ⬚ Not started, implementation-ready.
 - `docs/active/TASK_WS04_T2.md` — validator core (`parseAndValidate`). ⬚ Not started, implementation-ready.
 - `docs/active/TASK_WS04_T3.md` — retry orchestrator (`validateWithRetry`). ⬚ Not started, implementation-ready.
-- `docs/active/TASK_WS04_T4.md` — responseBuilder (`buildChatCompletion`). ⬚ Not started, implementation-ready.
 
 **What is next**:
 
-1. **Implement WS_04** (BSE) — order: **T1 ∥ T4** in parallel (independent; T4 first adds the pinned `openai` dep), then **T2 → T3** (same file, sequential). Green gate per task.
+1. **WS_04 T2** (BSE) — `parseAndValidate(raw): QuotagateCompleteResult` in `src/validator.ts`. Pure function; throws `ValidationError` on bad JSON or failed Zod parse. Then **T3** (same file, sequential) — `validateWithRetry` retry orchestrator around T2's core.
 2. **Then WS_05** — Fastify proxy server (`src/proxy.ts`); wires `buildAdapterRequest` → `adapter.complete()` → `validateWithRetry` → `buildChatCompletion`.
 
 **Resolved decisions** (settled — ≤2 blocks inline; older ones in `docs/archive/decisions.md`):
