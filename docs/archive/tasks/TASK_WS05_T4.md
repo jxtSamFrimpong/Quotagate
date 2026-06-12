@@ -103,13 +103,13 @@
 
 | #  | Subtask                                                                                                                     | Status        | Iteration | Notes |
 |----|-----------------------------------------------------------------------------------------------------------------------------|---------------|-----------|-------|
-| 1  | Replace the two-line stub in `src/index.ts` with a structured `main()` function (or top-level `switch`)                    | ⬚ Not started | —         |       |
-| 2  | Implement `quotagate start`: `loadConfig()` → catch + exit 1; `new ClaudeAdapter()`; `healthCheck()` → exit 1 if false; `createServer()`; `server.listen()` | ⬚ Not started | — | |
-| 3  | Implement `quotagate status` and `quotagate backends` stubs: log "not implemented in Phase 1" and exit 0                   | ⬚ Not started | —         |       |
-| 4  | Handle unknown subcommand and missing subcommand (bare `quotagate` with no args)                                            | ⬚ Not started | —         |       |
-| 5  | Write `tests/index.test.ts`: health-check false exits 1 with readable message; config error exits 1; unknown command exits 1 | ⬚ Not started | — | |
-| 6  | Manual smoke test: `npx tsx src/index.ts start` with real config + auth                                                     | ⬚ Not started | —         |       |
-| 7  | Green gate: `npm test` · `typecheck` · `lint` · `format`                                                                    | ⬚ Not started | —         |       |
+| 1  | Replace the two-line stub in `src/index.ts` with a structured `main()` function (or top-level `switch`)                    | ✅ Done       | 1         | Named `main(argv?)` export; top-level call guarded by `import.meta.url` check (ESM main-module guard) |
+| 2  | Implement `quotagate start`: `loadConfig()` → catch + exit 1; `new ClaudeAdapter()`; `healthCheck()` → exit 1 if false; `createServer()`; `server.listen()` | ✅ Done | 1 | All EF1–EF4 paths implemented; EF3 intentionally propagates as unhandled rejection |
+| 3  | Implement `quotagate status` and `quotagate backends` stubs: log "not implemented in Phase 1" and exit 0                   | ✅ Done       | 1         | Both branches log and return (exit 0 via fall-through) |
+| 4  | Handle unknown subcommand and missing subcommand (bare `quotagate` with no args)                                            | ✅ Done       | 1         | `default` branch: `cmd ?? '(none)'` label + exit 1 |
+| 5  | Write `tests/index.test.ts`: health-check false exits 1 with readable message; config error exits 1; unknown command exits 1 | ✅ Done     | 3         | T-1–T-5 all pass; used `vi.hoisted()` for mock fn refs (hoisting constraint); `vi.fn(function(){})` for constructor mock. PA advisories applied: A3 assertion added to T-4; T-6 added for EF4 coverage (80 tests). |
+| 6  | Manual smoke test: `npx tsx src/index.ts start` with real config + auth                                                     | ⬚ Not started | —         | Deferred — operator-environment dependent; WS_06 integration test covers the in-process path |
+| 7  | Green gate: `npm test` · `typecheck` · `lint` · `format`                                                                    | ✅ Done       | 2         | 80 tests (74 baseline + 6 new: T-1–T-6); typecheck clean; lint clean; format no diff |
 
 _Status icons: `✅ Done` | `🔄 In progress` | `⬚ Not started` | `❌ Blocked`_
 
@@ -254,14 +254,74 @@ non-zero code (the stub exits 0 or simply returns).
 
 ## Review Notes
 
-_(Architect fills after BSE submits.)_
+**Verdict: APPROVED WITH ADVISORIES** — 2026-06-11, Principal Architect
+
+### Summary
+
+The implementation is correct, minimal, and well-structured. All five expected failure paths are handled precisely as specified. The test suite covers T-1 through T-5 faithfully, uses `vi.hoisted()` correctly, and the `process.exit` spy pattern is sound. No blockers. Two advisories are raised — one on a latent `loadConfig()` argument inconsistency visible only when the real module is exercised, and one on a missing EF4 test coverage gap. Both are addressable in this task before sign-off.
+
+---
+
+### [ADVISORY 1] `loadConfig()` called with no argument — consistent with D6, but test does not assert it
+
+**Location**: `src/index.ts:18` / `tests/index.test.ts` (missing assertion)
+
+**Issue**: `loadConfig()` is called with zero arguments at line 18, which correctly relies on `config.ts`'s internal `DEFAULT_CONFIG_PATH` default — consistent with D6 (WS_05-D6: default path via `os.homedir()`). The tracker's Assumption A3 explicitly requires a test asserting `loadConfig` is called with `undefined` (no explicit path), and the `mockLoadConfig` spy is already in place. This assertion is absent from T-2 and is not covered by any other test case. If a future engineer adds a `configPath` argument to the `main()` call (e.g., for a `--config` flag in Phase 4), no test will catch the regression.
+
+**Fix**: In T-2 (or as a dedicated assertion in T-4), add `expect(mockLoadConfig).toHaveBeenCalledWith()` (called with no arguments) after the `main(["start"])` invocation. This is a one-line addition that locks the A3 assumption into the test contract.
+
+---
+
+### [ADVISORY 2] EF4 (`server.listen()` rejection) has no test case
+
+**Location**: `tests/index.test.ts` (missing test)
+
+**Issue**: The tracker specifies EF4 explicitly and SC-4's verifiability column says "T-4 passes" — but T-4 only covers the happy path. The EF4 code path (lines 41–48 of `src/index.ts`) is the `try/catch` around `server.listen()` that formats the error message with the port number and calls `process.exit(1)`. This path is live production code with a non-trivial message format (`"Failed to start server on port 8080: ${msg}"`), and it has zero test coverage. If this catch block were accidentally deleted, or if the port number were dropped from the message, no test would fail. The tracker's required test list (T-1 through T-5) does not include an EF4 test, so the BSE did not overstep — but the gap is real and the tracker omitted it.
+
+**Fix**: Add a T-6 test: configure `mockListen` to reject with `new Error("address already in use")`, invoke `main(["start"])`, assert `exitSpy` called with `1`, assert stderr contains `"8080"`. This closes the coverage gap and matches the spirit of EF4's specification in the tracker.
+
+---
+
+### Spec Invariant Checks (all pass)
+
+- **Invariant #10 (Persist the process, never the conversation)**: `index.ts` passes no conversation state into `ClaudeAdapter` or `createServer`. Clean.
+- **Invariant #6 (MCP primary, subprocess fallback)**: `ClaudeAdapter` is used only via the `CLIAdapter` interface — `healthCheck()` and then `createServer(config, adapter)`. No direct subprocess calls or `ClaudeAdapter`-specific method calls outside the interface. Clean.
+- **Invariant #4 (Every adapter implements the same interface)**: `new ClaudeAdapter()` is the only concrete instantiation, but `createServer` receives it typed as `CLIAdapter`. The hardcoded `new ClaudeAdapter()` is a D3-scoped Phase 1 decision and is correct for this phase. Multi-backend wiring is explicitly deferred to Phase 2.
+- **Invariant #3 (Stateless per request)**: `index.ts` holds no request state. Clean.
+- **Invariant #2 (No API keys)**: No credentials are requested, stored, or passed. Clean.
+
+---
+
+### Decision Compliance
+
+- **D1**: `switch(cmd)` on `argv?.[0]` — no CLI framework. Correct.
+- **D2**: Named `main(argv?)` export; top-level call guarded by `import.meta.url === process.argv[1]` comparison via `fileURLToPath`. Correct and idiomatic ESM.
+- **D3**: No `quotagate install`, no `--config` flags, no multi-backend, no hot-reload. Clean scope fence.
+- **WS_05-D6**: `loadConfig()` called with zero arguments; default path resolution stays inside `config.ts`. Correct.
+
+---
+
+### Success Criteria Status
+
+| #    | Met? | Notes |
+|------|------|-------|
+| SC-1 | YES  | T-1 passes; spy called with `1`; stderr checked for "not installed" or "not authenticated" |
+| SC-2 | YES  | T-2 passes; `QuotagateError` caught, exit 1, no rethrow |
+| SC-3 | YES  | T-3 passes; stderr contains "deploy" and "Unknown command" |
+| SC-4 | YES  | T-4 passes; `listen` spy asserted with `{ port: 8080, host: "127.0.0.1" }` |
+| SC-5 | YES  | T-4 asserts `process.exit` NOT called; ready log at line 50 is present in implementation |
+| SC-6 | YES  | T-5 passes; `main(["status"])` resolves without throwing, exit not called |
+| SC-7 | YES  | 79 tests (74 baseline + 5 new); no regressions |
+| SC-8 | YES  | `npm run typecheck` clean; `npm run lint` clean; `npm run format` no diff |
 
 ---
 
 ## Architect Sign-off
 
-- [ ] Implementation reviewed
-- [ ] All success criteria verified
-- [ ] All assumptions resolved (proven, or fallback taken & documented)
-- [ ] No regressions in full test suite
-- [ ] `npm test` / `typecheck` / `lint` / `format` all clean
+- [x] Implementation reviewed
+- [x] All success criteria verified
+- [x] All assumptions resolved (proven, or fallback taken & documented)
+- [x] No regressions in full test suite
+- [x] `npm test` / `typecheck` / `lint` / `format` all clean
+
+**Advisory follow-up (2026-06-11)**: Both advisories applied and verified. 80 tests. T4 signed off.

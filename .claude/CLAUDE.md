@@ -1,7 +1,7 @@
 # CLAUDE.md — Project Knowledge Base
 
-> **Last Updated**: 2026-06-11
-> **Status**: 🟢 **WS_05 T3 signed off — full pipeline wired in `src/proxy.ts`, reviewed, advisories applied (74 tests). T4 next (CLI `src/index.ts`).**
+> **Last Updated**: 2026-06-12
+> **Status**: 🟢 **WS_05 complete — all T1–T4 signed off. Phase 1B MVP fully wired (`src/index.ts` → `src/proxy.ts` → adapters). 80 tests. WS_06 next (E2E integration test).**
 
 ---
 
@@ -263,25 +263,25 @@ current task and leaves no constraint behind, it is not a decision.
 
 ## Session State
 
-### Current Session (2026-06-11)
+### Current Session (2026-06-12)
 
 **What was completed**:
 
 - **[Milestone — Phase 1A + WS_04 + WS_05 T1/T2 complete — 2026-06-11]** Phase 1A (WS_01–WS_03, 33 tests): core types/errors/adapters. WS_04 translation pipeline (56 tests): `argumentBuilder.ts`, `responseBuilder.ts`, `validator.ts`. WS_05 T1: `src/config.ts` `loadConfig` (61 tests). WS_05 T2: `src/proxy.ts` skeleton — `createServer` factory, exhaustive `setErrorHandler`, guards (70 tests).
-- **[WS_05 T3 signed off — 2026-06-11]** Full pipeline wired in `src/proxy.ts` route handler (BSE) and reviewed (PA: APPROVED WITH ADVISORIES, all advisories applied). Pipeline: `buildAdapterRequest` → `adapter.complete()` → invoker closure → `validateWithRetry(raw, messages, invoker)` → `buildChatCompletion` → `reply.send()`. No try/catch in handler; all errors propagate to `setErrorHandler`. 4 new pipeline-wired test cases (T-1 success, T-2 TransportError, T-3 retry with first+second call shape assertions, T-4 tool_call 500). Key advisories: T-3 first-call message-length assertion added; T3-T-2 comment distinguishing it from T2 block's T-4b. 74 tests (70 baseline + 4 new).
+- **[WS_05 T3 signed off — 2026-06-11]** Full pipeline wired in `src/proxy.ts` route handler (BSE) and reviewed (PA: APPROVED WITH ADVISORIES, all advisories applied). Pipeline: `buildAdapterRequest` → `adapter.complete()` → invoker closure → `validateWithRetry(raw, messages, invoker)` → `buildChatCompletion` → `reply.send()`. No try/catch in handler; all errors propagate to `setErrorHandler`. 4 new pipeline-wired test cases (T-1 success, T-2 TransportError, T-3 retry with first+second call shape assertions, T-4 tool_call 500). 74 tests (70 baseline + 4 new).
+- **[WS_05 T4 signed off — 2026-06-12]** CLI `src/index.ts` — `main(argv?)` export (D2) + `quotagate start` sequence: `loadConfig()` → catch `QuotagateError` (stderr, exit 1) → `new ClaudeAdapter()` → `healthCheck()` → false guard (stderr, exit 1) → `createServer(config, adapter)` → `server.listen({ port: 8080, host: '127.0.0.1' })` → catch listen error (stderr + port, exit 1) → ready log. ESM main-module guard (`fileURLToPath`). `status`/`backends` stubs + unknown-command guard (D1: switch, no CLI framework). T-1–T-6 (inc. PA advisory fixes: A3 zero-arg assertion in T-4; T-6 EF4 coverage). WS_05 complete. 80 tests (79 baseline + 1 advisory T-6).
 
 **What is being worked on**:
 
-- Nothing mid-flight.
+- Nothing.
 
 **Active task trackers**:
 
-- **`TASK_WS05_T4`** — CLI `src/index.ts`. Unblocked (T3 signed off).
+- None.
 
 **What is next**:
 
-1. **WS_05 T4** — CLI `src/index.ts`: `main(argv)` export, `quotagate start` (loadConfig → healthCheck → createServer → listen), stub `status`/`backends`. Tests in `tests/index.test.ts`.
-2. **Then WS_06** — no-tools E2E integration test (live `ClaudeAdapter` + full pipeline on the success path).
+1. **WS_06** — no-tools E2E integration test: live `ClaudeAdapter` + full pipeline on the success path (`loadConfig` → `createServer` → inject request → assert OpenAI-shaped response).
 
 **Resolved decisions** (settled — ≤2 blocks inline; older ones in `docs/archive/decisions.md`):
 
