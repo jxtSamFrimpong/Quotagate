@@ -1,7 +1,7 @@
 # CLAUDE.md — Project Knowledge Base
 
 > **Last Updated**: 2026-06-12
-> **Status**: 🟢 **WS_05 complete — all T1–T4 signed off. Phase 1B MVP fully wired (`src/index.ts` → `src/proxy.ts` → adapters). 80 tests. WS_06 next (E2E integration test).**
+> **Status**: 🟢 **WS_05 complete — Phase 1B MVP fully wired. 80 tests. WS_06 elevated to implementation-ready (T1–T4 trackers in `docs/active/`). T1 ready for BSE.**
 
 ---
 
@@ -267,9 +267,8 @@ current task and leaves no constraint behind, it is not a decision.
 
 **What was completed**:
 
-- **[Milestone — Phase 1A + WS_04 + WS_05 T1/T2 complete — 2026-06-11]** Phase 1A (WS_01–WS_03, 33 tests): core types/errors/adapters. WS_04 translation pipeline (56 tests): `argumentBuilder.ts`, `responseBuilder.ts`, `validator.ts`. WS_05 T1: `src/config.ts` `loadConfig` (61 tests). WS_05 T2: `src/proxy.ts` skeleton — `createServer` factory, exhaustive `setErrorHandler`, guards (70 tests).
-- **[WS_05 T3 signed off — 2026-06-11]** Full pipeline wired in `src/proxy.ts` route handler (BSE) and reviewed (PA: APPROVED WITH ADVISORIES, all advisories applied). Pipeline: `buildAdapterRequest` → `adapter.complete()` → invoker closure → `validateWithRetry(raw, messages, invoker)` → `buildChatCompletion` → `reply.send()`. No try/catch in handler; all errors propagate to `setErrorHandler`. 4 new pipeline-wired test cases (T-1 success, T-2 TransportError, T-3 retry with first+second call shape assertions, T-4 tool_call 500). 74 tests (70 baseline + 4 new).
-- **[WS_05 T4 signed off — 2026-06-12]** CLI `src/index.ts` — `main(argv?)` export (D2) + `quotagate start` sequence: `loadConfig()` → catch `QuotagateError` (stderr, exit 1) → `new ClaudeAdapter()` → `healthCheck()` → false guard (stderr, exit 1) → `createServer(config, adapter)` → `server.listen({ port: 8080, host: '127.0.0.1' })` → catch listen error (stderr + port, exit 1) → ready log. ESM main-module guard (`fileURLToPath`). `status`/`backends` stubs + unknown-command guard (D1: switch, no CLI framework). T-1–T-6 (inc. PA advisory fixes: A3 zero-arg assertion in T-4; T-6 EF4 coverage). WS_05 complete. 80 tests (79 baseline + 1 advisory T-6).
+- **[Milestone — Phase 1B MVP complete — 2026-06-12]** Phase 1A (WS_01–WS_03, 33 tests): core types/errors/adapters. WS_04 translation pipeline (56 tests): `argumentBuilder.ts`, `responseBuilder.ts`, `validator.ts`. WS_05 (all T1–T4 signed off, 80 tests): `src/config.ts` `loadConfig`, `src/proxy.ts` `createServer` + full pipeline wired (`buildAdapterRequest` → `adapter.complete()` → `validateWithRetry` → `buildChatCompletion`), `src/index.ts` CLI entrypoint (`quotagate start`).
+- **[WS_06 elevated to implementation-ready — 2026-06-12]** PA reviewed `ws06_e2e_no_tools.md`, applied 8 corrections: port:0 ephemeral binding pattern (F1), raw `fetch` primary for `stream: true` test (F2), config fixture confirmed existing from WS_05 (F3), `ctx.skip()` guard API corrected from `vi.skip()` (F4), 60s timeout (F5), `response.usage` assertion clarified (F6), `response.object` added to success criteria (F7), T3 fixture independence corrected (F8). Created `TASK_WS06_T1–T4.md` in `docs/active/`. T1 is unblocked.
 
 **What is being worked on**:
 
@@ -277,11 +276,14 @@ current task and leaves no constraint behind, it is not a decision.
 
 **Active task trackers**:
 
-- None.
+- `docs/active/TASK_WS06_T1.md` — Server fixture + smoke test (⬚ Not started)
+- `docs/active/TASK_WS06_T2.md` — Happy-path E2E test (⬚ Not started)
+- `docs/active/TASK_WS06_T3.md` — Error-path tests (⬚ Not started)
+- `docs/active/TASK_WS06_T4.md` — Green-gate close-out (⬚ Not started)
 
 **What is next**:
 
-1. **WS_06** — no-tools E2E integration test: live `ClaudeAdapter` + full pipeline on the success path (`loadConfig` → `createServer` → inject request → assert OpenAI-shaped response).
+1. **WS_06 T1** — Author test fixture: `beforeAll` starts Fastify server in-process via `createServer`, `port: 0` ephemeral bind, `ctx.skip()` guard on `healthCheck()`, `afterAll` teardown, T-1 smoke test. BSE to implement.
 
 **Resolved decisions** (settled — ≤2 blocks inline; older ones in `docs/archive/decisions.md`):
 

@@ -87,11 +87,11 @@ _T1 is a prerequisite for T2 and T3 (fixture must exist). T2 and T3 are independ
 
 ### Test fixture lifecycle (owned by T1 → consumed by T2, T3)
 
-T1's `beforeAll`/`afterAll` pattern is the shared fixture for all tests in this workstream. T2 and T3 use the `openai` SDK client instance and the server URL produced by T1. Do not re-start the server per test — a single server per describe block is sufficient and faster.
+T1's `beforeAll`/`afterAll` pattern is the shared fixture for T2. T3 lives in a separate file (`e2e.errorPaths.test.ts`) with its own identical `beforeAll`/`afterAll` — the error-path tests have a 10-second timeout versus T2's 60-second timeout, and collocating them would force the wrong timeout on both. T2 uses the `openai` SDK client from T1's `beforeAll`; T3 uses raw `fetch` with the bound port. Do not re-start the server per test within a `describe` block.
 
 ### `healthCheck()` guard pattern (inherited from WS_03-D2 → applied in T1)
 
-T1 calls `adapter.healthCheck()` before registering any test cases. If it returns false, `vi.skip()` is called at the describe level. The pattern is identical to WS_03 T1. WS_09 will follow the same pattern for the acceptance suite.
+T1 calls `adapter.healthCheck()` inside each `it()` callback. If it returns false, `ctx.skip()` is called (Vitest context parameter — the `ctx` object passed to the test callback). This is the established pattern in this repo — see `tests/integration/constraint.integration.test.ts`. Do not use `vi.skip()` or describe-level skipping. WS_09 will follow the same pattern for the acceptance suite.
 
 ### Phase 1B sign-off (produced by T4 → consumed by WS_07/WS_08 as the gate)
 
@@ -99,7 +99,7 @@ WS_06 T4 completion is the formal gate for Phase 1C. WS_07 and WS_08 must not be
 
 ### `createServer` / `loadConfig` (inherited from WS_05 → consumed by T1)
 
-T1 calls `createServer(config, adapter)` and `loadConfig("tests/fixtures/config.minimal.yaml")` directly. The test config fixture must include at least one Claude alias (`claude-sonnet-4-6 → {backend: "claude"}`). The fixture is created in T1 if it does not already exist from WS_05.
+T1 calls `createServer(config, adapter)` and `loadConfig("tests/fixtures/config.minimal.yaml")` directly. The fixture `tests/fixtures/config.minimal.yaml` already exists (created in WS_05) with `claude-sonnet-4-6 → {backend: "claude", priority: 1}` and `retry.max_attempts: 3`. T1 uses it as-is — no new fixture file is needed.
 
 ---
 
@@ -110,11 +110,13 @@ T1 calls `createServer(config, adapter)` and `loadConfig("tests/fixtures/config.
   - [ ] `response.choices[0].message.role === "assistant"`.
   - [ ] `response.choices[0].message.content` is a non-empty string (not null, not `""`).
   - [ ] `response.id` matches `/^chatcmpl-/`.
+  - [ ] `response.object === "chat.completion"` (required non-optional field on `ChatCompletion`; confirms the shape is complete, not just the choices array).
+  - [ ] `response.usage` is `undefined` (field absent from response body; SDK does not throw).
   - [ ] A request with `stream: true` causes the `openai` SDK to throw (non-2xx response); the error message or body contains `"Streaming is not supported"`.
   - [ ] A request with `model: "not-a-real-model"` causes the SDK to throw (non-2xx); error is identifiable as a 400-class response.
 
 - **Named tests that prove this workstream done**:
-  - [ ] `tests/integration/e2e.noTools.test.ts` — happy path: all four assertions above (finish_reason, role, content, id).
+  - [ ] `tests/integration/e2e.noTools.test.ts` — happy path: all six assertions above (finish_reason, role, content, id, object, usage).
   - [ ] `tests/integration/e2e.errorPaths.test.ts` — `stream: true` surfaces SDK error with correct message; unknown model surfaces 400-class SDK error.
 
 - **Quality gates**:
@@ -129,14 +131,14 @@ T1 calls `createServer(config, adapter)` and `loadConfig("tests/fixtures/config.
 
 **OpenAI SDK error handling for non-2xx**: The `openai` npm package throws `APIError` subclasses for non-2xx responses. The `stream: true` and unknown-model tests must catch these with `await expect(promise).rejects.toThrow()` or a `try/catch`. Check that the error object has the expected `status` or `message` field — the exact shape depends on the `openai` package version declared in `package.json` (from WS_01).
 
-**`stream: true` SDK behavior**: Some versions of the `openai` SDK send `stream: true` by calling `client.chat.completions.create({ stream: true, ... })` which returns an async iterable. The test must call this and assert it throws, rather than asserting on a response object. Alternatively, the test can send a raw `fetch` to the endpoint with `stream: true` in the body to avoid SDK stream-handling complexity. Either approach is acceptable — choose the one that is clearer in the test.
+**`stream: true` test — use raw `fetch`, not the SDK**: `client.chat.completions.create({ stream: true, ... })` has a TypeScript overload that returns `APIPromise<Stream<ChatCompletionChunk>>`, not `APIPromise<ChatCompletion>`. Awaiting it in a test produces a TS overload resolution error when you try to assert on the result. Use a raw `fetch` call instead — POST `{ model, messages, stream: true }` to the server URL and assert the response status is 400 and the JSON body contains `"Streaming is not supported"`. This avoids the overload problem and is clearer in intent. At the HTTP level the behavior is the same: the server returns 400 before doing any work.
 
-**Server port in tests**: If `quotagate start` is running in the background during testing, port 8080 will already be occupied. Two options: (a) use a different port (e.g. 18080) in the test fixture, or (b) document that the dev server must not be running when integration tests execute. Option (a) is cleaner. The `createServer` factory accepts a port via config; the test fixture can override the port.
+**Server port in tests**: `createServer(config, adapter)` returns an unbound `FastifyInstance` — there is no port parameter in the factory or in `QuotagateConfig`. The port is bound only when `server.listen()` is called. The correct pattern for the E2E test fixture is to call `await server.listen({ port: 0, host: '127.0.0.1' })` with port `0`; the OS assigns an ephemeral port and `listen()` returns the bound address string (e.g. `http://127.0.0.1:58310`). Parse the port from that string and use it as `baseURL` for the `OpenAI` client. This eliminates any collision with a running dev server and is strictly cleaner than a hardcoded port. Verified: Fastify v5 handles `port: 0` correctly.
 
-**Response latency and Vitest timeout**: `claude --print` takes 1–5 seconds to return a response. Use `test(..., { timeout: 30_000 })` for all integration tests in this workstream. The default Vitest timeout of 5 seconds is too short for a full request round-trip through subprocess spawn, constraint prompt processing, and JSON response.
+**Response latency and Vitest timeout**: `claude --print` takes 5–7 seconds warm and can exceed 15 seconds cold-start (fresh process, first invocation). The full HTTP round-trip adds server start-up overhead on top. Use `{ timeout: 60_000 }` for single-call integration tests. This matches the empirically validated value from `tests/integration/constraint.integration.test.ts`. Do not use the default Vitest timeout of 5 seconds.
 
 **Phase 1B exit sign-off content**: T4's green-gate close-out note in CLAUDE.md Session State should record: (a) the test run output summary, (b) the date of sign-off, (c) the WS_06 status update to Completed, and (d) confirmation that WS_07 and WS_08 are unblocked. This is a planning record, not a git commit — it is updated in CLAUDE.md by hand during T4 as part of the house-keeping protocol.
 
-**`usage` field — `undefined` vs `null` must be verified in T2**: `responseBuilder.ts` omits `usage` entirely (the field is `undefined` on the returned object). The openai v6 `ChatCompletion` type declares `usage?: CompletionUsage` (optional), so the typecheck is clean. However, an OpenAI SDK client accessing `response.usage.prompt_tokens` without optional chaining will throw a runtime error if `usage` is absent. T2 must include an explicit assertion: either `response.usage` is `null` or the SDK client does not throw when the field is absent. If the SDK throws (e.g., via internal SDK code that unconditionally reads `usage`), the correct fix is `usage: null` (matching the nullable type) in `responseBuilder.ts` — not fabricating token counts. Spec §7.4 confirms CLI agents return no token counts; the field must remain absent or null, never populated with invented values.
+**`usage` field — assert `undefined`, not `null`**: `responseBuilder.ts` returns a `ChatCompletion` object with no `usage` key (the field is absent from the object entirely). The `openai` v6 `ChatCompletion` type declares `usage?: CompletionUsage` (optional), so the typecheck is clean. The SDK client deserializes the response JSON as-is and does not access `usage` unconditionally — it will not throw when the field is absent. T2 must include the assertion `expect(response.usage).toBeUndefined()` to confirm the field is absent and stable. Do not change `responseBuilder.ts` to emit `usage: null` unless T2 reveals the SDK actually throws — that would be a production code fix, not a test fix. Spec §7.4 confirms CLI agents return no token counts; the field must remain absent, never populated with invented values.
 
 **If T2 fails on first run**: The most likely causes are (1) `build_constrained_prompt` constraint wording has drifted from the validated form in spec §5.2 (fix in `adapters/claude.ts`); (2) the `AdapterResponse.raw` field contains prose wrapping the JSON (fix in `validator.ts` — strip or handle fence-wrapped JSON); (3) the OpenAI SDK rejects the `chat.completion` shape from `buildChatCompletion` (fix in `responseBuilder.ts` — check required fields against the `openai` package TypeScript types). Do not adjust the test assertions to be more lenient — the test expresses the correct contract.
