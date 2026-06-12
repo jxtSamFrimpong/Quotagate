@@ -1,7 +1,7 @@
 # CLAUDE.md — Project Knowledge Base
 
 > **Last Updated**: 2026-06-12
-> **Status**: 🟢 **WS_05 complete — Phase 1B MVP fully wired. 80 tests. WS_06 elevated to implementation-ready (T1–T4 trackers in `docs/active/`). T1 ready for BSE.**
+> **Status**: 🟢 **WS_06 T1 signed off — E2E fixture live, 81 tests. T2 (happy-path E2E) is next.**
 
 ---
 
@@ -267,8 +267,8 @@ current task and leaves no constraint behind, it is not a decision.
 
 **What was completed**:
 
-- **[Milestone — Phase 1B MVP complete — 2026-06-12]** Phase 1A (WS_01–WS_03, 33 tests): core types/errors/adapters. WS_04 translation pipeline (56 tests): `argumentBuilder.ts`, `responseBuilder.ts`, `validator.ts`. WS_05 (all T1–T4 signed off, 80 tests): `src/config.ts` `loadConfig`, `src/proxy.ts` `createServer` + full pipeline wired (`buildAdapterRequest` → `adapter.complete()` → `validateWithRetry` → `buildChatCompletion`), `src/index.ts` CLI entrypoint (`quotagate start`).
-- **[WS_06 elevated to implementation-ready — 2026-06-12]** PA reviewed `ws06_e2e_no_tools.md`, applied 8 corrections: port:0 ephemeral binding pattern (F1), raw `fetch` primary for `stream: true` test (F2), config fixture confirmed existing from WS_05 (F3), `ctx.skip()` guard API corrected from `vi.skip()` (F4), 60s timeout (F5), `response.usage` assertion clarified (F6), `response.object` added to success criteria (F7), T3 fixture independence corrected (F8). Created `TASK_WS06_T1–T4.md` in `docs/active/`. T1 is unblocked.
+- **[Milestone — Phase 1B MVP complete — 2026-06-12]** Phase 1A (WS_01–WS_03, 33 tests): core types/errors/adapters. WS_04 translation pipeline (56 tests): `argumentBuilder.ts`, `responseBuilder.ts`, `validator.ts`. WS_05 (all T1–T4 signed off, 80 tests): `src/config.ts` `loadConfig`, `src/proxy.ts` `createServer` + full pipeline wired, `src/index.ts` CLI entrypoint. WS_06 elevated to implementation-ready (T1–T4 trackers created).
+- **[WS_06 T1 signed off — 2026-06-12]** BSE created `tests/integration/e2e.noTools.test.ts`: `beforeAll` starts Fastify via `createServer` on ephemeral `port: 0` (port extracted from Fastify v5 URL-string return), `afterAll` null-guarded `server.close()`, fixture path anchored via `fileURLToPath(new URL(..., import.meta.url))` (immune to `process.cwd()` variation). T-1 smoke test: raw `fetch` POST, asserts `content-type: application/json`, `ctx.skip()` guard on `healthCheck()`. PA review: conditional pass → full pass after removing forward-declared `export let client/baseURL` (unused in T1, D3 scope violation; T2 will add them). 81 tests, all gates clean.
 
 **What is being worked on**:
 
@@ -276,14 +276,13 @@ current task and leaves no constraint behind, it is not a decision.
 
 **Active task trackers**:
 
-- `docs/active/TASK_WS06_T1.md` — Server fixture + smoke test (⬚ Not started)
 - `docs/active/TASK_WS06_T2.md` — Happy-path E2E test (⬚ Not started)
 - `docs/active/TASK_WS06_T3.md` — Error-path tests (⬚ Not started)
 - `docs/active/TASK_WS06_T4.md` — Green-gate close-out (⬚ Not started)
 
 **What is next**:
 
-1. **WS_06 T1** — Author test fixture: `beforeAll` starts Fastify server in-process via `createServer`, `port: 0` ephemeral bind, `ctx.skip()` guard on `healthCheck()`, `afterAll` teardown, T-1 smoke test. BSE to implement.
+1. **WS_06 T2** — Add happy-path `it()` block to `e2e.noTools.test.ts`: extend `beforeAll` with `client` (OpenAI SDK) + `baseURL`, call `client.chat.completions.create({ model: 'claude-sonnet-4-6', messages: [{ role: 'user', content: 'Hello' }] })` against the real Claude subprocess, assert all six Phase 1B criteria (`finish_reason`, `role`, `content`, `id`, `object`, `usage`). BSE to implement.
 
 **Resolved decisions** (settled — ≤2 blocks inline; older ones in `docs/archive/decisions.md`):
 
