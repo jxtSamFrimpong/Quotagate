@@ -222,6 +222,7 @@ QuotagateCompleteResult.type
 | `buildChatCompletion` (text branch)                                       | `responseBuilder.ts` | Phase 1B      | WS_04      |
 | Fastify server, Zod body parse, `stream:true` guard                       | `proxy.ts`           | Phase 1B      | WS_05      |
 | `loadConfig`                                                              | `config.ts`          | Phase 1B      | WS_05      |
+| `main()`, `quotagate start` boot sequence (`loadConfig` → `healthCheck` → `createServer` → `listen`) | `index.ts` | Phase 1B | WS_05 |
 | `buildChatCompletion` tool-call branch                                    | `responseBuilder.ts` | Phase 1C      | WS_07      |
 | Retry loop fully exercised (live path, exhaustion → HTTP 500)             | `validator.ts`       | Phase 1C      | WS_08      |
 | `resolve` (single-backend alias resolver)                                 | `router.ts`          | Phase 1C      | WS_08      |
