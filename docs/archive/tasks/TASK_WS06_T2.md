@@ -64,17 +64,17 @@
 
 | #  | Subtask | Status | Iteration | Notes |
 |----|---------|--------|-----------|-------|
-| 1  | Add T-2 happy-path `it()` block to `e2e.noTools.test.ts` with the `healthCheck` guard and `{ timeout: 60_000 }` | ⬚ Not started | — | |
-| 2  | Call `await client.chat.completions.create({ model: 'claude-sonnet-4-6', messages: [{ role: 'user', content: 'Hello' }] })` and assign to a typed `ChatCompletion` variable | ⬚ Not started | — | |
-| 3  | Assert SC-1: `response.choices[0].finish_reason === 'stop'` | ⬚ Not started | — | |
-| 4  | Assert SC-2: `response.choices[0].message.role === 'assistant'` | ⬚ Not started | — | |
-| 5  | Assert SC-3: `response.choices[0].message.content` is a non-empty string (`typeof ... === 'string'` and `length > 0`) | ⬚ Not started | — | |
-| 6  | Assert SC-4: `response.id` matches `/^chatcmpl-/` | ⬚ Not started | — | |
-| 7  | Assert SC-5: `response.object === 'chat.completion'` | ⬚ Not started | — | |
-| 8  | Assert SC-6: `response.usage === undefined` | ⬚ Not started | — | |
-| 9  | Run `npm test` against the real subscription; triage any failures per the EF list above | ⬚ Not started | — | |
-| 10 | If any failure requires a production code fix, apply it in the correct `src/` file, re-run the full suite, confirm no regressions | ⬚ Not started | — | |
-| 11 | Run `npm run typecheck`, `npm run lint`, `npm run format` — all clean | ⬚ Not started | — | |
+| 1  | Add T-2 happy-path `it()` block to `e2e.noTools.test.ts` with the `healthCheck` guard and `{ timeout: 60_000 }` | ✅ Done | 1 | |
+| 2  | Call `await client.chat.completions.create({ model: 'claude-sonnet-4-6', messages: [{ role: 'user', content: 'Hello' }] })` and assign to a typed `ChatCompletion` variable | ✅ Done | 1 | |
+| 3  | Assert SC-1: `response.choices[0].finish_reason === 'stop'` | ✅ Done | 1 | |
+| 4  | Assert SC-2: `response.choices[0].message.role === 'assistant'` | ✅ Done | 1 | |
+| 5  | Assert SC-3: `response.choices[0].message.content` is a non-empty string (`typeof ... === 'string'` and `length > 0`) | ✅ Done | 1 | |
+| 6  | Assert SC-4: `response.id` matches `/^chatcmpl-/` | ✅ Done | 1 | |
+| 7  | Assert SC-5: `response.object === 'chat.completion'` | ✅ Done | 1 | |
+| 8  | Assert SC-6: `response.usage === undefined` | ✅ Done | 1 | |
+| 9  | Run `npm test` against the real subscription; triage any failures per the EF list above | ✅ Done | 1 | All 6 assertions passed on first attempt. No EF1/EF2/EF4 triggered. |
+| 10 | If any failure requires a production code fix, apply it in the correct `src/` file, re-run the full suite, confirm no regressions | ✅ Done | 1 | No production code changes required. |
+| 11 | Run `npm run typecheck`, `npm run lint`, `npm run format` — all clean | ✅ Done | 1 | All four gate commands exit 0. 82 tests total. |
 
 _Status icons: `✅ Done` | `🔄 In progress` | `⬚ Not started` | `❌ Blocked`_
 
@@ -168,14 +168,24 @@ Test options: `{ timeout: 60_000 }`. Guard: `adapter.healthCheck()` → `ctx.ski
 
 ## Review Notes
 
-_(Architect fills after BSE submits.)_
+**PA Review — 2026-06-12 — Full Pass (9 findings, all positive / 1 informational)**
+
+1. **Full production path exercised** — `OpenAI SDK → Fastify → proxy pipeline → buildAdapterRequest → ClaudeAdapter subprocess → validateWithRetry → buildChatCompletion` — no seam bypassed.
+2. **All 6 SC assertions present and correctly expressed.** SC-6 (`usage === undefined`) is load-bearing: `responseBuilder.ts` omits the `usage` key; the SDK deserializes as-is, so the assertion reliably captures spec §7.4.
+3. **SC-7 count met** — 82 tests, 0 failures, 0 regressions.
+4. **`beforeAll`/`afterAll` lifecycle sound** — `client` initialized after `listen()` resolves; `afterAll` null-guard correct.
+5. **`healthCheck()` skip guard correctly positioned** — CI environments without a live subscription skip gracefully.
+6. **Scope fence maintained** — no streaming, no fabricated usage, no multi-turn (D3 clean).
+7. **Module-scope variable discipline corrected from T1** — `client`/`port` initialized in `beforeAll`, not forward-declared.
+8. _(Informational)_ `content!.length` non-null assertion is safe — the `typeof === 'string'` check on the line above is logically equivalent at runtime; null content would have thrown in `buildChatCompletion` before this point. Not a required fix.
+9. **No production code modified** — `CONSTRAINT_INSTRUCTIONS` produced valid raw JSON on first attempt; `responseBuilder.ts` shape was correct. The contract is proven clean.
 
 ---
 
 ## Architect Sign-off
 
-- [ ] Implementation reviewed
-- [ ] All success criteria verified
-- [ ] All assumptions resolved (proven, or fallback taken & documented)
-- [ ] No regressions in full test suite
-- [ ] `npm test` / `typecheck` / `lint` / `format` all clean
+- [x] Implementation reviewed
+- [x] All success criteria verified
+- [x] All assumptions resolved (proven, or fallback taken & documented)
+- [x] No regressions in full test suite
+- [x] `npm test` / `typecheck` / `lint` / `format` all clean
