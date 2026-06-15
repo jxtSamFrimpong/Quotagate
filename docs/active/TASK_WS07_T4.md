@@ -64,12 +64,12 @@
 | #  | Subtask | Status | Iteration | Notes |
 |----|---------|--------|-----------|-------|
 | 1  | Confirm T-4 in `tests/responseBuilder.test.ts` is the REPLACED version (asserts `not.toThrow`, not `throw`) — read the file and verify | ⬚ Not started | — | |
-| 2  | Run `npm test` — record the full test count; assert 0 failures | ⬚ Not started | — | Expected: ≥ 84 + 4 (T1) + 3 (T2) + 2 (T3) = 93 total |
+| 2  | Run `npm test` — record the full test count; assert 0 failures | ⬚ Not started | — | Expected: 90 (T1+T2 signed off) + 2 (T3) = 92 total |
 | 3  | Run `npm run typecheck` — 0 errors | ⬚ Not started | — | |
 | 4  | If T3 run notes show EF1 (constraint failure): iterate `CONSTRAINT_INSTRUCTIONS` in `src/adapters/claude.ts`, re-run T3's live integration test until T-a passes, then re-run `npm test` | ⬚ Not started | — | Only applies if EF1 manifested in T3 |
 | 5  | Run `npm run lint` — 0 warnings | ⬚ Not started | — | |
 | 6  | Run `npm run format` — 0 diffs | ⬚ Not started | — | |
-| 7  | Run `CI=true npm test` — confirm unit-only count = 77 + 4 (T1) + 3 (T2) = 84; 0 failures; 2 integration tests excluded | ⬚ Not started | — | The 2 T3 integration tests must NOT appear in CI=true run |
+| 7  | Run `CI=true npm test` — confirm unit-only count = 77 + 4 (T1) + 2 (T2 net) = 83; 0 failures; 9 integration tests excluded (7 from WS_06 + 2 from T3) | ⬚ Not started | — | The 2 T3 integration tests must NOT appear in CI=true run |
 | 8  | Confirm `write_file` T-b is UUID-path-unique: run the integration suite twice in sequence, no stale-file error on second run | ⬚ Not started | — | |
 | 9  | Record final test counts in this subtask table (full run count, CI=true unit count) | ⬚ Not started | — | |
 

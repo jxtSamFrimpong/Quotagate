@@ -63,12 +63,12 @@
 
 | #  | Subtask | Status | Iteration | Notes |
 |----|---------|--------|-----------|-------|
-| 1  | Add T-7a: `parseAndValidate` with missing `name` field throws `ValidationError` | ⬚ Not started | — | |
-| 2  | Add T-7b: `parseAndValidate` with `arguments` as a string throws `ValidationError` | ⬚ Not started | — | |
-| 3  | Add T-7c: `parseAndValidate` with no `arguments` key throws `ValidationError` | ⬚ Not started | — | |
-| 4  | Add T-8: `validateWithRetry` with malformed tool_call on attempt 1, valid tool_call on attempt 2 resolves successfully | ⬚ Not started | — | |
-| 5  | Run `npm test` — assert all 84 prior tests still pass + 4 new tests added (≥ 88 total) | ⬚ Not started | — | |
-| 6  | Run `npm run typecheck`, `npm run lint`, `npm run format` — all clean | ⬚ Not started | — | |
+| 1  | Add T-7a: `parseAndValidate` with missing `name` field throws `ValidationError` | ✅ Done | 1 | try/catch; asserts `instanceof ValidationError` AND `not instanceof ZodError` (dual-side boundary) |
+| 2  | Add T-7b: `parseAndValidate` with `arguments` as a string throws `ValidationError` | ✅ Done | 1 | `.toThrow(ValidationError)` |
+| 3  | Add T-7c: `parseAndValidate` with no `arguments` key throws `ValidationError` | ✅ Done | 1 | `.toThrow(ValidationError)` |
+| 4  | Add T-8: `validateWithRetry` with malformed tool_call on attempt 1, valid tool_call on attempt 2 resolves successfully | ✅ Done | 1 | Resolves; invoker called once; messages array length = baseMessages.length + 1 |
+| 5  | Run `npm test` — assert all 84 prior tests still pass + 4 new tests added (≥ 88 total) | ✅ Done | 1 | 90 total (includes T2 additions), 0 failures |
+| 6  | Run `npm run typecheck`, `npm run lint`, `npm run format` — all clean | ✅ Done | 1 | All clean |
 
 _Status icons: `✅ Done` | `🔄 In progress` | `⬚ Not started` | `❌ Blocked`_
 
@@ -152,14 +152,16 @@ Inside `describe('validateWithRetry')`. Set up `invoker` with `vi.fn().mockResol
 
 ## Review Notes
 
-_(Architect fills after BSE submits.)_
+**Review Date**: 2026-06-15 — Principal Architect
+
+All four tests exercise the production Zod schema path directly via `parseAndValidate()` — no bypasses. T-7a uses the dual-side boundary pattern (asserts `instanceof ValidationError` AND `not instanceof ZodError`), matching the rigor of the existing T-2. T-8 follows the established `vi.fn().mockResolvedValueOnce()` pattern from T-2 exactly. A1–A4 all proven: the Zod `tool_call` arm correctly requires `name` and `arguments`; the retry loop handles tool_call malformation symmetrically with the text branch. No production files touched. No expected failures encountered — the schema was not drifted.
 
 ---
 
 ## Architect Sign-off
 
-- [ ] Implementation reviewed
-- [ ] All success criteria verified
-- [ ] All assumptions resolved (proven, or fallback taken & documented)
-- [ ] No regressions in full test suite
-- [ ] `npm test` / `typecheck` / `lint` / `format` all clean
+- [x] Implementation reviewed
+- [x] All success criteria verified
+- [x] All assumptions resolved (A1–A4 all proven by T-7a/b/c and T-8)
+- [x] No regressions in full test suite (90 tests, 0 failures)
+- [x] `npm test` / `typecheck` / `lint` / `format` all clean

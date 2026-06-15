@@ -1,7 +1,7 @@
 # CLAUDE.md — Project Knowledge Base
 
 > **Last Updated**: 2026-06-15
-> **Status**: 🟡 **WS_07 task trackers created & elevated — implementation-ready. T1+T2 ready to start in parallel (BSE).**
+> **Status**: 🟡 **WS_07 T1+T2 PA-signed off (90 tests). T3 (integration) ready to start (BSE).**
 
 ---
 
@@ -267,8 +267,9 @@ current task and leaves no constraint behind, it is not a decision.
 
 **What was completed**:
 
-- **[Milestone — Phase 1A + 1B complete — 2026-06-12 → 2026-06-15]** Phase 1A (WS_01–WS_03, 33 tests): core types/errors/adapters. WS_04 translation pipeline (56 tests). WS_05 (80 tests): full proxy + CLI wired. WS_06 T1–T4 (84 tests): no-tools E2E integration suite — smoke fixture, happy-path (all 6 Phase 1B criteria), error-path (stream guard + model guard), full green-gate run. Phase 1B exit: spec §6 criterion formally proven end-to-end. WS_06 T3+T4 signed off, PA Full Pass, green gate held at 84 tests.
-- **[WS_07 PA elevation — 2026-06-15]** PA reviewed `ws07_tool_call_response_path.md`, caught 5 issues (critical contradiction on argument-schema validation, unresolved `tool_choice` object-form decision, T1 scope misrepresented as production code, missing `refusal:null` pitfall, loose UUID regex), fixed the doc in place, locked WS_07-D5 (object-form `tool_choice` out of scope for Phase 1C — `OpenAIChatRequestSchema` correctly rejects with 400). Created 4 implementation-ready task trackers: TASK_WS07_T1–T4. No open decisions for user.
+- **[Milestone — Phase 1A + 1B complete — 2026-06-12 → 2026-06-15]** Phase 1A (WS_01–WS_03, 33 tests): core types/errors/adapters. WS_04 translation pipeline (56 tests). WS_05 (80 tests): full proxy + CLI wired. WS_06 T1–T4 (84 tests): no-tools E2E integration suite — smoke fixture, happy-path (all 6 Phase 1B criteria), error-path (stream guard + model guard), full green-gate run. Phase 1B exit: spec §6 criterion formally proven end-to-end.
+- **[WS_07 PA elevation — 2026-06-15]** PA reviewed `ws07_tool_call_response_path.md`, caught 5 issues, fixed doc in place, locked WS_07-D5 (object-form `tool_choice` out of scope for Phase 1C). Created 4 implementation-ready task trackers: TASK_WS07_T1–T4.
+- **[WS_07 T1+T2 signed off — 2026-06-15]** T1: 4 new unit tests in `tests/validator.test.ts` — T-7a/b/c (malformed `tool_call` → `ValidationError`, Zod boundary confirmed) + T-8 (retry resolves valid attempt-2). No production code changed. T2: replaced `throw` stub in `src/responseBuilder.ts` with full `tool_call` branch (`content:null`, `refusal:null`, `JSON.stringify(arguments)`, `call_`/`chatcmpl-` prefixes); rewrote `responseBuilder.test.ts` T-4, added T-5 (full contract) + T-6 (compile-time `const out: ChatCompletion` invariant #5 guard); consequential update to `proxy.test.ts` pipeline T-4 (stub assertion retired). PA Full Pass: all 12 T2 SC + all 6 T1 SC verified, no blockers. Green gate: 90 tests, 0 failures, all gates clean.
 
 **What is being worked on**:
 
@@ -276,17 +277,14 @@ current task and leaves no constraint behind, it is not a decision.
 
 **Active task trackers**:
 
-- `docs/active/TASK_WS07_T1.md` — Unit tests for tool_call retry-triggering cases in `validator.test.ts` (no production code)
-- `docs/active/TASK_WS07_T2.md` — Implement tool_call branch in `responseBuilder.ts` + rewrite T-4 unit test
 - `docs/active/TASK_WS07_T3.md` — Integration test `e2e.toolCall.test.ts` (get_weather + write_file absence-of-side-effect)
-- `docs/active/TASK_WS07_T4.md` — Green-gate close-out (expect 93 total / 84 CI-only)
+- `docs/active/TASK_WS07_T4.md` — Green-gate close-out (expect 92 total / 83 CI-only)
 
 **What is next**:
 
-1. **WS_07 T1 + T2** — Can run in parallel (BSE). T1: unit test coverage for tool_call retry-triggering cases. T2: implement `responseBuilder.ts` tool_call branch + replace T-4 assertion.
-2. **WS_07 T3** — Integration test (depends on T1 + T2 done).
-3. **WS_07 T4** — Green-gate close-out (depends on T3).
-4. **WS_08** — Retry hardening + `router.ts`: can start once WS_07 T2 is signed off (independent of T3/T4).
+1. **WS_07 T3** — Integration test (BSE, ready to start). Requires live Claude subscription. Creates `tests/integration/e2e.toolCall.test.ts`; may iterate `CONSTRAINT_INSTRUCTIONS` in `claude.ts` if EF1 manifests.
+2. **WS_07 T4** — Green-gate close-out (depends on T3).
+3. **WS_08** — Retry hardening + `router.ts`: independent of T3/T4, can start once user directs.
 
 **Resolved decisions** (settled — ≤2 blocks inline; older ones in `docs/archive/decisions.md`):
 

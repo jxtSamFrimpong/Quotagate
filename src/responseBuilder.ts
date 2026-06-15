@@ -2,7 +2,6 @@ import { randomUUID } from 'node:crypto';
 
 import type { ChatCompletion } from 'openai/resources/chat/completions';
 
-import { QuotagateError } from './errors.js';
 import type { QuotagateCompleteResult } from './types.js';
 
 export function buildChatCompletion(
@@ -10,7 +9,34 @@ export function buildChatCompletion(
   model: string,
 ): ChatCompletion {
   if (result.type === 'tool_call') {
-    throw new QuotagateError('tool_call branch not yet implemented');
+    return {
+      id: 'chatcmpl-' + randomUUID(),
+      object: 'chat.completion',
+      created: Math.floor(Date.now() / 1000),
+      model,
+      choices: [
+        {
+          index: 0,
+          message: {
+            role: 'assistant',
+            content: null,
+            refusal: null,
+            tool_calls: [
+              {
+                id: 'call_' + randomUUID(),
+                type: 'function',
+                function: {
+                  name: result.name,
+                  arguments: JSON.stringify(result.arguments),
+                },
+              },
+            ],
+          },
+          finish_reason: 'tool_calls',
+          logprobs: null,
+        },
+      ],
+    };
   }
 
   return {

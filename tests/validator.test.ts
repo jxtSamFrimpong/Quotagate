@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { ZodError } from 'zod';
 
 import { TransportError, ValidationError } from '../src/errors.js';
 import { type AdapterResponse, type OpenAIMessage } from '../src/types.js';
@@ -69,6 +70,36 @@ describe('parseAndValidate', () => {
     }
     expect(caught).toBeInstanceOf(ValidationError);
     expect((caught as ValidationError).message).not.toContain(sentinel);
+  });
+
+  // T-7a: tool_call with missing `name` field throws ValidationError — ZodError must not escape
+  // The discriminant matches ("tool_call"), but the required `name` field is absent,
+  // so Zod schema validation fails. Same boundary contract as T-2 (ZodError containment).
+  it('T-7a: tool_call missing name field throws ValidationError — ZodError must not escape', () => {
+    let caught: unknown;
+    try {
+      parseAndValidate('{"type":"tool_call","arguments":{"city":"Accra"}}');
+    } catch (err) {
+      caught = err;
+    }
+    expect(caught).toBeInstanceOf(ValidationError);
+    expect(caught).not.toBeInstanceOf(ZodError);
+  });
+
+  // T-7b: tool_call with non-object `arguments` (a string) throws ValidationError
+  // z.record(z.string(), z.unknown()) requires an object; a string fails schema validation.
+  it('T-7b: tool_call with non-object arguments throws ValidationError', () => {
+    expect(() =>
+      parseAndValidate('{"type":"tool_call","name":"get_weather","arguments":"city=Accra"}'),
+    ).toThrow(ValidationError);
+  });
+
+  // T-7c: tool_call with missing `arguments` key throws ValidationError
+  // Both `name` and `arguments` are required on the tool_call discriminant branch.
+  it('T-7c: tool_call missing arguments key throws ValidationError', () => {
+    expect(() => parseAndValidate('{"type":"tool_call","name":"get_weather"}')).toThrow(
+      ValidationError,
+    );
   });
 });
 
@@ -161,5 +192,27 @@ describe('validateWithRetry', () => {
       arguments: { city: 'Accra' },
     });
     expect(invoker).not.toHaveBeenCalled();
+  });
+
+  // T-8: malformed tool_call (missing arguments) on attempt-1, valid tool_call on attempt-2
+  // Verifies that a schema-invalid tool_call triggers a retry (the same ValidationError path
+  // as a malformed text response), and that the correction messages array is correctly formed.
+  it('T-8: malformed tool_call attempt-1, valid tool_call attempt-2 resolves after one invoker call', async () => {
+    const invoker = vi.fn<[OpenAIMessage[]], Promise<AdapterResponse>>().mockResolvedValueOnce({
+      raw: '{"type":"tool_call","name":"get_weather","arguments":{"city":"Accra"}}',
+      backend: 'claude-subprocess',
+    });
+    const result = await validateWithRetry(
+      '{"type":"tool_call","name":"get_weather"}', // missing `arguments` — fails schema
+      baseMessages,
+      invoker,
+    );
+    expect(result).toEqual({
+      type: 'tool_call',
+      name: 'get_weather',
+      arguments: { city: 'Accra' },
+    });
+    expect(invoker).toHaveBeenCalledTimes(1);
+    expect((invoker.mock.calls[0] as [OpenAIMessage[]])[0]).toHaveLength(baseMessages.length + 1);
   });
 });

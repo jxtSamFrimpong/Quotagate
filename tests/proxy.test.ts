@@ -352,9 +352,9 @@ describe('proxy — pipeline wiring (WS_05 T3)', () => {
   });
 
   // -------------------------------------------------------------------------
-  // T-4: {type:"tool_call"} from adapter → HTTP 500 (QuotagateError from buildChatCompletion) (SC-5)
+  // T-4: {type:"tool_call"} from adapter → HTTP 200 ChatCompletion with finish_reason:"tool_calls"
   // -------------------------------------------------------------------------
-  it('T-4: tool_call result from adapter → HTTP 500 proxy_error (buildChatCompletion Phase 1 stub)', async () => {
+  it('T-4: tool_call result from adapter → HTTP 200 with tool_calls ChatCompletion (stub retired)', async () => {
     stubAdapter.complete.mockResolvedValueOnce({
       raw: '{"type":"tool_call","name":"fn","arguments":{}}',
       backend: 'claude-subprocess',
@@ -367,9 +367,12 @@ describe('proxy — pipeline wiring (WS_05 T3)', () => {
       headers: { 'content-type': 'application/json' },
     });
 
-    expect(response.statusCode).toBe(500);
+    expect(response.statusCode).toBe(200);
 
-    const body = response.json<{ error: { code: string } }>();
-    expect(body.error.code).toBe('proxy_error');
+    const body = response.json<ChatCompletion>();
+    expect(body.choices[0].finish_reason).toBe('tool_calls');
+    expect(body.choices[0].message.content).toBeNull();
+    expect(body.choices[0].message.tool_calls).toHaveLength(1);
+    expect(body.choices[0].message.tool_calls![0].function.name).toBe('fn');
   });
 });

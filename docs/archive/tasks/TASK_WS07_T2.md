@@ -65,13 +65,13 @@
 
 | #  | Subtask | Status | Iteration | Notes |
 |----|---------|--------|-----------|-------|
-| 1  | Replace the `throw` stub in `src/responseBuilder.ts` with the tool_call branch implementation | ⬚ Not started | — | |
-| 2  | Rewrite T-4 in `tests/responseBuilder.test.ts` to assert the tool_call contract (not the throw) | ⬚ Not started | — | |
-| 3  | Add T-5: assert `finish_reason`, `content:null`, `tool_calls` array shape, `arguments` JSON round-trip | ⬚ Not started | — | |
-| 4  | Add T-6: compile-time ChatCompletion type assignment for the tool_call branch | ⬚ Not started | — | |
-| 5  | Run `npm run typecheck` — 0 errors (EF1 / EF4 would surface here) | ⬚ Not started | — | |
-| 6  | Run `npm test` — all prior tests pass + T-4 (rewritten) + T-5 + T-6 added (≥ 91 total from 88 T1 baseline) | ⬚ Not started | — | |
-| 7  | Run `npm run lint`, `npm run format` — all clean | ⬚ Not started | — | |
+| 1  | Replace the `throw` stub in `src/responseBuilder.ts` with the tool_call branch implementation | ✅ Done | 1 | `refusal:null` present; `JSON.stringify(result.arguments)` used; `call_`/`chatcmpl-` prefixes correct |
+| 2  | Rewrite T-4 in `tests/responseBuilder.test.ts` to assert the tool_call contract (not the throw) | ✅ Done | 1 | Old throw assertion fully replaced; one T-4 only; unused `QuotagateError` import removed |
+| 3  | Add T-5: assert `finish_reason`, `content:null`, `tool_calls` array shape, `arguments` JSON round-trip | ✅ Done | 1 | All SC-2 through SC-10 covered; UUID uniqueness included |
+| 4  | Add T-6: compile-time ChatCompletion type assignment for the tool_call branch | ✅ Done | 1 | `const out: ChatCompletion = buildChatCompletion(...)` — real structural check, no type cast |
+| 5  | Run `npm run typecheck` — 0 errors (EF1 / EF4 would surface here) | ✅ Done | 1 | 0 errors |
+| 6  | Run `npm test` — all prior tests pass + T-4 (rewritten) + T-5 + T-6 added (≥ 91 total from 88 T1 baseline) | ✅ Done | 1 | 90 total (T-4 rewrite = 0 net; +2 from T-5, T-6); 0 failures |
+| 7  | Run `npm run lint`, `npm run format` — all clean | ✅ Done | 1 | All clean |
 
 _Status icons: `✅ Done` | `🔄 In progress` | `⬚ Not started` | `❌ Blocked`_
 
@@ -128,7 +128,8 @@ _Status icons: `✅ Done` | `🔄 In progress` | `⬚ Not started` | `❌ Blocke
 ## Files Modified / Created
 
 - `src/responseBuilder.ts` — **modify** (replace the `throw` stub with the tool_call branch implementation)
-- `tests/responseBuilder.test.ts` — **modify** (rewrite T-4; add T-5 and T-6)
+- `tests/responseBuilder.test.ts` — **modify** (rewrite T-4; add T-5 and T-6; old T-5 empty-content test renumbered T-7)
+- `tests/proxy.test.ts` — **consequential update** (pipeline-wiring T-4 retired stub assertion — was HTTP 500 for Phase 1 stub; replaced with HTTP 200 + `finish_reason:'tool_calls'` contract assertion, consistent with green-gate-as-ratchet principle)
 
 ---
 
@@ -182,14 +183,20 @@ Replace the existing T-4 `it()` block entirely. The new T-4 asserts: `expect(() 
 
 ## Review Notes
 
-_(Architect fills after BSE submits.)_
+**Review Date**: 2026-06-15 — Principal Architect
+
+Implementation is structurally correct. `refusal: null` is present (A1 confirmed — `ChatCompletionMessage.refusal` is non-optional in the installed SDK). `JSON.stringify(result.arguments)` correctly avoids the double-serialization trap (A3). `call_` prefix on tool id, `chatcmpl-` on outer completion id (D1 honored). No type casts, no `@ts-ignore`, no `any` suppressions in the implementation. T-6 compile-time assignment does real structural work — tsc would have caught any missing field.
+
+The `tests/proxy.test.ts` pipeline T-4 update is a **legitimate consequential change**: the old assertion correctly described the Phase 1 stub behavior (HTTP 500); with the stub retired, leaving it would have broken the green gate. Updating it atomically with the production change is the correct application of the green-gate-as-ratchet principle. The scope-deviation in the "Files Modified" list was a documentation gap only — now corrected above.
+
+One cosmetic note: the old `responseBuilder.test.ts` T-5 (empty-content test) was renumbered T-7 when T-5 and T-6 were inserted. No functional impact; no future tracker references to `T-5` by label in this test file should be relied upon.
 
 ---
 
 ## Architect Sign-off
 
-- [ ] Implementation reviewed
-- [ ] All success criteria verified
-- [ ] All assumptions resolved (proven, or fallback taken & documented)
-- [ ] No regressions in full test suite
-- [ ] `npm test` / `typecheck` / `lint` / `format` all clean
+- [x] Implementation reviewed
+- [x] All success criteria verified (SC-1 through SC-12, all pass)
+- [x] All assumptions resolved (A1–A4 all confirmed — `refusal` required, `tool_calls` typed correctly, `JSON.stringify` round-trips, old T-4 fully replaced)
+- [x] No regressions in full test suite (90 tests, 0 failures)
+- [x] `npm test` / `typecheck` / `lint` / `format` all clean
