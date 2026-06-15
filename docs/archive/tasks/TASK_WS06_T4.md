@@ -67,13 +67,13 @@ No new production files. No new test files. Only fixes to issues surfaced by the
 
 | #  | Subtask | Status | Iteration | Notes |
 |----|---------|--------|-----------|-------|
-| 1  | Run `npm test` with all tests active (including integration). Record the output: total test count, pass count, skip count, any failures | ⬚ Not started | — | |
-| 2  | If any test fails: triage against the EF list. Apply the minimal fix in the correct layer. Re-run `npm test`. Confirm no new regressions | ⬚ Not started | — | |
-| 3  | Run `npm run typecheck` — confirm zero errors | ⬚ Not started | — | |
-| 4  | Run `npm run lint` — confirm zero issues | ⬚ Not started | — | |
-| 5  | Run `npm run format` — confirm no diff (run `--check` mode or compare git status) | ⬚ Not started | — | |
-| 6  | Run `CI=true npm test` — confirm integration tests are excluded; confirm count is 80 (WS_01–WS_05 unit tests only) | ⬚ Not started | — | |
-| 7  | Invoke `/house-keeping` skill to: update `CLAUDE.md` Session State with Phase 1B close-out note, update WS_06 status to Completed in the workstream doc, and commit the close-out | ⬚ Not started | — | |
+| 1  | Run `npm test` with all tests active (including integration). Record the output: total test count, pass count, skip count, any failures | ✅ Done | 1 | 84 tests, 17 files, 0 failures. Duration 14.85s. |
+| 2  | If any test fails: triage against the EF list. Apply the minimal fix in the correct layer. Re-run `npm test`. Confirm no new regressions | ✅ Done | — | No failures — subtask N/A. |
+| 3  | Run `npm run typecheck` — confirm zero errors | ✅ Done | 1 | `tsc --noEmit` exits 0, zero TS errors. |
+| 4  | Run `npm run lint` — confirm zero issues | ✅ Done | 1 | `eslint .` exits 0, zero errors/warnings. |
+| 5  | Run `npm run format` — confirm no diff (run `--check` mode or compare git status) | ✅ Done | 1 | `npm run format` exits 0; all 30 source/test files unchanged. Docs (.md) are outside the format script glob — not a regression. |
+| 6  | Run `CI=true npm test` — confirm integration tests are excluded; confirm count is 80 (WS_01–WS_05 unit tests only) | ✅ Done | 1 | 77 tests, 12 files. Integration tests correctly excluded. Tracker assumption of "80" was stale: the pre-WS_06 full-suite count was 80 (77 unit + 3 pre-existing integration); CI mode correctly excludes all 7 integration tests leaving 77. No config change needed. |
+| 7  | Invoke `/house-keeping` skill to: update `CLAUDE.md` Session State with Phase 1B close-out note, update WS_06 status to Completed in the workstream doc, and commit the close-out | ✅ Done | 1 | House-keeping invoked; CLAUDE.md updated; committed. |
 
 _Status icons: `✅ Done` | `🔄 In progress` | `⬚ Not started` | `❌ Blocked`_
 

@@ -1,7 +1,7 @@
 # CLAUDE.md — Project Knowledge Base
 
 > **Last Updated**: 2026-06-15
-> **Status**: 🟢 **WS_06 T3 signed off — error-path E2E proven, 84 tests. T4 (green-gate close-out) is next.**
+> **Status**: 🟢 **WS_06 complete — Phase 1B MVP fully proven E2E, 84 tests. Phase 1C (WS_07 tool-call, WS_08 retry) unblocked.**
 
 ---
 
@@ -267,9 +267,9 @@ current task and leaves no constraint behind, it is not a decision.
 
 **What was completed**:
 
-- **[Milestone — Phase 1B MVP + WS_06 T1/T2 — 2026-06-12]** Phase 1A (WS_01–WS_03, 33 tests): core types/errors/adapters. WS_04 translation pipeline (56 tests). WS_05 (80 tests): full proxy + CLI wired. WS_06 T1 (smoke fixture, 81 tests) + T2 (happy-path E2E, all 6 Phase 1B criteria, 82 tests) signed off.
-- **[WS_06 T2 signed off — 2026-06-12]** BSE added T-2 happy-path `it()` block to `e2e.noTools.test.ts`: extended `beforeAll` with `OpenAI` client + `baseURL`; called `client.chat.completions.create({ model: 'claude-sonnet-4-6', messages: [...] })` against the real Claude subprocess; asserted all six Phase 1B criteria (`finish_reason`, `role`, `content`, `id`, `object`, `usage`). `CONSTRAINT_INSTRUCTIONS` produced valid raw JSON on first attempt — no EF1, no production code changes. PA: full pass (9 findings, all positive). 82 tests, all gates clean.
-- **[WS_06 T3 signed off — 2026-06-15]** BSE created `tests/integration/e2e.errorPaths.test.ts` with own `beforeAll`/`afterAll` fixture (identical pattern to T1). T-3a: raw `fetch` with `stream: true` → HTTP 400; asserts `status`, `Content-Type: application/json`, `message === 'Streaming is not supported'`, `code === 'streaming_not_supported'`, `type === 'invalid_request_error'`. T-3b: raw `fetch` with `model: 'not-a-real-model'` → HTTP 400; asserts `status`, `Content-Type`, `code === 'model_not_supported'`, `type === 'invalid_request_error'`. PA first-pass: Hold (2 findings — missing `Content-Type` + `type` assertions); BSE applied fixes; PA final-pass: full sign-off. 84 tests, all gates clean.
+- **[Milestone — Phase 1A + 1B complete — 2026-06-12 → 2026-06-15]** Phase 1A (WS_01–WS_03, 33 tests): core types/errors/adapters. WS_04 translation pipeline (56 tests). WS_05 (80 tests): full proxy + CLI wired. WS_06 T1–T4 (84 tests): no-tools E2E integration suite — smoke fixture, happy-path (all 6 Phase 1B criteria), error-path (stream guard + model guard), full green-gate run. Phase 1B exit: spec §6 criterion formally proven end-to-end.
+- **[WS_06 T3 signed off — 2026-06-15]** BSE created `tests/integration/e2e.errorPaths.test.ts`. T-3a: raw `fetch` with `stream: true` → HTTP 400; asserts `status`, `Content-Type`, `message`, `code === 'streaming_not_supported'`, `type === 'invalid_request_error'`. T-3b: raw `fetch` with `model: 'not-a-real-model'` → HTTP 400; asserts `code === 'model_not_supported'`. PA: Hold (2 findings — missing `Content-Type` + `type` assertions); BSE fixed; PA final sign-off. 84 tests, all gates clean.
+- **[WS_06 T4 signed off — 2026-06-15]** BSE ran full green-gate: `npm test` (84 tests, 0 failures), `npm run typecheck` (0 errors), `npm run lint` (0 warnings), `npm run format` (0 diffs in source/tests). `CI=true npm test`: 77 tests — all 7 integration tests correctly excluded by `vitest.config.ts` glob. No production code changes required. Phase 1B gate formally closed.
 
 **What is being worked on**:
 
@@ -277,11 +277,12 @@ current task and leaves no constraint behind, it is not a decision.
 
 **Active task trackers**:
 
-- `docs/active/TASK_WS06_T4.md` — Green-gate close-out (⬚ Not started)
+- None.
 
 **What is next**:
 
-1. **WS_06 T4** — Full suite run (`npm test` · `typecheck` · `lint` · `format`), `CI=true npm test` exclusion check, Phase 1B close-out recorded in CLAUDE.md. Expected count ≥ 84. BSE to execute.
+1. **WS_07** — Tool-call response path: `responseBuilder` tool-call branch, `proxy.ts` wiring, Vitest suite. Phase 1C.
+2. **WS_08** — Retry hardening: `validateWithRetry` edge cases, timeout handling, error surfacing. Phase 1C.
 
 **Resolved decisions** (settled — ≤2 blocks inline; older ones in `docs/archive/decisions.md`):
 
