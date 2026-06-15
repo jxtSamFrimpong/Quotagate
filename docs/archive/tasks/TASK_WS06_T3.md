@@ -62,12 +62,12 @@
 
 | #  | Subtask | Status | Iteration | Notes |
 |----|---------|--------|-----------|-------|
-| 1  | Create `tests/integration/e2e.errorPaths.test.ts` with imports and a `beforeAll`/`afterAll` fixture identical in structure to T1's (same pattern: `loadConfig`, `ClaudeAdapter`, `createServer`, `listen({ port: 0 })`, extract port) | ⬚ Not started | — | |
-| 2  | Write T-3a: raw `fetch` POST with `{ model: 'claude-sonnet-4-6', messages: [...], stream: true }`; assert `response.status === 400`; parse body; assert `body.error.message === 'Streaming is not supported'`; assert `body.error.code === 'streaming_not_supported'` | ⬚ Not started | — | |
-| 3  | Write T-3b: raw `fetch` POST with `{ model: 'not-a-real-model', messages: [...] }`; assert `response.status === 400`; parse body; assert `body.error.code === 'model_not_supported'` | ⬚ Not started | — | |
-| 4  | Add `healthCheck()` guard (`ctx.skip()` if false) inside each `it()` block | ⬚ Not started | — | |
-| 5  | Run `npm test` — confirm both test cases pass when `healthCheck()` returns true (or skip cleanly if false) | ⬚ Not started | — | |
-| 6  | Run `npm run typecheck`, `npm run lint`, `npm run format` — all clean | ⬚ Not started | — | |
+| 1  | Create `tests/integration/e2e.errorPaths.test.ts` with imports and a `beforeAll`/`afterAll` fixture identical in structure to T1's (same pattern: `loadConfig`, `ClaudeAdapter`, `createServer`, `listen({ port: 0 })`, extract port) | ✅ Done | 1 | File created; identical fixture pattern to T1 |
+| 2  | Write T-3a: raw `fetch` POST with `{ model: 'claude-sonnet-4-6', messages: [...], stream: true }`; assert `response.status === 400`; parse body; assert `body.error.message === 'Streaming is not supported'`; assert `body.error.code === 'streaming_not_supported'` | ✅ Done | 1 | All three SC-1/SC-2/SC-3 assertions pass |
+| 3  | Write T-3b: raw `fetch` POST with `{ model: 'not-a-real-model', messages: [...] }`; assert `response.status === 400`; parse body; assert `body.error.code === 'model_not_supported'` | ✅ Done | 1 | SC-4/SC-5 assertions pass; message not asserted (EF3) |
+| 4  | Add `healthCheck()` guard (`ctx.skip()` if false) inside each `it()` block | ✅ Done | 1 | Both `it()` blocks guard with `ctx.skip()` |
+| 5  | Run `npm test` — confirm both test cases pass when `healthCheck()` returns true (or skip cleanly if false) | ✅ Done | 1 | 84 tests, 17 files, all passing (82 baseline + 2 new) |
+| 6  | Run `npm run typecheck`, `npm run lint`, `npm run format` — all clean | ✅ Done | 1 | All three gates clean; prettier reformatted one long type cast |
 
 _Status icons: `✅ Done` | `🔄 In progress` | `⬚ Not started` | `❌ Blocked`_
 

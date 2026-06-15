@@ -1,7 +1,7 @@
 # CLAUDE.md — Project Knowledge Base
 
-> **Last Updated**: 2026-06-12
-> **Status**: 🟢 **WS_06 T2 signed off — happy-path E2E proven, 82 tests. T3 (error-path E2E) is next.**
+> **Last Updated**: 2026-06-15
+> **Status**: 🟢 **WS_06 T3 signed off — error-path E2E proven, 84 tests. T4 (green-gate close-out) is next.**
 
 ---
 
@@ -263,13 +263,13 @@ current task and leaves no constraint behind, it is not a decision.
 
 ## Session State
 
-### Current Session (2026-06-12)
+### Current Session (2026-06-15)
 
 **What was completed**:
 
-- **[Milestone — Phase 1B MVP complete — 2026-06-12]** Phase 1A (WS_01–WS_03, 33 tests): core types/errors/adapters. WS_04 translation pipeline (56 tests): `argumentBuilder.ts`, `responseBuilder.ts`, `validator.ts`. WS_05 (all T1–T4 signed off, 80 tests): `src/config.ts` `loadConfig`, `src/proxy.ts` `createServer` + full pipeline wired, `src/index.ts` CLI entrypoint. WS_06 elevated to implementation-ready (T1–T4 trackers created).
-- **[WS_06 T1 signed off — 2026-06-12]** BSE created `tests/integration/e2e.noTools.test.ts`: `beforeAll` starts Fastify via `createServer` on ephemeral `port: 0` (port extracted from Fastify v5 URL-string return), `afterAll` null-guarded `server.close()`, fixture path anchored via `fileURLToPath(new URL(..., import.meta.url))` (immune to `process.cwd()` variation). T-1 smoke test: raw `fetch` POST, asserts `content-type: application/json`, `ctx.skip()` guard on `healthCheck()`. PA: full pass. 81 tests, all gates clean.
+- **[Milestone — Phase 1B MVP + WS_06 T1/T2 — 2026-06-12]** Phase 1A (WS_01–WS_03, 33 tests): core types/errors/adapters. WS_04 translation pipeline (56 tests). WS_05 (80 tests): full proxy + CLI wired. WS_06 T1 (smoke fixture, 81 tests) + T2 (happy-path E2E, all 6 Phase 1B criteria, 82 tests) signed off.
 - **[WS_06 T2 signed off — 2026-06-12]** BSE added T-2 happy-path `it()` block to `e2e.noTools.test.ts`: extended `beforeAll` with `OpenAI` client + `baseURL`; called `client.chat.completions.create({ model: 'claude-sonnet-4-6', messages: [...] })` against the real Claude subprocess; asserted all six Phase 1B criteria (`finish_reason`, `role`, `content`, `id`, `object`, `usage`). `CONSTRAINT_INSTRUCTIONS` produced valid raw JSON on first attempt — no EF1, no production code changes. PA: full pass (9 findings, all positive). 82 tests, all gates clean.
+- **[WS_06 T3 signed off — 2026-06-15]** BSE created `tests/integration/e2e.errorPaths.test.ts` with own `beforeAll`/`afterAll` fixture (identical pattern to T1). T-3a: raw `fetch` with `stream: true` → HTTP 400; asserts `status`, `Content-Type: application/json`, `message === 'Streaming is not supported'`, `code === 'streaming_not_supported'`, `type === 'invalid_request_error'`. T-3b: raw `fetch` with `model: 'not-a-real-model'` → HTTP 400; asserts `status`, `Content-Type`, `code === 'model_not_supported'`, `type === 'invalid_request_error'`. PA first-pass: Hold (2 findings — missing `Content-Type` + `type` assertions); BSE applied fixes; PA final-pass: full sign-off. 84 tests, all gates clean.
 
 **What is being worked on**:
 
@@ -277,12 +277,11 @@ current task and leaves no constraint behind, it is not a decision.
 
 **Active task trackers**:
 
-- `docs/active/TASK_WS06_T3.md` — Error-path E2E tests (⬚ Not started)
 - `docs/active/TASK_WS06_T4.md` — Green-gate close-out (⬚ Not started)
 
 **What is next**:
 
-1. **WS_06 T3** — Create `tests/integration/e2e.errorPaths.test.ts` with own `beforeAll`/`afterAll` fixture. Two `it()` blocks using raw `fetch` (no SDK): (a) T-3a: `stream: true` → HTTP 400, `code: 'streaming_not_supported'`, `message: 'Streaming is not supported'`; (b) T-3b: unknown model `'not-a-real-model'` → HTTP 400, `code: 'model_not_supported'`. Both use `{ timeout: 10_000 }`. BSE to implement.
+1. **WS_06 T4** — Full suite run (`npm test` · `typecheck` · `lint` · `format`), `CI=true npm test` exclusion check, Phase 1B close-out recorded in CLAUDE.md. Expected count ≥ 84. BSE to execute.
 
 **Resolved decisions** (settled — ≤2 blocks inline; older ones in `docs/archive/decisions.md`):
 

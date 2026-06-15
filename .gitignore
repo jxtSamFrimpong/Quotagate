@@ -1,6 +1,7 @@
 # --- Quotagate-specific ---
 quotagate-spec.md
 *.local.json
+concerns
 
 # --- Node / TypeScript ---
 node_modules/
