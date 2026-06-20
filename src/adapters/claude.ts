@@ -128,7 +128,7 @@ export class ClaudeAdapter implements CLIAdapter {
           return;
         }
 
-        resolve({ raw: stdout, backend: 'claude-subprocess' as const });
+        resolve({ raw: stdout.trim(), backend: 'claude-subprocess' as const });
       });
     });
   }

@@ -66,13 +66,13 @@
 
 | #  | Subtask | Status | Iteration | Notes |
 |----|---------|--------|-----------|-------|
-| 1  | Create `tests/integration/e2e.toolCall.test.ts` with `beforeAll`/`afterAll` server fixture (identical pattern to `e2e.noTools.test.ts`) | ⬚ Not started | — | |
-| 2  | Add T-a: `get_weather` happy path — `finish_reason:"tool_calls"`, function name, parseable arguments | ⬚ Not started | — | |
-| 3  | Add T-b: `write_file` absence-of-side-effect — unique temp path, `!fs.existsSync`, `afterEach` cleanup | ⬚ Not started | — | |
-| 4  | Run `npm test` (CI=false, live subscription) against the full suite — triage any EF1/EF2 constraint failures | ⬚ Not started | — | |
-| 5  | If EF1 manifests: iterate `CONSTRAINT_INSTRUCTIONS` in `src/adapters/claude.ts` — re-run until T-a passes reliably | ⬚ Not started | — | |
-| 6  | Confirm T-b: file does not exist after response (invariant #1 holds); `afterEach` cleanup runs | ⬚ Not started | — | |
-| 7  | Run `npm run typecheck`, `npm run lint`, `npm run format` — all clean | ⬚ Not started | — | |
+| 1  | Create `tests/integration/e2e.toolCall.test.ts` with `beforeAll`/`afterAll` server fixture (identical pattern to `e2e.noTools.test.ts`) | ✅ Done | 1 | Implemented inline; prettier reformatted one line (wrap) on format pass — no structural change |
+| 2  | Add T-a: `get_weather` happy path — `finish_reason:"tool_calls"`, function name, parseable arguments | ✅ Done | 1 | All 6 SC-1–SC-4 assertions in place; explicit user message phrasing per PA recommendation |
+| 3  | Add T-b: `write_file` absence-of-side-effect — unique temp path, `!fs.existsSync`, `afterEach` cleanup | ✅ Done | 1 | `tempPath` at describe scope; `afterEach` resets to `''`; `force:true` rmSync |
+| 4  | Run `npm test` (CI=false, live subscription) against the full suite — triage any EF1/EF2 constraint failures | ✅ Done | 1 | 92 passed, 0 failures. EF1 did not manifest. stdout.trim() fix (PA Finding 2) applied to claude.ts before running. |
+| 5  | If EF1 manifests: iterate `CONSTRAINT_INSTRUCTIONS` in `src/adapters/claude.ts` — re-run until T-a passes reliably | ✅ Done | N/A | EF1 did not manifest — no constraint iteration required |
+| 6  | Confirm T-b: file does not exist after response (invariant #1 holds); `afterEach` cleanup runs | ✅ Done | 1 | `existsSync(tempPath) === false` confirmed; afterEach cleanup verified (ran suite twice — no stale-file error) |
+| 7  | Run `npm run typecheck`, `npm run lint`, `npm run format` — all clean | ✅ Done | 1 | typecheck: 0 errors; lint: 0 violations; format: 0 diffs (new file already clean after prettier pass) |
 
 _Status icons: `✅ Done` | `🔄 In progress` | `⬚ Not started` | `❌ Blocked`_
 
@@ -80,18 +80,20 @@ _Status icons: `✅ Done` | `🔄 In progress` | `⬚ Not started` | `❌ Blocke
 
 ## Current Subtask Detail
 
-### Subtask 1: Create the test file with the server fixture
+### ✅ All subtasks complete — 2026-06-20
 
-**Approach iteration plan**:
-1. Copy the `beforeAll`/`afterAll` block from `e2e.noTools.test.ts` verbatim — same `FIXTURE_CONFIG_PATH` resolution, same `let server: FastifyInstance | null = null` pattern, same `afterAll` null-guard.
-2. Add the two test stubs (T-a and T-b) with `ctx.skip()` placeholders under the `healthCheck()` guard. Run `npm test` to confirm the new file loads without error (tests skip on CI).
-3. Implement the full assertions and run against the live subscription.
+**Run results**:
+- `npm test`: 92 passed, 0 failures (90 prior + 2 from T3)
+- `CI=true npm test`: 83 unit tests (integration excluded) — note: T4 SC-6 budgeted 84; actual is 83 (T2 replaced T-4, net +2 not +3)
+- `npm run typecheck`: 0 errors; `npm run lint`: 0 violations; `npm run format`: 0 diffs
 
-- **Current iteration**: 1 of 3
-- **Verifiability**: Step 2 — `npm test` with `CI=true` shows 2 new skipped integration tests; no load error; prior tests unaffected.
-- **Challenges**: EF1 is the highest-probability real-world failure. If it manifests, iterate constraint wording. If iteration does not resolve within 3 attempts, escalate to PA — the root cause may be a model behavior change that requires a more fundamental constraint approach.
+**Pre-T3 fix applied**: `stdout.trim()` in `src/adapters/claude.ts` (PA Finding 2) — eliminates risk of CLI diagnostic lines around JSON in tool_call path.
 
-**Stop-and-escalate condition for T-b**: If `fs.existsSync(tempPath)` is true after the proxy response, do NOT delete the file and re-run. Record the finding immediately and escalate to PA. A file at that path means something inside the proxy created it — that is an invariant #1 violation, not a test setup issue.
+**EF1**: Did not manifest. Model returned `{type:"tool_call"}` on first attempt for both T-a and T-b.
+
+**Invariant #1 (T-b)**: `existsSync(tempPath) === false` confirmed — proxy declared the call, did not execute it.
+
+**PA deferred findings** (to WS_08): F1 (call_ ID format), F3 (tool_choice:required gap in CONSTRAINT_INSTRUCTIONS), F4 (AdapterResponse.backend union), F5 (non-mutation comment), F7 (tsconfig test coverage).
 
 ---
 
@@ -202,14 +204,45 @@ Assert:
 
 ## Review Notes
 
-_(Architect fills after BSE submits.)_
+**PA Full Pass — 2026-06-20**
+
+All 10 SC verified against the implementation file and run results.
+
+SC-1 through SC-4 (T-a): All four assertions present and hard (no conditional fallback to
+`finish_reason:"stop"`). Comment labels match SC numbers. `function.name === 'get_weather'`
+at line 85; two-part SC-4 (not.toThrow + typeof === 'object') at lines 87–92.
+
+SC-5 through SC-7 (T-b): `finish_reason:"tool_calls"` hard at line 131; `write_file` name at
+line 132; `existsSync(tempPath) === false` at line 134. The `afterEach` cleanup at lines 41–46
+resets `tempPath` to `''` after cleanup — prevents the guard firing on T-a where `tempPath`
+was never assigned. D1 (UUID-unique path) honored: `randomUUID()` called inside the test body
+at line 105.
+
+SC-8 (skip guards): Both T-a and T-b use the correct two-condition guard
+`(adapter === null || !(await adapter.healthCheck()))` with `ctx.skip(); return`. CI=true
+confirms 2 integration tests excluded (not failed).
+
+SC-9/SC-10: 92 passed / 0 failures across two consecutive runs; typecheck 0 errors; lint 0
+violations; format 0 diffs.
+
+A1 proven (EF1 did not manifest): `CONSTRAINT_INSTRUCTIONS` unchanged.
+A2 proven: invariant #1 confirmed empirically — `existsSync(tempPath) === false`.
+A3 proven: `JSON.parse(arguments)` succeeds; result is a plain object.
+A4 proven: server fixture lifecycle worked correctly; null-guard present.
+
+Implementation note: T-a user message uses "Use the get_weather tool." — stronger than the
+tracker's example phrasing. Sound call; weaker phrasing risks EF1 on future model versions.
+Approved as-is.
+
+stdout.trim() pre-fix (PA Finding 2) confirmed at `src/adapters/claude.ts` line 131.
+PA deferred findings F1/F3/F4/F5/F7 correctly scoped to WS_08 per D2. No blockers found.
 
 ---
 
 ## Architect Sign-off
 
-- [ ] Implementation reviewed
-- [ ] All success criteria verified
-- [ ] All assumptions resolved (proven, or fallback taken & documented)
-- [ ] No regressions in full test suite
-- [ ] `npm test` / `typecheck` / `lint` / `format` all clean
+- [x] Implementation reviewed
+- [x] All success criteria verified
+- [x] All assumptions resolved (proven, or fallback taken & documented)
+- [x] No regressions in full test suite
+- [x] `npm test` / `typecheck` / `lint` / `format` all clean

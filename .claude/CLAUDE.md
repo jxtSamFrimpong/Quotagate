@@ -1,7 +1,7 @@
 # CLAUDE.md — Project Knowledge Base
 
-> **Last Updated**: 2026-06-15
-> **Status**: 🟡 **WS_07 T1+T2 PA-signed off (90 tests). T3 (integration) ready to start (BSE).**
+> **Last Updated**: 2026-06-20
+> **Status**: 🟢 **WS_07 complete — T1–T4 PA-signed off (92 tests). WS_08 ready to start.**
 
 ---
 
@@ -263,13 +263,13 @@ current task and leaves no constraint behind, it is not a decision.
 
 ## Session State
 
-### Current Session (2026-06-15)
+### Current Session (2026-06-20)
 
 **What was completed**:
 
-- **[Milestone — Phase 1A + 1B complete — 2026-06-12 → 2026-06-15]** Phase 1A (WS_01–WS_03, 33 tests): core types/errors/adapters. WS_04 translation pipeline (56 tests). WS_05 (80 tests): full proxy + CLI wired. WS_06 T1–T4 (84 tests): no-tools E2E integration suite — smoke fixture, happy-path (all 6 Phase 1B criteria), error-path (stream guard + model guard), full green-gate run. Phase 1B exit: spec §6 criterion formally proven end-to-end.
-- **[WS_07 PA elevation — 2026-06-15]** PA reviewed `ws07_tool_call_response_path.md`, caught 5 issues, fixed doc in place, locked WS_07-D5 (object-form `tool_choice` out of scope for Phase 1C). Created 4 implementation-ready task trackers: TASK_WS07_T1–T4.
-- **[WS_07 T1+T2 signed off — 2026-06-15]** T1: 4 new unit tests in `tests/validator.test.ts` — T-7a/b/c (malformed `tool_call` → `ValidationError`, Zod boundary confirmed) + T-8 (retry resolves valid attempt-2). No production code changed. T2: replaced `throw` stub in `src/responseBuilder.ts` with full `tool_call` branch (`content:null`, `refusal:null`, `JSON.stringify(arguments)`, `call_`/`chatcmpl-` prefixes); rewrote `responseBuilder.test.ts` T-4, added T-5 (full contract) + T-6 (compile-time `const out: ChatCompletion` invariant #5 guard); consequential update to `proxy.test.ts` pipeline T-4 (stub assertion retired). PA Full Pass: all 12 T2 SC + all 6 T1 SC verified, no blockers. Green gate: 90 tests, 0 failures, all gates clean.
+- **[Milestone — Phase 1A+1B complete + WS_07 elevated — 2026-06-12 → 2026-06-15]** Phase 1A (WS_01–WS_03, 33 tests), Phase 1B (WS_04–WS_06, 84 tests); WS_07 workstream plan elevated, 4 implementation-ready task trackers created; WS_07-D5 locked (object-form `tool_choice` out of scope for Phase 1C).
+- **[WS_07 T1+T2 signed off — 2026-06-15]** T1: 4 new unit tests (malformed `tool_call` → `ValidationError`, retry resolves valid attempt-2). T2: full `tool_call` branch in `responseBuilder.ts` (`content:null`, `refusal:null`, `JSON.stringify(arguments)`, `call_`/`chatcmpl-` prefixes); T-5 (full contract) + T-6 (compile-time `const out: ChatCompletion` invariant #5 guard). Green gate: 90 tests.
+- **[WS_07 T3+T4 signed off — 2026-06-20]** PA holistic pre-T3 review (8 findings — Finding 2 applied: `stdout.trim()` in `claude.ts` to eliminate CLI diagnostic framing risk). T3: `tests/integration/e2e.toolCall.test.ts` — `get_weather` happy path (SC-1–SC-4) + `write_file` absence-of-side-effect (SC-5–SC-7, invariant #1 proven empirically). EF1 did not manifest; `CONSTRAINT_INSTRUCTIONS` unchanged. T4: 92 tests / 83 CI-only, all green-gate commands clean. PA Full Pass both trackers, all SC verified.
 
 **What is being worked on**:
 
@@ -277,14 +277,11 @@ current task and leaves no constraint behind, it is not a decision.
 
 **Active task trackers**:
 
-- `docs/active/TASK_WS07_T3.md` — Integration test `e2e.toolCall.test.ts` (get_weather + write_file absence-of-side-effect)
-- `docs/active/TASK_WS07_T4.md` — Green-gate close-out (expect 92 total / 83 CI-only)
+- None.
 
 **What is next**:
 
-1. **WS_07 T3** — Integration test (BSE, ready to start). Requires live Claude subscription. Creates `tests/integration/e2e.toolCall.test.ts`; may iterate `CONSTRAINT_INSTRUCTIONS` in `claude.ts` if EF1 manifests.
-2. **WS_07 T4** — Green-gate close-out (depends on T3).
-3. **WS_08** — Retry hardening + `router.ts`: independent of T3/T4, can start once user directs.
+1. **WS_08** — Retry hardening + `router.ts`. Also carries PA deferred findings from WS_07: F1 (`call_` ID format → 24-char alphanumeric, no hyphens), F3 (`tool_choice:"required"` gap in `CONSTRAINT_INSTRUCTIONS`), F4 (`AdapterResponse.backend` union type for Phase 2 honesty).
 
 **Resolved decisions** (settled — ≤2 blocks inline; older ones in `docs/archive/decisions.md`):
 

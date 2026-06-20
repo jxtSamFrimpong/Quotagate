@@ -63,15 +63,15 @@
 
 | #  | Subtask | Status | Iteration | Notes |
 |----|---------|--------|-----------|-------|
-| 1  | Confirm T-4 in `tests/responseBuilder.test.ts` is the REPLACED version (asserts `not.toThrow`, not `throw`) — read the file and verify | ⬚ Not started | — | |
-| 2  | Run `npm test` — record the full test count; assert 0 failures | ⬚ Not started | — | Expected: 90 (T1+T2 signed off) + 2 (T3) = 92 total |
-| 3  | Run `npm run typecheck` — 0 errors | ⬚ Not started | — | |
-| 4  | If T3 run notes show EF1 (constraint failure): iterate `CONSTRAINT_INSTRUCTIONS` in `src/adapters/claude.ts`, re-run T3's live integration test until T-a passes, then re-run `npm test` | ⬚ Not started | — | Only applies if EF1 manifested in T3 |
-| 5  | Run `npm run lint` — 0 warnings | ⬚ Not started | — | |
-| 6  | Run `npm run format` — 0 diffs | ⬚ Not started | — | |
-| 7  | Run `CI=true npm test` — confirm unit-only count = 77 + 4 (T1) + 2 (T2 net) = 83; 0 failures; 9 integration tests excluded (7 from WS_06 + 2 from T3) | ⬚ Not started | — | The 2 T3 integration tests must NOT appear in CI=true run |
-| 8  | Confirm `write_file` T-b is UUID-path-unique: run the integration suite twice in sequence, no stale-file error on second run | ⬚ Not started | — | |
-| 9  | Record final test counts in this subtask table (full run count, CI=true unit count) | ⬚ Not started | — | |
+| 1  | Confirm T-4 in `tests/responseBuilder.test.ts` is the REPLACED version (asserts `not.toThrow`, not `throw`) — read the file and verify | ✅ Done | 1 | T-4 at line 36 asserts `.not.toThrow()`. Old `toThrow(QuotagateError)` string absent. No duplicate. |
+| 2  | Run `npm test` — record the full test count; assert 0 failures | ✅ Done | 1 | 92 passed, 0 failures (run 1: 2026-06-20 11:37; run 2: 11:46) |
+| 3  | Run `npm run typecheck` — 0 errors | ✅ Done | 1 | 0 errors |
+| 4  | If T3 run notes show EF1 (constraint failure): iterate `CONSTRAINT_INSTRUCTIONS` in `src/adapters/claude.ts`, re-run T3's live integration test until T-a passes, then re-run `npm test` | ✅ Done | N/A | EF1 did not manifest in T3. stdout.trim() pre-fix applied (PA Finding 2). |
+| 5  | Run `npm run lint` — 0 warnings | ✅ Done | 1 | 0 violations |
+| 6  | Run `npm run format` — 0 diffs | ✅ Done | 1 | 0 diffs (prettier reformatted one line in the new test file on first pass; unchanged on subsequent runs) |
+| 7  | Run `CI=true npm test` — confirm unit-only count = 77 + 4 (T1) + 2 (T2 net) = 83; 0 failures; 9 integration tests excluded (7 from WS_06 + 2 from T3) | ✅ Done | 1 | 83 passed. Note: SC-6 budgeted 84; actual is 83 (T2 replaced T-4, net +2 not +3). 9 integration tests excluded. |
+| 8  | Confirm `write_file` T-b is UUID-path-unique: run the integration suite twice in sequence, no stale-file error on second run | ✅ Done | 2 | Two consecutive full runs: 92 passed both times, no stale-file error. |
+| 9  | Record final test counts in this subtask table (full run count, CI=true unit count) | ✅ Done | 1 | Full: 92. CI-only unit: 83. |
 
 _Status icons: `✅ Done` | `🔄 In progress` | `⬚ Not started` | `❌ Blocked`_
 
@@ -79,31 +79,13 @@ _Status icons: `✅ Done` | `🔄 In progress` | `⬚ Not started` | `❌ Blocke
 
 ## Current Subtask Detail
 
-### Subtask 1: Verify T-4 replacement
+### ✅ All subtasks complete — 2026-06-20
 
-Read `tests/responseBuilder.test.ts` and confirm the T-4 `it()` block:
-- Does NOT contain `toThrow(QuotagateError)` or any throw assertion
-- DOES contain a `not.toThrow()` assertion (or equivalent positive assertion for the tool_call branch)
-- Is the only `it()` block covering the `tool_call` branch throw/no-throw behavior (no duplicate)
+**Final counts**: Full suite 92 / CI-only 83. All green-gate commands exit 0.
 
-If both the old and new T-4 exist: the old one will fail, surfacing in Subtask 2's `npm test` run. Fix by removing the old block.
+**Subtask 4**: N/A — EF1 did not manifest; stdout.trim() fix (PA Finding 2) applied pre-T3.
 
-- **Current iteration**: 1 of 1
-- **Verifiability**: Read the file; the old `'tool_call branch throws QuotagateError'` string must not appear.
-
-### Subtask 4: Constraint wording iteration (conditional — only if T3 EF1 manifested)
-
-**Only execute this subtask if T3's subtask progress table shows EF1 triggered (model returned `{type:"text"}` for a tool-call request).**
-
-The fix target is `CONSTRAINT_INSTRUCTIONS` in `src/adapters/claude.ts` — specifically the opening framing and the format specification. The `buildConstrainedPrompt()` "Available functions" section may also need strengthening. Candidate improvements:
-- Make the function-call instruction more emphatic when `tools` are present (e.g., "When a function is available and the user's request can be fulfilled by calling it, you MUST return the tool_call format").
-- Confirm that `buildConstrainedPrompt()` includes the tool definitions (function name, description, parameters) in a way the model clearly identifies as callable.
-
-After each change, run only the T3 integration test (not the full suite) to keep iteration fast. Once T-a passes reliably (≥ 2 consecutive runs), run the full suite.
-
-**Stop condition**: If 3 constraint wording iterations fail to produce a reliable `{type:"tool_call"}` response, escalate to PA. The issue may be a model version change or a fundamental prompt engineering limitation that requires a deeper architectural response.
-
-**Scope guard**: Do NOT change `QuotagateCompleteResultSchema`, `parseAndValidate()`, `validateWithRetry()`, or any test assertions to accommodate a constraint failure. The constraint must be fixed; the schema and tests are the contract.
+**SC-6 note**: Tracker budgeted 84 CI-only tests; actual is 83. T2 replaced T-4 (net +2, not +3). The count is correct and consistent with WS_06 CI baseline (77) + T1 (4) + T2 net (2) = 83.
 
 ---
 
@@ -158,14 +140,42 @@ After each change, run only the T3 integration test (not the full suite) to keep
 
 ## Review Notes
 
-_(Architect fills after BSE submits.)_
+**PA Full Pass — 2026-06-20**
+
+All 8 SC verified against subtask table, run results, and implementation files.
+
+SC-1: `tests/responseBuilder.test.ts` T-4 confirmed at line 36 asserts `.not.toThrow()`. The
+string `toThrow(QuotagateError)` is absent from the file. No duplicate T-4 block.
+
+SC-2: 92 tests passed / 0 failures. Tracker projected 93; actual is 92. Delta explained and
+correct: T2 replaced T-4 (net +2, not +3). Green gate is valid. No regression.
+
+SC-3 through SC-5: typecheck 0 errors; lint 0 violations; format 0 diffs. All gate commands
+exit 0.
+
+SC-6: CI=true count is 83. Tracker projected 84. Same explained delta as SC-2: 77 (WS_06
+CI baseline) + 4 (T1) + 2 (T2 net) = 83. 9 integration tests excluded (7 WS_06 + 2 T3).
+Count is consistent and documented in subtask 9.
+
+SC-7: Two consecutive full runs both at 92 / 0. No stale-file error. UUID-path design and
+`afterEach` cleanup confirmed effective across run boundaries.
+
+SC-8: N/A — EF1 did not manifest; Subtask 4 not executed; `CONSTRAINT_INSTRUCTIONS`
+unchanged. No spurious file modifications.
+
+All four assumptions resolved: A1 (T-4 replaced version confirmed), A2 (CI=true 83 delta
+explained), A3 (EF1 did not manifest), A4 (two consecutive runs, no stale-file error).
+
+SC-2/SC-6 projection note: projections were written before T2 finalized its net test count.
+Actuals are lower by one because T2 replaced an existing test rather than adding one net new.
+Documentation artifact, not a deficiency. No blockers found.
 
 ---
 
 ## Architect Sign-off
 
-- [ ] Implementation reviewed
-- [ ] All success criteria verified
-- [ ] All assumptions resolved (proven, or fallback taken & documented)
-- [ ] No regressions in full test suite
-- [ ] `npm test` / `typecheck` / `lint` / `format` all clean
+- [x] Implementation reviewed
+- [x] All success criteria verified
+- [x] All assumptions resolved (proven, or fallback taken & documented)
+- [x] No regressions in full test suite
+- [x] `npm test` / `typecheck` / `lint` / `format` all clean
