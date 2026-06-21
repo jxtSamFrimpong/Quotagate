@@ -122,3 +122,17 @@ _(Locked in TASK_WS03_T4 planning by Principal Architect, 2026-06-09. Implemente
 **Rejected — stdin injection with rewording**: probabilistic failure rate persists regardless of phrasing because the issue is structural (channel), not lexical (words). **Rejected — early Mechanism B upgrade**: D-SEQ-01 is locked; Phase 2 is the correct home for MCP transport.
 
 _(Decision ID WS_03-T2-SYSTEM-PROMPT. Locked 2026-06-10. Archived from `.claude/CLAUDE.md` Session State by /house-keeping, 2026-06-11.)_
+
+---
+
+## 2026-06-10
+
+### WS_04-D5 — OpenAI Translation-Pipeline Open Decisions Resolved (OD-1…OD-7) [LOCKED]
+
+**Choice**: WS_04 elevation locked 7 decisions. Load-bearing: **OD-5 — validator split:** pure `parseAndValidate(raw)` (T2) + `validateWithRetry(raw, messages, invoker)` orchestrator (T3), both in `validator.ts`; the `invoker` callback is the seam the Phase-2 MCP transport substitutes into (neither function changes). **OD-1 — `toolChoice`:** the builder passes `tool_choice` through verbatim; the adapter's `?? 'auto'` (claude.ts:90) is the sole default (honors WS_04-D1). **OD-7 — `tool_call`:** the validator returns a schema-valid `tool_call` faithfully; `responseBuilder` is the single loud rejection point. Supporting: **OD-2** add `openai` dep (pinned major, `import type` only); **OD-3** hand-rolled `OpenAIChatRequest` Zod schema in `types.ts`; **OD-4** `tool_call` stub throws base `QuotagateError`; **OD-6** validator does not strip markdown fences (fenced → retry, never silently normalized). Full dated blocks + rejected alternatives in `docs/plan/workstreams/ws04_translation_pipeline.md` §Locked Decisions.
+
+**Rejected (OD-5)**: single inline `validate(raw, invoker, attempt)` — fuses parse/validate to re-invocation, untestable in isolation.
+
+**Rejected (OD-1)**: inject `"auto"` at the builder — duplicates the default and binds all future backends to it.
+
+_(Locked 2026-06-10. Archived from `.claude/CLAUDE.md` Session State by /house-keeping, 2026-06-21.)_

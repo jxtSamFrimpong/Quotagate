@@ -1,7 +1,7 @@
 # CLAUDE.md — Project Knowledge Base
 
-> **Last Updated**: 2026-06-20
-> **Status**: 🟢 **WS_07 complete — T1–T4 PA-signed off (92 tests). WS_08 ready to start.**
+> **Last Updated**: 2026-06-21
+> **Status**: 🟢 **WS_07 complete — T1–T4 PA-signed off (92 tests). WS_08 elevated — 4 task trackers ready.**
 
 ---
 
@@ -263,13 +263,13 @@ current task and leaves no constraint behind, it is not a decision.
 
 ## Session State
 
-### Current Session (2026-06-20)
+### Current Session (2026-06-21)
 
 **What was completed**:
 
-- **[Milestone — Phase 1A+1B complete + WS_07 elevated — 2026-06-12 → 2026-06-15]** Phase 1A (WS_01–WS_03, 33 tests), Phase 1B (WS_04–WS_06, 84 tests); WS_07 workstream plan elevated, 4 implementation-ready task trackers created; WS_07-D5 locked (object-form `tool_choice` out of scope for Phase 1C).
-- **[WS_07 T1+T2 signed off — 2026-06-15]** T1: 4 new unit tests (malformed `tool_call` → `ValidationError`, retry resolves valid attempt-2). T2: full `tool_call` branch in `responseBuilder.ts` (`content:null`, `refusal:null`, `JSON.stringify(arguments)`, `call_`/`chatcmpl-` prefixes); T-5 (full contract) + T-6 (compile-time `const out: ChatCompletion` invariant #5 guard). Green gate: 90 tests.
+- **[Milestone — Phase 1A+1B complete + WS_07 signed off — 2026-06-12 → 2026-06-20]** Phase 1A (WS_01–WS_03, 33 tests), Phase 1B (WS_04–WS_06, 84 tests), Phase 1C WS_07 (92 tests / 83 CI-only); PA holistic review (8 findings), `stdout.trim()` fix, `get_weather` + `write_file` invariant-#1 integration tests. All T1–T4 PA-signed off.
 - **[WS_07 T3+T4 signed off — 2026-06-20]** PA holistic pre-T3 review (8 findings — Finding 2 applied: `stdout.trim()` in `claude.ts` to eliminate CLI diagnostic framing risk). T3: `tests/integration/e2e.toolCall.test.ts` — `get_weather` happy path (SC-1–SC-4) + `write_file` absence-of-side-effect (SC-5–SC-7, invariant #1 proven empirically). EF1 did not manifest; `CONSTRAINT_INSTRUCTIONS` unchanged. T4: 92 tests / 83 CI-only, all green-gate commands clean. PA Full Pass both trackers, all SC verified.
+- **[WS_08 elevated — 2026-06-21]** PA review of WS_08 workstream plan: 7 findings resolved (T3 overlap, max_attempts gap, F1/F3/F4 placement, router key convention, 7-file blast radius, correction note assertion). WS_08-D4 locked (B-1: `validateWithRetry` gains `maxAttempts` 4th parameter; `MAX_ATTEMPTS` constant removed; `proxy.ts` wires `config.retry.max_attempts`). 4 implementation-ready task trackers created (T1–T4).
 
 **What is being worked on**:
 
@@ -277,23 +277,26 @@ current task and leaves no constraint behind, it is not a decision.
 
 **Active task trackers**:
 
-- None.
+- `docs/active/TASK_WS08_T1.md` — Structural corrections (F1/F3/F4/D4) + `src/router.ts` ⬚ Not Started
+- `docs/active/TASK_WS08_T2.md` — Migrate `proxy.ts` to `router.ts`; update all 7 callers ⬚ Not Started
+- `docs/active/TASK_WS08_T3.md` — Retry exhaustion + correction-note content tests at proxy level ⬚ Not Started
+- `docs/active/TASK_WS08_T4.md` — Green-gate close-out ⬚ Not Started
 
 **What is next**:
 
-1. **WS_08** — Retry hardening + `router.ts`. Also carries PA deferred findings from WS_07: F1 (`call_` ID format → 24-char alphanumeric, no hyphens), F3 (`tool_choice:"required"` gap in `CONSTRAINT_INSTRUCTIONS`), F4 (`AdapterResponse.backend` union type for Phase 2 honesty).
+1. **WS_08 T1** — BSE starts: apply F1/F3/F4, wire `maxAttempts`, author `src/router.ts` + `tests/router.test.ts`.
 
 **Resolved decisions** (settled — ≤2 blocks inline; older ones in `docs/archive/decisions.md`):
 
+**Decisions resolved (2026-06-21)**:
+
+- **WS_08-D4 — `config.retry.max_attempts` wired into `validateWithRetry` (B-1) [LOCKED].** PA review found that `validateWithRetry` hardcoded `MAX_ATTEMPTS = 3` while the config field `retry.max_attempts` was parsed/validated but never read — a developer setting `max_attempts: 5` silently got 3 retries. **Choice (B-1):** `validateWithRetry` accepts `maxAttempts: number` as a 4th parameter; the `MAX_ATTEMPTS` constant is removed; `proxy.ts` passes `config.retry.max_attempts` at the call site. All `validator.test.ts` calls supply `3` explicitly — identical behavior, now honest. _Rejected (B-2) — document as Phase 1 simplification:_ config field creates a false expectation with no warning; eliminated at minimal cost by B-1.
+
 **Decisions resolved (2026-06-11)**:
 
-- **WS_05-D5…D8 — Fastify proxy & config open decisions resolved (OD-1/OD-2/OD-3 + DD-1) [LOCKED].** WS_05 elevation locked 4 decisions. **D5 (OD-1):** add `yaml` as a runtime dep (`import { parse }`) — pure-JS, zero-dep, spec §3.9-aligned. **D6 (OD-2):** default config path `~/.quotagate/config.yaml` via `os.homedir()` (never `process.cwd()` / literal `~`) — the spec-canonical location (spec line 798), pulled forward from Phase-4 DX and co-located with invariant-#9's `~/.quotagate/` home. **D7 (OD-3):** `QuotagateConfig.models` entry is `{ backend; priority? }` — matches spec §3.9, zero migration when `router.ts` arrives. **D8 (DD-1):** absent config is fail-loud (throw create-it `QuotagateError` → `process.exit(1)`); no auto-write, honoring D-SEQ-01's no-installer fence. Full dated blocks + rejected alternatives in `docs/plan/workstreams/ws05_fastify_proxy_and_config.md` §Locked Decisions. _This pass corrected the elevation's own OD-2 analysis, which had recommended the spec-unnamed `process.cwd()`._ _Rejected (OD-2) — `process.cwd()`:_ spec names no project-local path; misses config when run from a subdirectory. _Rejected (DD-1) — auto-write a default config:_ installer-class disk write deferred by D-SEQ-01.
+- **WS_05-D5…D8 — Fastify proxy & config open decisions resolved (OD-1/OD-2/OD-3 + DD-1) [LOCKED].** WS_05 elevation locked 4 decisions. **D5 (OD-1):** add `yaml` as a runtime dep (`import { parse }`) — pure-JS, zero-dep, spec §3.9-aligned. **D6 (OD-2):** default config path `~/.quotagate/config.yaml` via `os.homedir()` (never `process.cwd()` / literal `~`) — the spec-canonical location (spec line 798), pulled forward from Phase-4 DX and co-located with invariant-#9's `~/.quotagate/` home. **D7 (OD-3):** `QuotagateConfig.models` entry is `{ backend; priority? }` — matches spec §3.9, zero migration when `router.ts` arrives. **D8 (DD-1):** absent config is fail-loud (throw create-it `QuotagateError` → `process.exit(1)`); no auto-write, honoring D-SEQ-01's no-installer fence. Full dated blocks + rejected alternatives in `docs/plan/workstreams/ws05_fastify_proxy_and_config.md` §Locked Decisions. _Rejected (OD-2) — `process.cwd()`:_ spec names no project-local path; misses config when run from a subdirectory. _Rejected (DD-1) — auto-write a default config:_ installer-class disk write deferred by D-SEQ-01.
 
-**Decisions resolved (2026-06-10)**:
-
-- **WS_04-D5 — OpenAI translation-pipeline open decisions resolved (OD-1…OD-7) [LOCKED].** WS_04 elevation locked 7 decisions. Load-bearing: **OD-5 — validator split:** pure `parseAndValidate(raw)` (T2) + `validateWithRetry(raw, messages, invoker)` orchestrator (T3), both in `validator.ts`; the `invoker` callback is the seam the Phase-2 MCP transport substitutes into (neither function changes). **OD-1 — `toolChoice`:** the builder passes `tool_choice` through verbatim; the adapter's `?? 'auto'` (claude.ts:90) is the sole default (honors WS_04-D1). **OD-7 — `tool_call`:** the validator returns a schema-valid `tool_call` faithfully; `responseBuilder` is the single loud rejection point. Supporting: **OD-2** add `openai` dep (pinned major, `import type` only); **OD-3** hand-rolled `OpenAIChatRequest` Zod schema in `types.ts`; **OD-4** `tool_call` stub throws base `QuotagateError`; **OD-6** validator does not strip markdown fences (fenced → retry, never silently normalized). Full dated blocks + rejected alternatives in `docs/plan/workstreams/ws04_translation_pipeline.md` §Locked Decisions. _Rejected (OD-5) — single inline `validate(raw, invoker, attempt)`:_ fuses parse/validate to re-invocation, untestable in isolation. _Rejected (OD-1) — inject `"auto"` at the builder:_ duplicates the default and binds all future backends to it.
-
-> Older decisions archived to `docs/archive/decisions.md` (D-LANG, D-STATELESS, WS_02-D3, WS_02-D-T2-02, WS_02-D2-allowlist, WS_03-D4, WS_03-T2-SYSTEM-PROMPT).
+> Older decisions archived to `docs/archive/decisions.md` (D-LANG, D-STATELESS, WS_02-D3, WS_02-D-T2-02, WS_02-D2-allowlist, WS_03-D4, WS_03-T2-SYSTEM-PROMPT, WS_04-D5).
 
 **Open decisions for user**:
 
