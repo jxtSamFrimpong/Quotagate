@@ -136,13 +136,36 @@ means no excuse for gaps.
 
 ## Review Notes
 
-*(PA fills after implementation)*
+**PA Full Pass — 2026-06-23 — APPROVE**
+
+All SC verified. Gate clean. No blocking findings. Four non-blocking observations:
+
+- **O-1 (non-blocking):** Real OpenAI `call_` IDs use base62 (mixed-case alphanumeric), not hex-only.
+  The 24-char hex format is pragmatic (UUID as entropy source) and acceptable for Phase 1. Revisit
+  in Phase 3 DX if OpenAI SDK consumers check the ID format more strictly. Not a T1 error.
+
+- **O-2 (non-blocking):** `tests/types/quotagateCompleteResult.test.ts` SC-7 comment still reads
+  `"is not assignable to 'claude-subprocess'"` — union widened by F4, comment stale. `"wrong"` is
+  still not in the union so the `@ts-expect-error` suppresses a real error correctly. Update comment
+  in T4 cleanup.
+
+- **O-3 (non-blocking):** F3 directive fires when `toolChoice === 'required'` but no tools are
+  present — "MUST invoke one of the available functions" with nothing to invoke. Upstream client
+  contract (OpenAI) requires non-empty `tools` with `tool_choice: 'required'`; a Zod guard in
+  `OpenAIChatRequestSchema` is the correct fix. Deferred; not T1's scope.
+
+- **O-4 (non-blocking):** T-14 tests `required` vs `auto` only. `none` takes the same else-branch
+  as `auto` — full branch coverage is achieved; a `none` assertion would add readability only.
+  Low priority.
+
+**T2 handoff note:** SC-P4 ("wire `config.retry.max_attempts` in `proxy.ts`") was pre-completed in
+T1 to satisfy the green gate. BSE must not re-apply it in T2 — mark SC-P4 satisfied at T2 start.
 
 ---
 
 ## Sign-off
 
-- [ ] PA reviewed
+- [x] PA reviewed — Full Pass 2026-06-23 (4 non-blocking observations, 0 blockers)
 - [x] Green gate passing — CI: 89 tests (+6 from 83); typecheck clean; lint clean; format clean.
   Full run: 94/98 passed (4 failures are live-Claude flakiness — markdown-fenced output/timeout;
   first background run passed all 98; not T1 regressions).
