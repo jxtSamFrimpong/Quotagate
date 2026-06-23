@@ -63,13 +63,11 @@ const CORRECTION_NOTE: OpenAIMessage = {
     '{"type":"tool_call","name":"<string>","arguments":{...}}',
 };
 
-const MAX_ATTEMPTS = 3;
-
 /**
  * validateWithRetry — retry orchestrator wrapping parseAndValidate (OD-5 LOCKED).
  *
  * Attempts to parse and validate `raw`. On ValidationError, appends CORRECTION_NOTE
- * to `messages` and calls `invoker` to get a fresh response, up to MAX_ATTEMPTS total.
+ * to `messages` and calls `invoker` to get a fresh response, up to maxAttempts total.
  *
  * Invariants:
  * - OD-5: Wraps parseAndValidate; does NOT reimplement parse/validate logic.
@@ -81,19 +79,22 @@ const MAX_ATTEMPTS = 3;
  * - OD-7 / A4: A schema-valid {type:"tool_call"} on attempt 1 is a SUCCESS; the
  *   orchestrator never inspects result.type.
  * - No `attempt` in the public signature — the counter is internal to the for loop.
+ * - WS_08-D4 (B-1): maxAttempts is supplied by the caller (proxy.ts passes
+ *   config.retry.max_attempts); the constant was removed so the config field is honoured.
  */
 export async function validateWithRetry(
   raw: string,
   messages: OpenAIMessage[],
   invoker: (messages: OpenAIMessage[]) => Promise<AdapterResponse>,
+  maxAttempts: number,
 ): Promise<QuotagateCompleteResult> {
   let currentRaw = raw;
-  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
       return parseAndValidate(currentRaw);
     } catch (err) {
       if (!(err instanceof ValidationError)) throw err; // non-ValidationError propagates unwrapped
-      if (attempt === MAX_ATTEMPTS) throw err; // exhausted — surface the failure
+      if (attempt === maxAttempts) throw err; // exhausted — surface the failure
       const corrected = [...messages, CORRECTION_NOTE]; // single note, rebuilt from original each retry
       currentRaw = (await invoker(corrected)).raw; // invoker seam — transport behind the callback
     }

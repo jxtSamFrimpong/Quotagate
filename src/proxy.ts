@@ -128,7 +128,12 @@ export function createServer(config: QuotagateConfig, adapter: CLIAdapter): Fast
     const invoker = (msgs: OpenAIMessage[]) =>
       adapter.complete(buildAdapterRequest({ ...parsed.data, messages: msgs }));
 
-    const result = await validateWithRetry(response.raw, parsed.data.messages, invoker);
+    const result = await validateWithRetry(
+      response.raw,
+      parsed.data.messages,
+      invoker,
+      config.retry.max_attempts,
+    );
     const completion = buildChatCompletion(result, parsed.data.model);
     return reply.send(completion);
   });

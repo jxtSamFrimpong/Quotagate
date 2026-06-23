@@ -70,6 +70,16 @@ export function buildConstrainedPrompt(
     }
   }
 
+  if (toolChoice === 'required') {
+    // tool_choice:"required" means the caller demands a function call regardless of conversation
+    // content. Inject an unconditional directive here (stdin payload — request-specific) rather
+    // than in CONSTRAINT_INSTRUCTIONS (--system-prompt — static, channel-clean per WS_03).
+    parts.push(
+      'You MUST invoke one of the available functions. ' +
+        'Return a tool_call response regardless of whether the conversation explicitly calls for it.',
+    );
+  }
+
   parts.push('Conversation:');
   for (const message of messages) {
     const contentText = message.content === null ? '[tool call]' : message.content;

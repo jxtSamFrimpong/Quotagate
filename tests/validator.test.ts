@@ -109,7 +109,12 @@ describe('validateWithRetry', () => {
   // T-1: valid attempt-1 raw resolves immediately — invoker never called (SC-1, EF1)
   it('T-1: valid attempt-1 raw resolves without calling invoker', async () => {
     const invoker = vi.fn<[OpenAIMessage[]], Promise<AdapterResponse>>();
-    const result = await validateWithRetry('{"type":"text","content":"Hi"}', baseMessages, invoker);
+    const result = await validateWithRetry(
+      '{"type":"text","content":"Hi"}',
+      baseMessages,
+      invoker,
+      3,
+    );
     expect(result).toEqual({ type: 'text', content: 'Hi' });
     expect(invoker).not.toHaveBeenCalled();
   });
@@ -120,7 +125,7 @@ describe('validateWithRetry', () => {
       raw: '{"type":"text","content":"ok"}',
       backend: 'claude-subprocess',
     });
-    const result = await validateWithRetry('not json', baseMessages, invoker);
+    const result = await validateWithRetry('not json', baseMessages, invoker, 3);
     expect(result).toEqual({ type: 'text', content: 'ok' });
     expect(invoker).toHaveBeenCalledTimes(1);
     expect(invoker).toHaveBeenCalledWith(
@@ -139,7 +144,7 @@ describe('validateWithRetry', () => {
       .mockResolvedValueOnce({ raw: 'bad3', backend: 'claude-subprocess' });
     let caught: unknown;
     try {
-      await validateWithRetry('bad1', baseMessages, invoker);
+      await validateWithRetry('bad1', baseMessages, invoker, 3);
     } catch (err) {
       caught = err;
     }
@@ -158,7 +163,7 @@ describe('validateWithRetry', () => {
       raw: '{"type":"text","content":"recovered"}',
       backend: 'claude-subprocess',
     });
-    await validateWithRetry(sentinel, baseMessages, invoker);
+    await validateWithRetry(sentinel, baseMessages, invoker, 3);
     const receivedMessages = (invoker.mock.calls[0] as [OpenAIMessage[]])[0];
     expect(receivedMessages).toHaveLength(baseMessages.length + 1);
     const correctionMsg = receivedMessages[receivedMessages.length - 1];
@@ -172,7 +177,7 @@ describe('validateWithRetry', () => {
     const invoker = vi
       .fn<[OpenAIMessage[]], Promise<AdapterResponse>>()
       .mockRejectedValueOnce(new TransportError('spawn failed'));
-    await expect(validateWithRetry('not json', baseMessages, invoker)).rejects.toBeInstanceOf(
+    await expect(validateWithRetry('not json', baseMessages, invoker, 3)).rejects.toBeInstanceOf(
       TransportError,
     );
     expect(invoker).toHaveBeenCalledTimes(1);
@@ -185,6 +190,7 @@ describe('validateWithRetry', () => {
       '{"type":"tool_call","name":"get_weather","arguments":{"city":"Accra"}}',
       baseMessages,
       invoker,
+      3,
     );
     expect(result).toEqual({
       type: 'tool_call',
@@ -206,6 +212,7 @@ describe('validateWithRetry', () => {
       '{"type":"tool_call","name":"get_weather"}', // missing `arguments` — fails schema
       baseMessages,
       invoker,
+      3,
     );
     expect(result).toEqual({
       type: 'tool_call',

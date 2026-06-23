@@ -23,7 +23,7 @@ export function buildChatCompletion(
             refusal: null,
             tool_calls: [
               {
-                id: 'call_' + randomUUID(),
+                id: 'call_' + randomUUID().replace(/-/g, '').slice(0, 24),
                 type: 'function',
                 function: {
                   name: result.name,

@@ -51,7 +51,7 @@ describe('buildChatCompletion', () => {
     expect(out.choices[0].finish_reason).toBe('tool_calls');
     expect(out.choices[0].message.content).toBeNull();
     expect(out.choices[0].message.tool_calls).toHaveLength(1);
-    expect(out.choices[0].message.tool_calls![0].id).toMatch(/^call_[0-9a-f-]{36}$/);
+    expect(out.choices[0].message.tool_calls![0].id).toMatch(/^call_[0-9a-f]{24}$/);
     expect(out.choices[0].message.tool_calls![0].type).toBe('function');
     expect(out.choices[0].message.tool_calls![0].function.name).toBe('get_weather');
     expect(JSON.parse(out.choices[0].message.tool_calls![0].function.arguments)).toEqual({

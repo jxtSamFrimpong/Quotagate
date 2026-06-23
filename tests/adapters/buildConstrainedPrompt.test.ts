@@ -158,6 +158,34 @@ describe('buildConstrainedPrompt', () => {
     expect(result).toContain('call fn');
   });
 
+  it('T-14: toolChoice "required" includes unconditional directive; "auto" does not (F3, SC-F3-1..SC-F3-4)', () => {
+    const tools: OpenAITool[] = [
+      {
+        type: 'function',
+        function: { name: 'do_thing', description: 'does a thing', parameters: {} },
+      },
+    ];
+    const messages: OpenAIMessage[] = [{ role: 'user', content: 'hello' }];
+
+    const requiredResult = buildConstrainedPrompt(messages, tools, 'required');
+    const autoResult = buildConstrainedPrompt(messages, tools, 'auto');
+
+    // required path must contain the unconditional directive
+    expect(requiredResult).toContain('You MUST invoke one of the available functions');
+    expect(requiredResult).toContain(
+      'regardless of whether the conversation explicitly calls for it',
+    );
+    // auto path must NOT contain the unconditional directive
+    expect(autoResult).not.toContain('You MUST invoke one of the available functions');
+    // conversation content must be present in both
+    expect(requiredResult).toContain('hello');
+    expect(autoResult).toContain('hello');
+    // directive must appear before the conversation turn (F3 placement — SC-F3-2)
+    const directiveIdx = requiredResult.indexOf('You MUST invoke');
+    const conversationIdx = requiredResult.indexOf('Conversation:');
+    expect(directiveIdx).toBeLessThan(conversationIdx);
+  });
+
   it('T-13: buildConstrainedPrompt output contains only serialized conversation and tools (return-format examples are in --system-prompt, not here)', () => {
     const result = buildConstrainedPrompt([{ role: 'user', content: 'x' }], undefined, 'none');
 

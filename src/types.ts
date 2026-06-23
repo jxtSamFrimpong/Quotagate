@@ -24,7 +24,7 @@ export interface AdapterRequest {
 
 export interface AdapterResponse {
   raw: string;
-  backend: 'claude-subprocess';
+  backend: 'claude-subprocess' | 'claude-mcp';
 }
 
 export const QuotagateCompleteResultSchema = z.discriminatedUnion('type', [
