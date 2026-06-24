@@ -384,4 +384,92 @@ describe('proxy — pipeline wiring (WS_05 T3)', () => {
     expect(body.choices[0].message.tool_calls).toHaveLength(1);
     expect(body.choices[0].message.tool_calls![0].function.name).toBe('fn');
   });
+
+  // -------------------------------------------------------------------------
+  // WS_08 T3-SC1: retry exhaustion (3× malformed) → HTTP 500 validation_error (SC-1)
+  //
+  // Three consecutive malformed JSON responses cause the proxy to return HTTP 500
+  // with an OpenAI-format error body and no stack trace. Verifies:
+  // - All three mockResolvedValueOnce calls are consumed (initial + 2 retries)
+  // - stubAdapter.complete called exactly 3 times
+  // - HTTP 500 status with validation_error code and type
+  // - Error body has correct shape (no stack trace leaked)
+  // -------------------------------------------------------------------------
+  it('WS_08 T3-SC1: retry exhaustion (3× malformed) → HTTP 500 validation_error', async () => {
+    stubAdapter.complete
+      .mockResolvedValueOnce({ raw: 'not json', backend: 'claude-subprocess' })
+      .mockResolvedValueOnce({ raw: 'still not json', backend: 'claude-subprocess' })
+      .mockResolvedValueOnce({ raw: 'malformed again', backend: 'claude-subprocess' });
+
+    const response = await server.inject({
+      method: 'POST',
+      url: '/v1/chat/completions',
+      payload: { model: 'claude-sonnet-4-6', messages: [{ role: 'user', content: 'Test' }] },
+      headers: { 'content-type': 'application/json' },
+    });
+
+    expect(response.statusCode).toBe(500);
+    expect(stubAdapter.complete).toHaveBeenCalledTimes(3);
+
+    const body = response.json<{
+      error: { message: string; type: string; code: string; stack?: unknown };
+    }>();
+    expect(body.error.code).toBe('validation_error');
+    expect(body.error.type).toBe('validation_error');
+    expect(typeof body.error.message).toBe('string');
+    expect(body.error.message.length).toBeGreaterThan(0);
+    expect(body.error.stack).toBeUndefined();
+  });
+
+  // -------------------------------------------------------------------------
+  // WS_08 T3-SC2: correction note content threads through proxy pipeline (SC-2)
+  //
+  // First adapter call returns malformed JSON; second returns well-formed response.
+  // Verifies:
+  // - HTTP 200 on successful retry
+  // - stubAdapter.complete called exactly 2 times
+  // - First call received messages array of length 1 (original only)
+  // - Second call received messages array of length 2 (original + correction note)
+  // - Second call's last message has role:'user' and content starting with the correction note prefix
+  // - Correction note content is present but does NOT leak the malformed raw string
+  // -------------------------------------------------------------------------
+  it('WS_08 T3-SC2: correction note content threads through proxy pipeline', async () => {
+    stubAdapter.complete
+      .mockResolvedValueOnce({ raw: 'not json', backend: 'claude-subprocess' })
+      .mockResolvedValueOnce({
+        raw: '{"type":"text","content":"recovered"}',
+        backend: 'claude-subprocess',
+      });
+
+    const response = await server.inject({
+      method: 'POST',
+      url: '/v1/chat/completions',
+      payload: { model: 'claude-sonnet-4-6', messages: [{ role: 'user', content: 'Test' }] },
+      headers: { 'content-type': 'application/json' },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(stubAdapter.complete).toHaveBeenCalledTimes(2);
+
+    // First call must receive the original message only (length 1).
+    const firstCallArg = stubAdapter.complete.mock.calls[0][0] as { messages: unknown[] };
+    expect(firstCallArg.messages).toHaveLength(1);
+
+    // Second call must receive the original message + CORRECTION_NOTE (length 2).
+    const secondCallArg = stubAdapter.complete.mock.calls[1][0] as { messages: unknown[] };
+    expect(secondCallArg.messages).toHaveLength(2);
+
+    // Last element of the second call must be the correction note (user role).
+    const correctionMsg = secondCallArg.messages[1] as {
+      role: string;
+      content: string;
+    };
+    expect(correctionMsg.role).toBe('user');
+    expect(correctionMsg.content).toMatch(/^The previous response was not valid JSON/);
+    // Verify that the malformed raw string is NOT leaked into the content.
+    expect(correctionMsg.content).not.toContain('not json');
+
+    const body = response.json<ChatCompletion>();
+    expect(body.choices[0].message.content).toBe('recovered');
+  });
 });
