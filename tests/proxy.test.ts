@@ -133,8 +133,15 @@ describe('proxy — createServer factory (WS_05 T2)', () => {
       models: { 'gemini-pro': { backend: 'gemini', priority: 1 } },
       retry: { max_attempts: 3 },
     };
-    // Adapters map only has claude; gemini adapter is absent → resolve() returns null → HTTP 400
-    const localServer = createServer(geminiConfig, { claude: stubAdapter });
+    // Adapters map only has claude; gemini adapter is absent → resolve() returns null → HTTP 400.
+    // Use a local stub to make clear: this adapter should never be called (routing returns null first).
+    const localStub = {
+      name: 'unused',
+      complete: vi.fn(),
+      healthCheck: vi.fn(),
+      install: vi.fn(),
+    } satisfies CLIAdapter;
+    const localServer = createServer(geminiConfig, { claude: localStub });
     try {
       const response = await localServer.inject({
         method: 'POST',
