@@ -175,11 +175,15 @@ describe('buildConstrainedPrompt', () => {
     expect(requiredResult).toContain(
       'regardless of whether the conversation explicitly calls for it',
     );
-    // auto path must NOT contain the unconditional directive
+    // auto and none paths must NOT contain the unconditional directive
+    // (both take the else-branch of `if (toolChoice === 'required')`)
+    const noneResult = buildConstrainedPrompt(messages, tools, 'none');
     expect(autoResult).not.toContain('You MUST invoke one of the available functions');
-    // conversation content must be present in both
+    expect(noneResult).not.toContain('You MUST invoke one of the available functions');
+    // conversation content must be present in all three
     expect(requiredResult).toContain('hello');
     expect(autoResult).toContain('hello');
+    expect(noneResult).toContain('hello');
     // directive must appear before the conversation turn (F3 placement — SC-F3-2)
     const directiveIdx = requiredResult.indexOf('You MUST invoke');
     const conversationIdx = requiredResult.indexOf('Conversation:');

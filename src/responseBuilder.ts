@@ -23,6 +23,8 @@ export function buildChatCompletion(
             refusal: null,
             tool_calls: [
               {
+                // Phase 3: real OpenAI call_ IDs use base62 (mixed-case alphanumeric);
+                // UUID hex is sufficient for Phase 1 uniqueness but not byte-for-byte identical.
                 id: 'call_' + randomUUID().replace(/-/g, '').slice(0, 24),
                 type: 'function',
                 function: {

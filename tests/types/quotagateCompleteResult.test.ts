@@ -40,7 +40,7 @@ describe('QuotagateCompleteResultSchema', () => {
 });
 
 it('SC-7 compile-time: AdapterResponse.backend rejects non-literal strings', () => {
-  // @ts-expect-error — backend: "wrong" is not assignable to "claude-subprocess"
+  // @ts-expect-error — backend: "wrong" is not assignable to 'claude-subprocess' | 'claude-mcp'
   const _wrongBackend: AdapterResponse = { raw: 'x', backend: 'wrong' };
   void _wrongBackend;
 });

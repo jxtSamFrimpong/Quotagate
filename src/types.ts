@@ -57,6 +57,9 @@ const _OpenAIToolSchema = z.object({
   }),
 });
 
+// TODO (Phase 3 DX): add .refine() guard — tool_choice:'required' with no tools is a client
+// error (OpenAI returns 400 in this case). Deferred: adding .refine() changes the inferred type
+// from ZodObject to ZodEffects, which requires auditing every call site of OpenAIChatRequestSchema.
 export const OpenAIChatRequestSchema = z.object({
   model: z.string(),
   messages: z.array(_OpenAIMessageSchema),
