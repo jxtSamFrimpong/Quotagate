@@ -36,7 +36,8 @@ export async function main(argv?: string[]): Promise<void> {
         process.exit(1);
       }
 
-      const server = createServer(config, adapter);
+      const adapters = { claude: adapter };
+      const server = createServer(config, adapters);
 
       try {
         await server.listen({ port: 8080, host: '127.0.0.1' });

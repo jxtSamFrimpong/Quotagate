@@ -23,7 +23,7 @@ describe('e2e error paths', () => {
   beforeAll(async () => {
     const config = loadConfig(FIXTURE_CONFIG_PATH);
     adapter = new ClaudeAdapter();
-    server = createServer(config, adapter);
+    server = createServer(config, { claude: adapter });
 
     // Fastify v5 listen() returns a URL string — extract port from it.
     const addr = await server.listen({ port: 0, host: '127.0.0.1' });

@@ -22,7 +22,7 @@ describe('e2e no-tools', () => {
   beforeAll(async () => {
     const config = loadConfig(FIXTURE_CONFIG_PATH);
     adapter = new ClaudeAdapter();
-    server = createServer(config, adapter);
+    server = createServer(config, { claude: adapter });
 
     // EF2: listen({ port: 0 }) returns a URL string in Fastify v5 — not a number.
     const addr = await server.listen({ port: 0, host: '127.0.0.1' });

@@ -22,7 +22,7 @@ describe('e2e tool-calls', () => {
   beforeAll(async () => {
     const config = loadConfig(FIXTURE_CONFIG_PATH);
     adapter = new ClaudeAdapter();
-    server = createServer(config, adapter);
+    server = createServer(config, { claude: adapter });
 
     const addr = await server.listen({ port: 0, host: '127.0.0.1' });
     port = parseInt(new URL(addr).port, 10);

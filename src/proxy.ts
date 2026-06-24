@@ -1,5 +1,6 @@
 import Fastify, { FastifyInstance } from 'fastify';
 
+import { resolve } from './router.js';
 import { QuotagateError, TransportError, ValidationError } from './errors.js';
 import { buildAdapterRequest } from './argumentBuilder.js';
 import { validateWithRetry } from './validator.js';
@@ -9,7 +10,10 @@ import type { OpenAIMessage } from './types.js';
 import type { CLIAdapter } from './adapters/base.js';
 import type { QuotagateConfig } from './config.js';
 
-export function createServer(config: QuotagateConfig, adapter: CLIAdapter): FastifyInstance {
+export function createServer(
+  config: QuotagateConfig,
+  adapters: Record<string, CLIAdapter>,
+): FastifyInstance {
   const server = Fastify({ logger: false });
 
   // setErrorHandler — exhaustive QuotagateError → HTTP mapping.
@@ -109,12 +113,11 @@ export function createServer(config: QuotagateConfig, adapter: CLIAdapter): Fast
       return;
     }
 
-    const model = parsed.data.model;
-    const entry = config.models[model];
-    if (entry === undefined || entry.backend !== 'claude') {
+    const adapter = resolve(parsed.data.model, config, adapters);
+    if (adapter === null) {
       void reply.status(400).send({
         error: {
-          message: `Model '${model}' is not supported`,
+          message: `Model '${parsed.data.model}' is not supported`,
           type: 'invalid_request_error',
           code: 'model_not_supported',
         },

@@ -45,7 +45,7 @@ describe('proxy — createServer factory (WS_05 T2)', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    server = createServer(minimalConfig, stubAdapter);
+    server = createServer(minimalConfig, { claude: stubAdapter });
   });
 
   afterEach(async () => {
@@ -125,14 +125,16 @@ describe('proxy — createServer factory (WS_05 T2)', () => {
   });
 
   // -------------------------------------------------------------------------
-  // T-3c: model present in config but wrong backend → HTTP 400 (alias guard second branch)
+  // T-3c: model present in config but adapter backend absent from map → HTTP 400 (alias guard second branch)
+  // Verifies that resolve() returns null when the config backend is absent from the adapters map.
   // -------------------------------------------------------------------------
   it('T-3c: model in config with non-claude backend is rejected with 400 model_not_supported', async () => {
     const geminiConfig: QuotagateConfig = {
       models: { 'gemini-pro': { backend: 'gemini', priority: 1 } },
       retry: { max_attempts: 3 },
     };
-    const localServer = createServer(geminiConfig, stubAdapter);
+    // Adapters map only has claude; gemini adapter is absent → resolve() returns null → HTTP 400
+    const localServer = createServer(geminiConfig, { claude: stubAdapter });
     try {
       const response = await localServer.inject({
         method: 'POST',
@@ -258,7 +260,7 @@ describe('proxy — pipeline wiring (WS_05 T3)', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    server = createServer(minimalConfig, stubAdapter);
+    server = createServer(minimalConfig, { claude: stubAdapter });
   });
 
   afterEach(async () => {
