@@ -144,7 +144,7 @@ not change any behavior observable at the HTTP level.
 - D-SEQ-01 abstraction boundary: Clean. Phase 2 transport change only touches `adapters/claude.ts`; proxy/router/index unaffected.
 - Integration tests: All 3 e2e files exercise production paths; router contract live-tested.
 
-**O-1 (cosmetic, defer):** T-3c could use an isolated adapter stub rather than shared `stubAdapter` for clarity, but behavior is correct. Non-blocking.
+**O-1 (cosmetic, addressed):** T-3c updated to use an isolated adapter stub for test clarity (makes intent self-documenting: this adapter should never be called). Commit: `0c59221 fix(O-1): isolate adapter stub in proxy.test.ts T-3c for clarity`. Unit tests pass (93 passed, no regression).
 
 **Verdict:** FULL PASS — T3 may proceed.
 
