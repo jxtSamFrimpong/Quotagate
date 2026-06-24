@@ -126,7 +126,7 @@ OpenAI SDK client
 |         arguments: Record<string,unknown> }    |
 |     fails → retry (see retry loop below)       |
 |                                                |
-|  RETRY LOOP (max 3 attempts) [Phase 1C — WS_08]
+|  RETRY LOOP (max N attempts; N = config.retry.max_attempts) [Phase 1C — WS_08]
 |    On failure: re-invoke adapter.complete()    |
 |    with a FORMATTING-ONLY correction note      |
 |    appended to messages (WS_04-D3):            |
@@ -304,7 +304,7 @@ Invariants upheld: #5 (validates the model's output before it touches `responseB
 output never reaches the response), #10 (correction note on retry carries no prior-turn content —
 WS_04-D3).
 
-The retry loop (up to 3 attempts, spec §4.5) re-invokes `adapter.complete()` via the `invoker`
+The retry loop (up to `config.retry.max_attempts` attempts, default 3, spec §4.5) re-invokes `adapter.complete()` via the `invoker`
 callback with a formatting-only correction note appended to messages. The note is a schema nudge,
 not a content echo — echoing prior-turn content in the retry would be a contamination vector.
 After 3 consecutive failures the loop throws `ValidationError`, which `proxy.ts` maps to HTTP 500

@@ -1,7 +1,7 @@
 # CLAUDE.md — Project Knowledge Base
 
-> **Last Updated**: 2026-06-21
-> **Status**: 🟢 **WS_07 complete — T1–T4 PA-signed off (92 tests). WS_08 elevated — 4 task trackers ready.**
+> **Last Updated**: 2026-06-24
+> **Status**: 🟢 **WS_08 T1 PA-signed off (89 tests CI). T2 next.**
 
 ---
 
@@ -263,13 +263,12 @@ current task and leaves no constraint behind, it is not a decision.
 
 ## Session State
 
-### Current Session (2026-06-21)
+### Current Session (2026-06-24)
 
 **What was completed**:
 
-- **[Milestone — Phase 1A+1B complete + WS_07 signed off — 2026-06-12 → 2026-06-20]** Phase 1A (WS_01–WS_03, 33 tests), Phase 1B (WS_04–WS_06, 84 tests), Phase 1C WS_07 (92 tests / 83 CI-only); PA holistic review (8 findings), `stdout.trim()` fix, `get_weather` + `write_file` invariant-#1 integration tests. All T1–T4 PA-signed off.
-- **[WS_07 T3+T4 signed off — 2026-06-20]** PA holistic pre-T3 review (8 findings — Finding 2 applied: `stdout.trim()` in `claude.ts` to eliminate CLI diagnostic framing risk). T3: `tests/integration/e2e.toolCall.test.ts` — `get_weather` happy path (SC-1–SC-4) + `write_file` absence-of-side-effect (SC-5–SC-7, invariant #1 proven empirically). EF1 did not manifest; `CONSTRAINT_INSTRUCTIONS` unchanged. T4: 92 tests / 83 CI-only, all green-gate commands clean. PA Full Pass both trackers, all SC verified.
-- **[WS_08 elevated — 2026-06-21]** PA review of WS_08 workstream plan: 7 findings resolved (T3 overlap, max_attempts gap, F1/F3/F4 placement, router key convention, 7-file blast radius, correction note assertion). WS_08-D4 locked (B-1: `validateWithRetry` gains `maxAttempts` 4th parameter; `MAX_ATTEMPTS` constant removed; `proxy.ts` wires `config.retry.max_attempts`). 4 implementation-ready task trackers created (T1–T4).
+- **[Milestone — Phase 1A+1B+1C WS_07 complete + WS_08 elevated — 2026-06-12 → 2026-06-21]** Phase 1A (WS_01–WS_03, 33 tests), Phase 1B (WS_04–WS_06, 84 tests), Phase 1C WS_07 (92 tests / 83 CI-only) all PA-signed off. WS_08 elevated with 4 implementation-ready trackers; WS_08-D4 locked (B-1: `validateWithRetry` `maxAttempts` param, `MAX_ATTEMPTS` removed).
+- **[WS_08 T1 implemented + PA Full Pass — 2026-06-24]** BSE implemented F1 (`call_` ID 24-char hex), F3 (`required` directive branch in `buildConstrainedPrompt`), F4 (`AdapterResponse.backend` union), D4 (`validateWithRetry` `maxAttempts` param + `proxy.ts` wired `config.retry.max_attempts`), `src/router.ts` (`resolve()` pure sync), `tests/router.test.ts` (5 tests). PA Full Pass: APPROVE — 4 non-blocking observations (O-1..O-4) addressed in follow-up commit (stale comments fixed, Phase 3 TODO in schema, `none` path added to T-14, test title updated). CI: 89 tests (+6 from 83).
 
 **What is being worked on**:
 
@@ -277,14 +276,13 @@ current task and leaves no constraint behind, it is not a decision.
 
 **Active task trackers**:
 
-- `docs/active/TASK_WS08_T1.md` — Structural corrections (F1/F3/F4/D4) + `src/router.ts` ⬚ Not Started
 - `docs/active/TASK_WS08_T2.md` — Migrate `proxy.ts` to `router.ts`; update all 7 callers ⬚ Not Started
 - `docs/active/TASK_WS08_T3.md` — Retry exhaustion + correction-note content tests at proxy level ⬚ Not Started
 - `docs/active/TASK_WS08_T4.md` — Green-gate close-out ⬚ Not Started
 
 **What is next**:
 
-1. **WS_08 T1** — BSE starts: apply F1/F3/F4, wire `maxAttempts`, author `src/router.ts` + `tests/router.test.ts`.
+1. **WS_08 T2** — BSE: `createServer` signature → `Record<string, CLIAdapter>`, replace inline lookup with `resolve()`, update 7 callers. Note: SC-P4 (`config.retry.max_attempts` wiring) pre-completed in T1 — mark satisfied at T2 start.
 
 **Resolved decisions** (settled — ≤2 blocks inline; older ones in `docs/archive/decisions.md`):
 

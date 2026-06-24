@@ -158,7 +158,7 @@ describe('buildConstrainedPrompt', () => {
     expect(result).toContain('call fn');
   });
 
-  it('T-14: toolChoice "required" includes unconditional directive; "auto" does not (F3, SC-F3-1..SC-F3-4)', () => {
+  it('T-14: toolChoice "required" includes unconditional directive; "auto" and "none" do not (F3, SC-F3-1..SC-F3-4)', () => {
     const tools: OpenAITool[] = [
       {
         type: 'function',
