@@ -1,7 +1,7 @@
 # CLAUDE.md — Project Knowledge Base
 
-> **Last Updated**: 2026-06-24
-> **Status**: 🟢 **WS_08 T2 PA-signed off (89 tests CI). T3 next.**
+> **Last Updated**: 2026-06-25
+> **Status**: 🟢 **WS_08 T3 PA-signed off (91 tests CI). T4 (green-gate close-out) next.**
 
 ---
 
@@ -263,14 +263,15 @@ current task and leaves no constraint behind, it is not a decision.
 
 ## Session State
 
-### Current Session (2026-06-24 → ongoing)
+### Current Session (2026-06-25 → ongoing)
 
-> **Status**: 🟢 **WS_08 T2 PA-signed off (89 tests CI). T3 next.**
+> **Status**: 🟢 **WS_08 T3 PA-signed off (91 tests CI). T4 (green-gate close-out) next.**
 
 **What was completed**:
 
-- **[WS_08 T1 implemented + PA Full Pass — 2026-06-24]** BSE implemented F1 (`call_` ID 24-char hex), F3 (`required` directive branch in `buildConstrainedPrompt`), F4 (`AdapterResponse.backend` union), D4 (`validateWithRetry` `maxAttempts` param + `proxy.ts` wired `config.retry.max_attempts`), `src/router.ts` (`resolve()` pure sync), `tests/router.test.ts` (5 tests). PA Full Pass: APPROVE — 4 non-blocking observations (O-1..O-4) addressed in follow-up commit. CI: 89 tests.
-- **[WS_08 T2 implemented + PA Full Pass + O-1 addressed — 2026-06-24]** BSE migrated `proxy.ts` routing from inline lookup to `router.ts`'s `resolve()`. Updated `createServer` signature to `(config, adapters: Record<string, CLIAdapter>)`, updated all 7 callers (index.ts + 6 test files). Completed D4 end-to-end (`config.retry.max_attempts` wired into `validateWithRetry`). PA Full Pass verified routing contract enforcement (KEY CONVENTION documented in `router.ts`), `CLIAdapter` abstraction honesty, test coverage of null-return routing case, D-SEQ-01 abstraction boundary integrity. O-1 fix: isolated adapter stub in `proxy.test.ts` T-3c for clarity. Green gate: 89 tests (no regression), typecheck clean, lint clean, format clean. Commits: `d17926e feat(WS_08 T2): Migrate proxy.ts to router.ts; update all 7 callers`, `0c59221 fix(O-1): isolate adapter stub in proxy.test.ts T-3c for clarity`.
+- _Milestone:_ **WS_08 T1 (2026-06-24)** — F1 (`call_` ID 24-char hex), F3 (`required` directive branch), F4 (`AdapterResponse.backend` union), D4 (`validateWithRetry` `maxAttempts` param), `src/router.ts` `resolve()` + `tests/router.test.ts` (5 tests). PA Full Pass APPROVE; O-1..O-4 addressed.
+- **[WS_08 T2 implemented + PA Full Pass + O-1 addressed — 2026-06-24]** BSE migrated `proxy.ts` routing from inline lookup to `router.ts`'s `resolve()`. Updated `createServer` signature to `(config, adapters: Record<string, CLIAdapter>)`, updated all 7 callers (index.ts + 6 test files). Completed D4 end-to-end (`config.retry.max_attempts` wired into `validateWithRetry`). PA Full Pass verified routing contract enforcement (KEY CONVENTION documented in `router.ts`), `CLIAdapter` abstraction honesty, test coverage of null-return routing case, D-SEQ-01 abstraction boundary integrity. O-1 fix: isolated adapter stub in `proxy.test.ts` T-3c for clarity. Green gate: 89 tests. Commits: `d17926e`, `0c59221`.
+- **[WS_08 T3 implemented + PA Full Pass — 2026-06-25]** BSE added two proxy-level retry integration tests to `tests/proxy.test.ts` (pipeline wiring block): **SC-1** retry exhaustion (3× malformed → HTTP 500, `error.{code,type}='validation_error'`, no stack leak, exactly 3 adapter calls — proves `maxAttempts=3` / D4 wired end-to-end) and **SC-2** correction-note content (malformed→good→200, messages length 1→2, last msg `role:'user'` + content `^The previous response was not valid JSON`, content-free guard). Both exercise the real `server.inject()` → `resolve()` → `adapter.complete()` → `validateWithRetry()` → `setErrorHandler`/`buildChatCompletion` path; mock at the `CLIAdapter` interface (survives MCP upgrade). PA Full Pass: APPROVE — one non-blocking observation (O-1: SC-2 structurally overlaps T-3; CORRECTION_NOTE wording + content-free are the load-bearing additions; optional comment, may fold into T4). Green gate: 91 tests (net +2, no regression), typecheck/lint/format clean. Commit: `e787ac1`.
 
 **What is being worked on**:
 
@@ -278,12 +279,11 @@ current task and leaves no constraint behind, it is not a decision.
 
 **Active task trackers**:
 
-- `docs/active/TASK_WS08_T3.md` — Retry exhaustion + correction-note content tests at proxy level ⬚ Not Started
-- `docs/active/TASK_WS08_T4.md` — Green-gate close-out ⬚ Not Started
+- `docs/active/TASK_WS08_T4.md` — Green-gate close-out & WS_08 sign-off preparation ⬚ Not Started
 
 **What is next**:
 
-1. **WS_08 T3** — BSE: Add 2 proxy-level retry tests (exhaustion → HTTP 500; correction note content). Expected ~1 hour.
+1. **WS_08 T4** — BSE: Green-gate close-out — run full gate (typecheck/lint/format/test), confirm final test count (91), produce gate-status summary for PA's WS_08 sign-off. Optionally fold T3 O-1 comment. Expected ~30 min.
 
 **Resolved decisions** (settled — ≤2 blocks inline; older ones in `docs/archive/decisions.md`):
 

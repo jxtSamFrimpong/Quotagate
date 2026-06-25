@@ -120,11 +120,32 @@ occupy `T-5`/`T-6` names there — be careful with naming in `proxy.test.ts` to 
 
 ## Review Notes
 
-*(PA fills after implementation)*
+**PA Full Pass — 2026-06-25 — Verdict: APPROVE.** Both new tests are rigorous, meet every success
+criterion, exercise the real production path end-to-end (`server.inject()` → Zod parse → `resolve()`
+→ `adapter.complete()` → `validateWithRetry()` → `setErrorHandler`/`buildChatCompletion` → HTTP
+response), and respect all abstraction boundaries. Key confirmations:
+
+- **Engineering Integrity** — no in-memory shortcuts; the malformed-raw mock genuinely fails the live
+  `JSON.parse` → real `ValidationError`; both request shape (messages + CORRECTION_NOTE) and response
+  shape (OpenAI error envelope) validated; green gate ratcheted 89 → 91, 0 regressions; tests mock at
+  the `CLIAdapter` interface (`satisfies CLIAdapter`), so they survive the MCP upgrade unchanged.
+- **SC-1 (7/7)** — HTTP 500, `error.{code,type}='validation_error'`, non-empty `message`, `stack`
+  undefined, exactly 3 adapter calls (proves `maxAttempts=3` honored, D4 wired end-to-end).
+- **SC-2 (8/8)** — malformed→good→200, messages length 1→2, correction note `role:'user'`, content
+  `toMatch(/^The previous response was not valid JSON/)`, content-free guard (`not.toContain('not json')`).
+- **Spec integrity** — Invariant #5 (OpenAI error contract via real `setErrorHandler`), #11 (strictly
+  sequential `await` retries, no parallelism), §3.2 (live `CORRECTION_NOTE` propagation), §4.4
+  (descriptive non-leaking 500).
+- **Assumptions A1/A2/A3** all verified.
+
+**O-1 (non-blocking, cosmetic)** — SC-2 structurally overlaps existing T-3 (both assert message
+lengths 1→2, 200, 2 calls); the load-bearing additions are the CORRECTION_NOTE wording and
+content-free assertions. Optional one-line comment above SC-2 noting the distinction; may be folded
+into T4 or left as-is. Not a blocker.
 
 ---
 
 ## Sign-off
 
-- [ ] PA reviewed
-- [ ] Green gate passing (net +2 tests from T2 baseline, no regression)
+- [x] PA reviewed — APPROVE (PA Full Pass, 2026-06-25)
+- [x] Green gate passing (91 tests, net +2 from T2 baseline, no regression)
