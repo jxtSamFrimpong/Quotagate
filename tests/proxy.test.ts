@@ -432,6 +432,13 @@ describe('proxy — pipeline wiring (WS_05 T3)', () => {
   // - Second call received messages array of length 2 (original + correction note)
   // - Second call's last message has role:'user' and content starting with the correction note prefix
   // - Correction note content is present but does NOT leak the malformed raw string
+  //
+  // NOTE (T3 O-1): the call-count / messages-length retry mechanics below overlap with T-3
+  // above (the retry happy-path test). The load-bearing additions unique to this test are the
+  // two correction-note content assertions: (1) the CORRECTION_NOTE wording check (the
+  // `^The previous response was not valid JSON` prefix) and (2) the content-free guard (the
+  // malformed raw must not leak into the correction note). Those two lines are what this test
+  // exists to prove beyond T-3.
   // -------------------------------------------------------------------------
   it('WS_08 T3-SC2: correction note content threads through proxy pipeline', async () => {
     stubAdapter.complete

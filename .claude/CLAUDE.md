@@ -1,7 +1,7 @@
 # CLAUDE.md — Project Knowledge Base
 
 > **Last Updated**: 2026-06-25
-> **Status**: 🟢 **WS_08 T3 PA-signed off (91 tests CI). T4 (green-gate close-out) next.**
+> **Status**: 🟢 **WS_08 PA-signed off (CI gate: 91/91; 100 full local). WS_09 (contamination suite + Phase-1 sign-off) next.**
 
 ---
 
@@ -265,13 +265,11 @@ current task and leaves no constraint behind, it is not a decision.
 
 ### Current Session (2026-06-25 → ongoing)
 
-> **Status**: 🟢 **WS_08 T3 PA-signed off (91 tests CI). T4 (green-gate close-out) next.**
+> **Status**: 🟢 **WS_08 PA-signed off (CI gate: 91/91; 100 full local). WS_09 (contamination suite + Phase-1 sign-off) next.**
 
 **What was completed**:
 
-- _Milestone:_ **WS_08 T1 (2026-06-24)** — F1 (`call_` ID 24-char hex), F3 (`required` directive branch), F4 (`AdapterResponse.backend` union), D4 (`validateWithRetry` `maxAttempts` param), `src/router.ts` `resolve()` + `tests/router.test.ts` (5 tests). PA Full Pass APPROVE; O-1..O-4 addressed.
-- **[WS_08 T2 implemented + PA Full Pass + O-1 addressed — 2026-06-24]** BSE migrated `proxy.ts` routing from inline lookup to `router.ts`'s `resolve()`. Updated `createServer` signature to `(config, adapters: Record<string, CLIAdapter>)`, updated all 7 callers (index.ts + 6 test files). Completed D4 end-to-end (`config.retry.max_attempts` wired into `validateWithRetry`). PA Full Pass verified routing contract enforcement (KEY CONVENTION documented in `router.ts`), `CLIAdapter` abstraction honesty, test coverage of null-return routing case, D-SEQ-01 abstraction boundary integrity. O-1 fix: isolated adapter stub in `proxy.test.ts` T-3c for clarity. Green gate: 89 tests. Commits: `d17926e`, `0c59221`.
-- **[WS_08 T3 implemented + PA Full Pass — 2026-06-25]** BSE added two proxy-level retry integration tests to `tests/proxy.test.ts` (pipeline wiring block): **SC-1** retry exhaustion (3× malformed → HTTP 500, `error.{code,type}='validation_error'`, no stack leak, exactly 3 adapter calls — proves `maxAttempts=3` / D4 wired end-to-end) and **SC-2** correction-note content (malformed→good→200, messages length 1→2, last msg `role:'user'` + content `^The previous response was not valid JSON`, content-free guard). Both exercise the real `server.inject()` → `resolve()` → `adapter.complete()` → `validateWithRetry()` → `setErrorHandler`/`buildChatCompletion` path; mock at the `CLIAdapter` interface (survives MCP upgrade). PA Full Pass: APPROVE — one non-blocking observation (O-1: SC-2 structurally overlaps T-3; CORRECTION_NOTE wording + content-free are the load-bearing additions; optional comment, may fold into T4). Green gate: 91 tests (net +2, no regression), typecheck/lint/format clean. Commit: `e787ac1`.
+- _Milestone:_ **WS_08 complete + PA-signed off (2026-06-24 → 2026-06-25)** — Validator Retry Loop & Single-Backend Router. D4 (`config.retry.max_attempts` wired end-to-end into `validateWithRetry`; `MAX_ATTEMPTS` constant removed); F1 (`call_id` 24-char hex); F3 (`required` directive branch in `argumentBuilder.ts`); F4 (`AdapterResponse.backend` union); `src/router.ts` `resolve()` (null-on-miss, all branches covered); `proxy.ts` migrated to use `router.resolve()`; 2 proxy-level retry integration tests (SC-1 exhaustion → HTTP 500 + exact adapter call count; SC-2 correction-note content + content-free guard). CI gate: 91/91 (canonical, reproducible). Full local: 100/100 (9-test gap = live integration suite excluded under `CI=true`). Live integration suite ran and passed on BSE machine — local signal only; CI gate is the release gate (PA O-2). Net +8 tests (92→100 full; 83→91 CI). Commits: `d17926e`, `0c59221`, `e787ac1`.
 
 **What is being worked on**:
 
@@ -279,11 +277,11 @@ current task and leaves no constraint behind, it is not a decision.
 
 **Active task trackers**:
 
-- `docs/active/TASK_WS08_T4.md` — Green-gate close-out & WS_08 sign-off preparation ⬚ Not Started
+- None.
 
 **What is next**:
 
-1. **WS_08 T4** — BSE: Green-gate close-out — run full gate (typecheck/lint/format/test), confirm final test count (91), produce gate-status summary for PA's WS_08 sign-off. Optionally fold T3 O-1 comment. Expected ~30 min.
+1. **WS_09** — Full Contamination Test Suite & Phase-1 Sign-Off. Dependencies: WS_07 ✅ and WS_08 ✅ both signed off. Deliverables: `contamination.sequential.test.ts` (extended to HTTP path), `contamination.concurrent.test.ts` (real SDK concurrency), `contamination.retryPath.test.ts` (retry isolation), retry-exhaustion integration test. WS_09 sign-off IS the Phase 1 sign-off. See `docs/plan/workstreams/ws09_contamination_and_signoff.md`.
 
 **Resolved decisions** (settled — ≤2 blocks inline; older ones in `docs/archive/decisions.md`):
 
