@@ -1,7 +1,7 @@
 # CLAUDE.md — Project Knowledge Base
 
-> **Last Updated**: 2026-06-25
-> **Status**: 🟢 **WS_08 PA-signed off (CI gate: 91/91; 100 full local). WS_09 (contamination suite + Phase-1 sign-off) next.**
+> **Last Updated**: 2026-06-27
+> **Status**: 🟡 **WS_09 elevated (T1–T4 implementation-ready). BSE starts T1 next.**
 
 ---
 
@@ -263,13 +263,14 @@ current task and leaves no constraint behind, it is not a decision.
 
 ## Session State
 
-### Current Session (2026-06-25 → ongoing)
+### Current Session (2026-06-25 → 2026-06-27)
 
-> **Status**: 🟢 **WS_08 PA-signed off (CI gate: 91/91; 100 full local). WS_09 (contamination suite + Phase-1 sign-off) next.**
+> **Status**: 🟡 **WS_09 elevated (T1–T4 implementation-ready). BSE starts T1 next.**
 
 **What was completed**:
 
-- _Milestone:_ **WS_08 complete + PA-signed off (2026-06-24 → 2026-06-25)** — Validator Retry Loop & Single-Backend Router. D4 (`config.retry.max_attempts` wired end-to-end into `validateWithRetry`; `MAX_ATTEMPTS` constant removed); F1 (`call_id` 24-char hex); F3 (`required` directive branch in `argumentBuilder.ts`); F4 (`AdapterResponse.backend` union); `src/router.ts` `resolve()` (null-on-miss, all branches covered); `proxy.ts` migrated to use `router.resolve()`; 2 proxy-level retry integration tests (SC-1 exhaustion → HTTP 500 + exact adapter call count; SC-2 correction-note content + content-free guard). CI gate: 91/91 (canonical, reproducible). Full local: 100/100 (9-test gap = live integration suite excluded under `CI=true`). Live integration suite ran and passed on BSE machine — local signal only; CI gate is the release gate (PA O-2). Net +8 tests (92→100 full; 83→91 CI). Commits: `d17926e`, `0c59221`, `e787ac1`.
+- _Milestone:_ **WS_08 complete + PA-signed off (2026-06-24 → 2026-06-25)** — Validator Retry Loop & Single-Backend Router. CI gate: 91/91; full local: 100/100; net +8 tests. Commits: `d17926e`, `0c59221`, `e787ac1`.
+- **[WS_09 elevated by PA — 2026-06-27]** PA reviewed and fixed `ws09_contamination_and_signoff.md`: corrected "extend WS_03 file" mistake (new `*.http.integration.test.ts` companion, adapter-level test untouched); retired redundant Goal 2 (retry exhaustion already proven by WS_08 T3-SC1; Goal 2 rescoped to SDK `APIError` surface test, folded into T1); fixed false-green hole in concurrent test (own-content assertions required in both halves); resolved OD-1 (retry-path B driven by same double, no `healthCheck()` skip — double has no live dependency). Locked WS_09-D1..D4. Created `TASK_WS09_T1–T4.md` — all four implementation-ready.
 
 **What is being worked on**:
 
@@ -277,11 +278,17 @@ current task and leaves no constraint behind, it is not a decision.
 
 **Active task trackers**:
 
-- None.
+- `docs/active/TASK_WS09_T1.md` — Sequential HTTP-path contamination + SDK APIError surface ⬚ Not Started
+- `docs/active/TASK_WS09_T2.md` — Concurrent contamination (Promise.all, both halves required) ⬚ Not Started
+- `docs/active/TASK_WS09_T3.md` — Retry-path messages-array isolation (double-driven, no skip) ⬚ Not Started
+- `docs/active/TASK_WS09_T4.md` — Phase-1 sign-off housekeeping + spec §6 coverage map ⬚ Not Started
 
 **What is next**:
 
-1. **WS_09** — Full Contamination Test Suite & Phase-1 Sign-Off. Dependencies: WS_07 ✅ and WS_08 ✅ both signed off. Deliverables: `contamination.sequential.test.ts` (extended to HTTP path), `contamination.concurrent.test.ts` (real SDK concurrency), `contamination.retryPath.test.ts` (retry isolation), retry-exhaustion integration test. WS_09 sign-off IS the Phase 1 sign-off. See `docs/plan/workstreams/ws09_contamination_and_signoff.md`.
+1. **WS_09 T1** — BSE: sequential HTTP-path contamination (`contamination.sequential.http.integration.test.ts`) + SDK surfaces retry-exhaustion as `APIError`. Key SCs: B has no trace of A's fixed `TOKEN` through the full HTTP stack; `client.chat.completions.create()` rejects with status 500, `validation_error` envelope, no `stack` leak. See `docs/active/TASK_WS09_T1.md`.
+2. **WS_09 T2** — BSE: concurrent contamination (`contamination.concurrent.integration.test.ts`) — `Promise.all` SDK concurrency; both own-content and no-cross-content assertions required.
+3. **WS_09 T3** — BSE: retry-path messages-array isolation (`contamination.retryPath.integration.test.ts`) — same double drives A and B; no `healthCheck()` skip.
+4. **WS_09 T4** — BSE: Phase-1 sign-off housekeeping — spec §6 coverage map, CI stays 91, status lines flipped.
 
 **Resolved decisions** (settled — ≤2 blocks inline; older ones in `docs/archive/decisions.md`):
 
