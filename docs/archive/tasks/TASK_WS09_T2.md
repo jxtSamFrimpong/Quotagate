@@ -72,13 +72,13 @@
 
 ## Subtask Progress Table
 
-| #   | Subtask                                                                                              | Status        | Iteration | Notes |
-| --- | --------------------------------------------------------------------------------------------------- | ------------- | --------- | ----- |
-| 1   | Create file; copy e2e fixture; define two fixed UUID constants `CW_A`, `CW_B` (distinct from T1).    | ⬚ Not started | —         | WS_03-D3 convention. |
-| 2   | `beforeAll`: real `ClaudeAdapter`, listen({port:0}), OpenAI client. `healthCheck()` skip guard.      | ⬚ Not started | —         | Live-Claude. |
-| 3   | T-1: `Promise.all` of two echo prompts; await both; assert own-content + no-cross-content per side.   | ⬚ Not started | —         | SC-1, SC-2. |
-| 4   | Add in-file comment: fresh-process rationale + Phase-2 `_mcp_lock` regression-guard purpose.          | ⬚ Not started | —         | SC-4. |
-| 5   | Run `npm test`; confirm CI-excluded path; green gate.                                                | ⬚ Not started | —         | SC-3, SC-5. |
+| #   | Subtask                                                                                              | Status    | Iteration | Notes |
+| --- | --------------------------------------------------------------------------------------------------- | --------- | --------- | ----- |
+| 1   | Create file; copy e2e fixture; define two fixed UUID constants `CW_A`, `CW_B` (distinct from T1).    | ✅ Done   | 1         | WS_03-D3 convention. `CW_A=c4d5e6f7-…`, `CW_B=d5e6f7a8-…` — distinct from each other, T1's `a1b2c3d4-…`, and WS_03's `8f3a1c2d-…`. |
+| 2   | `beforeAll`: real `ClaudeAdapter`, listen({port:0}), OpenAI client. `healthCheck()` skip guard.      | ✅ Done   | 1         | Live-Claude. Mirrors the sequential-HTTP `beforeAll`/`afterAll` lifecycle; `server` null-guarded in `afterAll`. |
+| 3   | T-1: `Promise.all` of two echo prompts; await both; assert own-content + no-cross-content per side.   | ✅ Done   | 1         | SC-1, SC-2. D1 satisfied: own-content (`toContain` + non-empty) AND no-cross-content (`not.toContain`) on both sides. |
+| 4   | Add in-file comment: fresh-process rationale + Phase-2 `_mcp_lock` regression-guard purpose.          | ✅ Done   | 1         | SC-4. Comment above T-1 covers fresh-process isolation + the Phase-2 MCP `_mcp_lock` regression-guard purpose + the EF2 isolation-not-simultaneity scope fence. |
+| 5   | Run `npm test`; confirm CI-excluded path; green gate.                                                | ✅ Done   | 1         | SC-3, SC-5. File under `tests/integration/**` → excluded when `CI` set (vitest.config.ts). Local +1 test; CI stays 91. |
 
 ---
 
@@ -153,14 +153,44 @@ File: `tests/integration/contamination.concurrent.http.integration.test.ts`
 
 ## Review Notes
 
-_(Architect fills after BSE submits.)_
+**Verdict: APPROVE** — Principal Architect, 2026-06-27.
+
+Reviewed `tests/integration/contamination.concurrent.http.integration.test.ts` against the
+T2 spec, the §6 concurrent sub-case, invariants #3/#5/#10/#11, and the Engineering Integrity bar.
+
+Honest production-path proof, not vacuous. The test drives the real stack (loadConfig → real
+ClaudeAdapter → createServer → listen({port:0}) → real openai SDK over HTTP) and fires the two
+calls via Promise.all — the genuine Fastify concurrency surface (D-1C-04), no adapter-layer
+bypass and no mock on the path under test. In this review run live Claude was available, so the
+test executed for real against two concurrent subprocess spawns and passed (not a skip no-op).
+
+- D1 (both-halves) satisfied robustly: each side asserts typeof==='string', length>0,
+  toContain(own), not.toContain(other) (lines 107-122). An empty/error body cannot pass
+  vacuously — empty fails length>0; an adapter error rejects the Promise.all and fails the test.
+- D2 verified by grep: four mutually distinct full UUIDs — WS_03 `8f3a1c2d-…`, T1 `a1b2c3d4-…`,
+  CW_A `c4d5e6f7-…`, CW_B `d5e6f7a8-…`; fixed literals, no runtime randomUUID; neither CW is a
+  substring of the other, so the toContain/not.toContain semantics are sound.
+- D3 honored: no _mcp_lock/MCP code (documenting comment only, lines 54-63); no timing or
+  simultaneity assertions; EF2 isolation-not-simultaneity scope fence documented in-file.
+- EF1 skip guard correct; afterAll null-guards `server`; 90s timeout (A3) justified and reused
+  from the sequential budget. Flakiness risk low — no-cross-content is structurally guaranteed on
+  the subprocess transport; own-content uses toContain per A2.
+- Genuine Phase-2 regression guard: when the MCP adapter replaces ClaudeAdapter, a shared-session
+  leak would surface CW_B in response A and trip not.toContain at line 117.
+
+Green gate observed: typecheck clean; lint clean; prettier --check clean; CI=1 → 91/91 unchanged
+(SC-3); full local → 103/103, 0 skipped (102 after T1 + 1). SC-1..SC-5 all met.
+
+Nits (non-blocking, no change requested): (1) `contentA!.length` deref follows the `typeof`
+assertion that would throw first on null — safe and consistent with the T1/e2e precedent;
+(2) response-shape assertions intentionally omitted (e2e's job, out of scope per D3).
 
 ---
 
 ## Architect Sign-off
 
-- [ ] Implementation reviewed
-- [ ] All success criteria verified
-- [ ] All assumptions resolved (proven, or fallback taken & documented)
-- [ ] No regressions in full test suite
-- [ ] `npm test` / `typecheck` / `lint` / `format` all clean
+- [x] Implementation reviewed — file read in full; drives the real HTTP production path, no bypass.
+- [x] All success criteria verified — SC-1/SC-2 (live test ran and passed), SC-3 (CI 91 unchanged), SC-4 (mandated comment present), SC-5 (green gate clean).
+- [x] All assumptions resolved — A1 proven (no cross-content under live concurrency), A2 honored (toContain echo), A3 held (completed within 90s).
+- [x] No regressions in full test suite — full local 103/103, 0 skipped; CI 91/91 unchanged.
+- [x] `npm test` / `typecheck` / `lint` / `format` all clean — verified this review (typecheck, eslint, prettier --check, vitest CI + local).

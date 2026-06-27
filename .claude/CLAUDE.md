@@ -1,7 +1,7 @@
 # CLAUDE.md — Project Knowledge Base
 
 > **Last Updated**: 2026-06-27
-> **Status**: 🟡 **WS_09 T1 complete + PA-signed off. BSE starts T2 next (T3, T4 follow).**
+> **Status**: 🟡 **WS_09 T2 complete + PA-signed off. BSE starts T3 next (T4 follows).**
 
 ---
 
@@ -265,12 +265,12 @@ current task and leaves no constraint behind, it is not a decision.
 
 ### Current Session (2026-06-25 → 2026-06-27)
 
-> **Status**: 🟡 **WS_09 T1 complete + PA-signed off. BSE starts T2 next (T3, T4 follow).**
+> **Status**: 🟡 **WS_09 T2 complete + PA-signed off. BSE starts T3 next (T4 follows).**
 
 **What was completed**:
 
-- _Milestone:_ **WS_08 complete + WS_09 elevated (→ 2026-06-27)** — WS_08 (Validator Retry Loop & Single-Backend Router) PA-signed off; WS_09 elevated with `TASK_WS09_T1–T4.md` implementation-ready and WS_09-D1..D4 locked.
-- **[WS_09 T1 complete + PA APPROVE — 2026-06-27]** Sequential HTTP-path contamination + retry-exhaustion SDK surface. New file `tests/integration/contamination.sequential.http.integration.test.ts` (2 describes per D1/D2): describe-1 proves the full proxy stack (OpenAI SDK → Fastify → router → real `ClaudeAdapter` → subprocess) leaks no fixed `TOKEN` from call A into call B (live-Claude, `healthCheck()`-skip-guarded); describe-2 proves retry-exhaustion surfaces as an `openai` `APIError` (status 500, `validation_error` envelope, no `stack`, adapter called exactly 3× = WS_08-D4 wiring). Full local 102/102 (+2); CI 91/91 unchanged (CI-excluded). PA blessed the describe-2 client's `maxRetries: 0` (scopes the 3× assertion to the proxy's own retry mechanic, not SDK-level retry). Load-amplification follow-up (retryable 500 → ~9 subprocess spawns under default SDK retry) logged to `deferments.md` for Phase 2; not a T1 blocker.
+- _Milestone:_ **WS_08 complete + WS_09 elevated + T1 done (→ 2026-06-27)** — WS_08 (Validator Retry Loop & Single-Backend Router) PA-signed off; WS_09 elevated with `TASK_WS09_T1–T4.md` implementation-ready and WS_09-D1..D4 locked; T1 (sequential HTTP-path contamination + retry-exhaustion SDK surface, `contamination.sequential.http.integration.test.ts`) PA-APPROVE — full local 102/102, CI 91/91.
+- **[WS_09 T2 complete + PA APPROVE — 2026-06-27]** Concurrent contamination over the real HTTP path. New file `tests/integration/contamination.concurrent.http.integration.test.ts`: fires two `client.chat.completions.create()` calls via `Promise.all` against a real listening Fastify server + real `ClaudeAdapter`; each injects its own fixed UUID code word (`CW_A=c4d5e6f7…`, `CW_B=d5e6f7a8…`, distinct from T1's `a1b2c3d4…` and WS_03's `8f3a1c2d…`) and asserts BOTH own-content (typeof/length/`toContain`) AND no-cross-content (`not.toContain`) per side (D1 — guards a vacuous empty-body pass). `healthCheck()` skip guard (live-Claude), 90s timeout, in-file SC-4 comment (fresh-process rationale + Phase-2 `_mcp_lock` regression-guard). In the BSE run live Claude was available, so the test executed against two real concurrent subprocess spawns and passed (not a skip no-op). Full local 103/103 (+1); CI 91/91 unchanged (CI-excluded). PA-verified green gate; two non-blocking nits, no changes requested.
 
 **What is being worked on**:
 
@@ -278,16 +278,14 @@ current task and leaves no constraint behind, it is not a decision.
 
 **Active task trackers**:
 
-- `docs/active/TASK_WS09_T2.md` — Concurrent contamination (Promise.all, both halves required) ⬚ Not Started
 - `docs/active/TASK_WS09_T3.md` — Retry-path messages-array isolation (double-driven, no skip) ⬚ Not Started
 - `docs/active/TASK_WS09_T4.md` — Phase-1 sign-off housekeeping + spec §6 coverage map ⬚ Not Started
-- _(T1 archived to `docs/archive/tasks/TASK_WS09_T1.md` — PA APPROVE.)_
+- _(T1, T2 archived to `docs/archive/tasks/` — both PA APPROVE.)_
 
 **What is next**:
 
-1. **WS_09 T2** — BSE: concurrent contamination (`contamination.concurrent.integration.test.ts`) — `Promise.all` SDK concurrency; both own-content and no-cross-content assertions required.
-2. **WS_09 T3** — BSE: retry-path messages-array isolation (`contamination.retryPath.integration.test.ts`) — same double drives A and B; no `healthCheck()` skip.
-3. **WS_09 T4** — BSE: Phase-1 sign-off housekeeping — spec §6 coverage map, CI stays 91, status lines flipped.
+1. **WS_09 T3** — BSE: retry-path messages-array isolation (`contamination.retryPath.integration.test.ts`) — same `vi.fn()` double drives A and B; no `healthCheck()` skip (D2). _(Note: T3 has an OD-1 to resolve first per its tracker.)_
+2. **WS_09 T4** — BSE: Phase-1 sign-off housekeeping — spec §6 coverage map, CI stays 91, status lines flipped. Depends on T3 ✅.
 
 **Resolved decisions** (settled — ≤2 blocks inline; older ones in `docs/archive/decisions.md`):
 
