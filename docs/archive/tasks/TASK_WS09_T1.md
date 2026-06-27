@@ -89,14 +89,14 @@
 
 ## Subtask Progress Table
 
-| #   | Subtask                                                                                                    | Status        | Iteration | Notes |
-| --- | --------------------------------------------------------------------------------------------------------- | ------------- | --------- | ----- |
-| 1   | Create the file; copy the `e2e.noTools.test.ts` fixture shape; define `TOKEN` UUID constant.               | ⬚ Not started | —         | New file under `tests/integration/`. |
-| 2   | Describe-1 `beforeAll`: real `ClaudeAdapter`, listen({port:0}), OpenAI client. `healthCheck()` skip guard. | ⬚ Not started | —         | Live-Claude. |
-| 3   | Describe-1 T-1: call A (remember TOKEN) → parse-guard → call B (probe) → assert B has no TOKEN.             | ⬚ Not started | —         | SC-1. |
-| 4   | Describe-2 `beforeAll`: `vi.fn()` double server, OpenAI client. No skip guard.                             | ⬚ Not started | —         | Deterministic. |
-| 5   | Describe-2 T-2: 3× malformed → `create()` rejects with `APIError` 500, OpenAI envelope, no stack.          | ⬚ Not started | —         | SC-2. |
-| 6   | Run `npm test`; confirm CI-excluded (path under `tests/integration/**`); run green gate.                   | ⬚ Not started | —         | SC-3..SC-5. |
+| #   | Subtask                                                                                                    | Status     | Iteration | Notes |
+| --- | --------------------------------------------------------------------------------------------------------- | ---------- | --------- | ----- |
+| 1   | Create the file; copy the `e2e.noTools.test.ts` fixture shape; define `TOKEN` UUID constant.               | ✅ Done    | 1         | New file `contamination.sequential.http.integration.test.ts`. `TOKEN = a1b2c3d4-…-0e1f2a3b4c5d` (distinct from WS_03's `8f3a1c2d-…`; reserved away from T2/T3). |
+| 2   | Describe-1 `beforeAll`: real `ClaudeAdapter`, listen({port:0}), OpenAI client. `healthCheck()` skip guard. | ✅ Done    | 1         | Live-Claude. Verbatim listen+port-extraction fixture; `ctx.skip()` guard inside T-1 (EF1). |
+| 3   | Describe-1 T-1: call A (remember TOKEN) → parse-guard → call B (probe) → assert B has no TOKEN.             | ✅ Done    | 1         | SC-1. Parse-guard = non-empty string content at HTTP layer; B = "What is 2 plus 2?". Timeout 90 s. Ran live (11 s), passed. |
+| 4   | Describe-2 `beforeAll`: `vi.fn()` double server, OpenAI client. No skip guard.                             | ✅ Done    | 1         | Deterministic. `{ name, complete, healthCheck, install } satisfies CLIAdapter`. Client built with `maxRetries: 0` (see notes). |
+| 5   | Describe-2 T-2: 3× malformed → `create()` rejects with `APIError` 500, OpenAI envelope, no stack.          | ✅ Done    | 1         | SC-2. Asserts `status 500`, `code`/`type` = `validation_error`, envelope present, no `stack`, `complete` called 3×. |
+| 6   | Run `npm test`; confirm CI-excluded (path under `tests/integration/**`); run green gate.                   | ✅ Done    | 1         | SC-3..SC-5. CI=91 (excluded); local=102 (+2); typecheck/lint/format clean. |
 
 ---
 
@@ -188,14 +188,72 @@ File: `tests/integration/contamination.sequential.http.integration.test.ts`
 
 ## Review Notes
 
-_(Architect fills after BSE submits.)_
+**Reviewer**: Principal Architect — **Date**: 2026-06-27
+**Verdict**: ✅ **APPROVE** (sealed — no follow-up required before T2).
+
+### Per-SC verdict
+
+| SC   | Verdict | Evidence |
+| ---- | ------- | -------- |
+| SC-1 | ✅ PASS | Describe-1 builds a **real** `ClaudeAdapter` + **real** listening Fastify server (`createServer(config, { claude: adapter })`, `server.listen({ port: 0 })`) + **real** `openai` SDK client against `http://127.0.0.1:${port}/v1`. No mock short-circuit on the live path. Call A injects TOKEN → parse-guard asserts non-empty string `content` at the HTTP layer (EF2-equivalent; a broken constraint fails here, not at the contamination assertion). Call B is an unrelated arithmetic probe with no path to TOKEN → `expect(contentB).not.toContain(TOKEN)`. `healthCheck()` skip-guard present (EF1). Ran live ~11 s, passed. |
+| SC-2 | ✅ PASS | Describe-2 injects a `vi.fn()` double returning `{ raw:'not json', backend:'claude-subprocess' }` on every call. `create()` rejects; asserts `instanceof APIError`, `status === 500`, `code`/`type` = `validation_error`, envelope `{message,type,code}` present, `message` non-empty, `stack` undefined, and `complete` called exactly **3×**. Verified against the real SDK error shape: `node_modules/openai/core/error.js` sets `this.error = body.error`, `this.code = error.code`, `this.type = error.type` — assertions match the SDK contract, not a guess. Proxy `ValidationError` path (`src/proxy.ts:43-52`) emits exactly `{ message, type:'validation_error', code:'validation_error' }`, 500, no stack. |
+| SC-3 | ✅ PASS | File is under `tests/integration/**`; `vitest.config.ts:8` excludes `tests/integration/**` when `CI` is set. Orchestrator + I independently re-ran `CI=1 npx vitest run` → 91, unchanged. |
+| SC-4 | ✅ PASS | `npm run typecheck` clean (re-ran). No unused imports. |
+| SC-5 | ✅ PASS | `npm run lint` clean (re-ran); format no diff; full local `npm test` 102 (+2, 0 regressions). |
+
+### Adjudication — `maxRetries: 0` on the describe-2 SDK client (the crux)
+
+**Ruling: sound, honest test-isolation. It does NOT mask a contract defect. APPROVED as-is.**
+
+The proxy returns HTTP **500** on retry-exhaustion, and the `openai` SDK retries 5xx up to 2× by
+default. Left at the default, the SDK would re-issue the request, fanning the proxy's own 3-attempt
+retry cycle out to as many as **9** `complete()` calls and breaking `toHaveBeenCalledTimes(3)`.
+Setting `maxRetries: 0` scopes the assertion to the **proxy's own** retry mechanic (WS_08-D4), which
+is precisely what T-2/SC-2 intend to prove. SDK-side retry is an **orthogonal client-side layer**;
+the proxy's output contract — 500 + the `validation_error` envelope — is unchanged and correctly
+surfaced. Nothing is hidden: the test still exercises the full production HTTP path (real server,
+real route, real `validateWithRetry`, real error handler). This is the right fix, not the easy one.
+
+**Product observation (NOT a T1 defect — recorded for Phase 2, do not act on it here):** a
+retry-exhaustion **500** is, by OpenAI convention, a *retryable* status. Under a default consumer
+SDK (`maxRetries: 2`), a single malformed-model-output failure can amplify to ~9 subprocess spawns
+(3 SDK attempts × 3 proxy retries). Whether retry-exhaustion *should* surface as a retryable 500 vs.
+a non-retryable code (e.g., 422) is a genuine resilience/idempotency question — but the 500 +
+`validation_error` contract is already locked by `src/proxy.ts` + `proxy.test.ts` (WS_08 T3-SC1), and
+T1's mandate is only to prove that contract surfaces correctly through a real SDK client, which it
+does. **Recommend logging this as a Phase-2 deferment** (load-amplification under default SDK retry).
+
+### Other findings
+
+- **`name: 'stub-claude'` on the double — benign and correct.** `CLIAdapter` (`src/adapters/base.ts:4`)
+  requires `readonly name`; the tracker shorthand omitted it. The BSE added `name: 'stub-claude'`,
+  matching the established `tests/proxy.test.ts` stub pattern. The `satisfies CLIAdapter` now type-checks
+  honestly. No concern.
+- **TOKEN distinctness verified.** T1 token `a1b2c3d4-…` ≠ WS_03 adapter-level token `8f3a1c2d-…`;
+  hardcoded (not `crypto.randomUUID()`); commented per WS_03-D3; reserved away from T2/T3 so a
+  cross-file leak could never be masked by a shared value. Correct.
+- **Contamination assertion is meaningful (EF2 honored).** The parse-guard on call A asserts the
+  *constraint* (non-empty content) before the TOKEN assertion, so a broken constraint points the
+  failure at the constraint, not at a false contamination signal. Call B has no path to TOKEN.
+- **A1–A4 all resolved as proven** (no fallbacks taken): real SDK client works (A1); SDK throws
+  `APIError` on 500 (A2, verified against `error.js`); one file hosts both servers via separate
+  `beforeAll` fixtures (A3); live probe wording isolates TOKEN to call A (A4).
+- **Nit (non-blocking, no change required):** describe-2's `vi.clearAllMocks()` in `beforeAll` is
+  belt-and-suspenders given the double is file-local and never re-driven; harmless.
+
+### What this test genuinely adds over WS_03
+
+WS_03 proves the *adapter* is stateless. This proves the *full proxy stack* (`proxy.ts` → `router.ts`
+→ `ClaudeAdapter` → subprocess) introduces no module-level cache/pool/leak — the real Phase-1C
+acceptance criterion and the Phase-2 regression guard for when MCP's persistent session replaces
+fresh-process construction (invariants #3, #5, #10). It guards the right layer.
 
 ---
 
 ## Architect Sign-off
 
-- [ ] Implementation reviewed
-- [ ] All success criteria verified
-- [ ] All assumptions resolved (proven, or fallback taken & documented)
-- [ ] No regressions in full test suite
-- [ ] `npm test` / `typecheck` / `lint` / `format` all clean
+- [x] Implementation reviewed
+- [x] All success criteria verified
+- [x] All assumptions resolved (proven, or fallback taken & documented)
+- [x] No regressions in full test suite
+- [x] `npm test` / `typecheck` / `lint` / `format` all clean

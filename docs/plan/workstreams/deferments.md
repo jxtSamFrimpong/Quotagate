@@ -54,3 +54,21 @@ These are inherent to the spec's phasing (spec §6) — listed so they are not a
 ---
 
 _(Add new deferments below as they are decided, newest at the bottom, with date.)_
+
+- **Retry-exhaustion 500 → subprocess load-amplification under default SDK retry** — deferred to
+  **Phase 2** (resilience pass). _(Logged 2026-06-27, from the WS_09 T1 PA review.)_
+  _What:_ When the validator's retry loop exhausts (`retry.max_attempts`, default 3) on malformed
+  model output, the proxy surfaces an HTTP **500** carrying the `validation_error` envelope. 500 is a
+  **retryable** status by OpenAI convention, so a default-configured `openai` SDK client retries it up
+  to 2× — fanning one logical failure out to ~9 subprocess spawns (3 SDK attempts × 3 proxy retries).
+  _Why now is not the time:_ The `500` + `validation_error` output contract is already **locked** by
+  `src/proxy.ts` and `tests/proxy.test.ts` (invariant #5); WS_09 T1's mandate was only to prove that
+  contract surfaces correctly through a real SDK client, which it does. Changing the status code is a
+  contract change, not a test concern — out of scope for a Phase-1 sign-off task, and premature before
+  the MCP transport (Phase 2 head) reshapes the failure/spawn model anyway. _Mechanism:_ revisit
+  whether retry-exhaustion (a deterministic, non-transient failure) should surface as a
+  **non-retryable** code (e.g. `422 Unprocessable Entity`) instead of a retryable `500`, so a
+  well-behaved consumer SDK does not amplify load; update `proxy.ts`, `proxy.test.ts`, and the error
+  contract together. _Revisit trigger:_ Phase 2 resilience/idempotency pass, or earlier if real-world
+  consumer retry storms are observed against a deployed proxy. _Rejected alternative — fix it now:_
+  would re-open a locked Phase-1 output contract for a load concern that has no Phase-1 trigger.

@@ -1,7 +1,7 @@
 # CLAUDE.md — Project Knowledge Base
 
 > **Last Updated**: 2026-06-27
-> **Status**: 🟡 **WS_09 elevated (T1–T4 implementation-ready). BSE starts T1 next.**
+> **Status**: 🟡 **WS_09 T1 complete + PA-signed off. BSE starts T2 next (T3, T4 follow).**
 
 ---
 
@@ -265,12 +265,12 @@ current task and leaves no constraint behind, it is not a decision.
 
 ### Current Session (2026-06-25 → 2026-06-27)
 
-> **Status**: 🟡 **WS_09 elevated (T1–T4 implementation-ready). BSE starts T1 next.**
+> **Status**: 🟡 **WS_09 T1 complete + PA-signed off. BSE starts T2 next (T3, T4 follow).**
 
 **What was completed**:
 
-- _Milestone:_ **WS_08 complete + PA-signed off (2026-06-24 → 2026-06-25)** — Validator Retry Loop & Single-Backend Router. CI gate: 91/91; full local: 100/100; net +8 tests. Commits: `d17926e`, `0c59221`, `e787ac1`.
-- **[WS_09 elevated by PA — 2026-06-27]** PA reviewed and fixed `ws09_contamination_and_signoff.md`: corrected "extend WS_03 file" mistake (new `*.http.integration.test.ts` companion, adapter-level test untouched); retired redundant Goal 2 (retry exhaustion already proven by WS_08 T3-SC1; Goal 2 rescoped to SDK `APIError` surface test, folded into T1); fixed false-green hole in concurrent test (own-content assertions required in both halves); resolved OD-1 (retry-path B driven by same double, no `healthCheck()` skip — double has no live dependency). Locked WS_09-D1..D4. Created `TASK_WS09_T1–T4.md` — all four implementation-ready.
+- _Milestone:_ **WS_08 complete + WS_09 elevated (→ 2026-06-27)** — WS_08 (Validator Retry Loop & Single-Backend Router) PA-signed off; WS_09 elevated with `TASK_WS09_T1–T4.md` implementation-ready and WS_09-D1..D4 locked.
+- **[WS_09 T1 complete + PA APPROVE — 2026-06-27]** Sequential HTTP-path contamination + retry-exhaustion SDK surface. New file `tests/integration/contamination.sequential.http.integration.test.ts` (2 describes per D1/D2): describe-1 proves the full proxy stack (OpenAI SDK → Fastify → router → real `ClaudeAdapter` → subprocess) leaks no fixed `TOKEN` from call A into call B (live-Claude, `healthCheck()`-skip-guarded); describe-2 proves retry-exhaustion surfaces as an `openai` `APIError` (status 500, `validation_error` envelope, no `stack`, adapter called exactly 3× = WS_08-D4 wiring). Full local 102/102 (+2); CI 91/91 unchanged (CI-excluded). PA blessed the describe-2 client's `maxRetries: 0` (scopes the 3× assertion to the proxy's own retry mechanic, not SDK-level retry). Load-amplification follow-up (retryable 500 → ~9 subprocess spawns under default SDK retry) logged to `deferments.md` for Phase 2; not a T1 blocker.
 
 **What is being worked on**:
 
@@ -278,17 +278,16 @@ current task and leaves no constraint behind, it is not a decision.
 
 **Active task trackers**:
 
-- `docs/active/TASK_WS09_T1.md` — Sequential HTTP-path contamination + SDK APIError surface ⬚ Not Started
 - `docs/active/TASK_WS09_T2.md` — Concurrent contamination (Promise.all, both halves required) ⬚ Not Started
 - `docs/active/TASK_WS09_T3.md` — Retry-path messages-array isolation (double-driven, no skip) ⬚ Not Started
 - `docs/active/TASK_WS09_T4.md` — Phase-1 sign-off housekeeping + spec §6 coverage map ⬚ Not Started
+- _(T1 archived to `docs/archive/tasks/TASK_WS09_T1.md` — PA APPROVE.)_
 
 **What is next**:
 
-1. **WS_09 T1** — BSE: sequential HTTP-path contamination (`contamination.sequential.http.integration.test.ts`) + SDK surfaces retry-exhaustion as `APIError`. Key SCs: B has no trace of A's fixed `TOKEN` through the full HTTP stack; `client.chat.completions.create()` rejects with status 500, `validation_error` envelope, no `stack` leak. See `docs/active/TASK_WS09_T1.md`.
-2. **WS_09 T2** — BSE: concurrent contamination (`contamination.concurrent.integration.test.ts`) — `Promise.all` SDK concurrency; both own-content and no-cross-content assertions required.
-3. **WS_09 T3** — BSE: retry-path messages-array isolation (`contamination.retryPath.integration.test.ts`) — same double drives A and B; no `healthCheck()` skip.
-4. **WS_09 T4** — BSE: Phase-1 sign-off housekeeping — spec §6 coverage map, CI stays 91, status lines flipped.
+1. **WS_09 T2** — BSE: concurrent contamination (`contamination.concurrent.integration.test.ts`) — `Promise.all` SDK concurrency; both own-content and no-cross-content assertions required.
+2. **WS_09 T3** — BSE: retry-path messages-array isolation (`contamination.retryPath.integration.test.ts`) — same double drives A and B; no `healthCheck()` skip.
+3. **WS_09 T4** — BSE: Phase-1 sign-off housekeeping — spec §6 coverage map, CI stays 91, status lines flipped.
 
 **Resolved decisions** (settled — ≤2 blocks inline; older ones in `docs/archive/decisions.md`):
 
