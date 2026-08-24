@@ -8,7 +8,7 @@
 
 - **Parent Phase**: [Phase 1B — OpenAI Translation Pipeline](../phases/01b_openai_translation_pipeline.md)
 - **Timeframe**: ~1 day (4 tasks × ~1 hour focused implementation + green-gate / review overhead)
-- **Status**: ✅ **Implementation-ready** (elevated 2026-06-10 — all 7 open decisions resolved & locked; four task trackers materialized in `docs/active/`)
+- **Status**: ✅ **Completed** (Phase 1 closed, 2026-08-24 — WS_09 T4 sign-off)
 - **Dependencies**: WS_03 signed off — `adapter.complete()` proven against the real subscription; `AdapterResponse` contract stable; green gate holding from Phase 1A.
 
 ---

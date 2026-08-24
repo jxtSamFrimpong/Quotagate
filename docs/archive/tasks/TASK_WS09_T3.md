@@ -83,14 +83,14 @@
 
 | #   | Subtask                                                                                                       | Status        | Iteration | Notes |
 | --- | ------------------------------------------------------------------------------------------------------------ | ------------- | --------- | ----- |
-| 1   | Create file; `beforeAll` builds server from `vi.fn()` double; `beforeEach` clears mocks.                       | ⬚ Not started | —         | No skip guard (D2). |
-| 2   | Sequence the double: `mockResolvedValueOnce` malformed (A1), valid A (A2), valid B (B1).                       | ⬚ Not started | —         | Exactly 3 returns. |
-| 3   | T-1: inject POST A (retries, 200); inject POST B (200). Capture both responses.                                | ⬚ Not started | —         | SC-1, SC-2. |
-| 4   | Assert A resolves (200, A content), B resolves (200, B content); `complete` called exactly 3×.                 | ⬚ Not started | —         | SC-1, SC-3. |
-| 5   | Assert `calls[1][0].messages` (A retry) = `[origA, CORRECTION_NOTE]`; `calls[2][0].messages` = `[origB]` only.  | ⬚ Not started | —         | SC-2. |
-| 6   | Assert no entry in `calls[2][0].messages` has content starting with the CORRECTION_NOTE prefix.                | ⬚ Not started | —         | SC-2. |
-| 7   | Assert B's response body contains no CORRECTION_NOTE prefix and not A's distinctive content.                   | ⬚ Not started | —         | SC-2. |
-| 8   | Run `npm test`; confirm CI-excluded path; green gate.                                                          | ⬚ Not started | —         | SC-4, SC-5. |
+| 1   | Create file; `beforeAll` builds server from `vi.fn()` double; `beforeEach` clears mocks.                       | ✅ Done        | 1         | No skip guard (D2). |
+| 2   | Sequence the double: `mockResolvedValueOnce` malformed (A1), valid A (A2), valid B (B1).                       | ✅ Done        | 1         | Exactly 3 returns. |
+| 3   | T-1: inject POST A (retries, 200); inject POST B (200). Capture both responses.                                | ✅ Done        | 1         | SC-1, SC-2. |
+| 4   | Assert A resolves (200, A content), B resolves (200, B content); `complete` called exactly 3×.                 | ✅ Done        | 1         | SC-1, SC-3. |
+| 5   | Assert `calls[1][0].messages` (A retry) = `[origA, CORRECTION_NOTE]`; `calls[2][0].messages` = `[origB]` only.  | ✅ Done        | 1         | SC-2. |
+| 6   | Assert no entry in `calls[2][0].messages` has content starting with the CORRECTION_NOTE prefix.                | ✅ Done        | 1         | SC-2. |
+| 7   | Assert B's response body contains no CORRECTION_NOTE prefix and not A's distinctive content.                   | ✅ Done        | 1         | SC-2. |
+| 8   | Run `npm test`; confirm CI-excluded path; green gate.                                                          | ✅ Done        | 1         | SC-4, SC-5. |
 
 ---
 
@@ -207,14 +207,28 @@ File: `tests/integration/contamination.retryPath.integration.test.ts`
 
 ## Review Notes
 
-_(Architect fills after BSE submits.)_
+**Verdict: ✅ APPROVE** (PA, 2026-08-24)
+
+Reviewed `tests/integration/contamination.retryPath.integration.test.ts` line-by-line against this tracker.
+
+- **D1 verified**: single `vi.fn()` double services A ×2 and B ×1; exactly three `mockResolvedValueOnce` returns in the locked sequence. CONTENT_A/CONTENT_B are fixed UUID constants, distinct from every other test file's tokens (WS_03-D3 honored).
+- **D2 verified**: no `healthCheck()` guard anywhere — the test cannot silently no-op.
+- **Load-bearing assertions all present and unsoftened**:
+  - Retry-genuineness: `calls[1][0].messages` length 2, `[0] === 'Request A'`, `[1]` user-role with content matching `^The previous response was not valid JSON` — proves the note existed and could have leaked (guards a vacuous pass).
+  - Input-side contamination: `calls[2][0].messages` deep-equals exactly B's originals **and** an explicit `.some(...)` negative assertion on the note prefix. If A1 were false (shared-array mutation), BOTH fail loudly. If A2 were false (closure leak), the deep-equal fails. Verified by trace.
+  - Response-side contamination: B's body asserted to contain CONTENT_B and NOT contain the note prefix nor CONTENT_A — covers A3 (module-level state).
+  - Call-count contract: exactly 3 total.
+- **EF2 integrity confirmed**: call 1 returns `'not json'`; the real `JSON.parse` failure inside `parseAndValidate` drives the genuine retry path — nothing mocked out.
+- **Deviation adjudicated — ACCEPTED (non-blocking)**: spec sketched `beforeAll` server construction; implementation builds per-test in `beforeEach` (+ `vi.clearAllMocks()`, `afterEach` server close). For an `inject()`-driven test against a stateless server this is functionally equivalent and matches the established `tests/proxy.test.ts` convention; it also guarantees a clean mock chain per test. No weakening identified.
+- **Router key invariant checked**: adapters map key `'claude'` equals config `backend: claude` (config.minimal.yaml) — resolve() finds the double.
+- Gate re-verified by PA this session: typecheck/lint/prettier-scoped clean; local 104/104; `CI=1` == 91.
 
 ---
 
 ## Architect Sign-off
 
-- [ ] Implementation reviewed
-- [ ] All success criteria verified
-- [ ] All assumptions resolved (proven, or fallback taken & documented)
-- [ ] No regressions in full test suite
-- [ ] `npm test` / `typecheck` / `lint` / `format` all clean
+- [x] Implementation reviewed
+- [x] All success criteria verified (SC-1..SC-5)
+- [x] All assumptions resolved (A1/A2/A3 proven by assertion trace)
+- [x] No regressions in full test suite (104/104 local; CI 91 unchanged)
+- [x] `npm test` / `typecheck` / `lint` / `format` all clean

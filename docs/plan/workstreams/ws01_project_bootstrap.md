@@ -8,7 +8,7 @@
 
 - **Parent Phase**: [Phase 1A — Claude Subprocess Adapter & Constraint](../phases/01a_transport_and_constraint.md)
 - **Timeframe**: ~1 day
-- **Status**: Proposed
+- **Status**: ✅ **Completed** (Phase 1 closed, 2026-08-24 — WS_09 T4 sign-off)
 - **Dependencies**: None — this is the first workstream. All others depend on it.
 
 ---

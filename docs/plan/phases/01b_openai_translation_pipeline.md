@@ -14,7 +14,7 @@
   (`claude --print`) and constraint (Mechanism A prompt-engineering, owned by the adapter) are
   already settled in 1A; this phase is entirely about the translation pipeline and the HTTP boundary.
 - **Target Timeline**: ~1 week (WS_04 → WS_06)
-- **Status**: Proposed
+- **Status**: ✅ **Completed** (Phase 1 closed, 2026-08-24 — WS_09 T4 sign-off)
 - **Depends on**: [Phase 1A — Claude Subprocess Adapter & Constraint](./01a_transport_and_constraint.md)
   (WS_03 signed off; `adapter.complete()` proven against the real subscription; `AdapterResponse`
   contract established)

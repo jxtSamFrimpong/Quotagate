@@ -1,7 +1,7 @@
 # CLAUDE.md — Project Knowledge Base
 
-> **Last Updated**: 2026-06-27
-> **Status**: 🟡 **WS_09 T2 complete + PA-signed off. BSE starts T3 next (T4 follows).**
+> **Last Updated**: 2026-08-24
+> **Status**: 🟢 **PHASE 1 COMPLETE — WS_09 T3+T4 done, Phase-1 sign-off recorded. Next: Phase 2 head (MCP upgrade).**
 
 ---
 
@@ -263,14 +263,22 @@ current task and leaves no constraint behind, it is not a decision.
 
 ## Session State
 
-### Current Session (2026-06-25 → 2026-06-27)
+### Current Session (2026-06-25 → 2026-08-24)
 
-> **Status**: 🟡 **WS_09 T2 complete + PA-signed off. BSE starts T3 next (T4 follows).**
+> **Status**: 🟢 **PHASE 1 COMPLETE — WS_09 T3+T4 done, Phase-1 sign-off recorded. Next: Phase 2 head (MCP upgrade).**
 
 **What was completed**:
 
-- _Milestone:_ **WS_08 complete + WS_09 elevated + T1 done (→ 2026-06-27)** — WS_08 (Validator Retry Loop & Single-Backend Router) PA-signed off; WS_09 elevated with `TASK_WS09_T1–T4.md` implementation-ready and WS_09-D1..D4 locked; T1 (sequential HTTP-path contamination + retry-exhaustion SDK surface, `contamination.sequential.http.integration.test.ts`) PA-APPROVE — full local 102/102, CI 91/91.
-- **[WS_09 T2 complete + PA APPROVE — 2026-06-27]** Concurrent contamination over the real HTTP path. New file `tests/integration/contamination.concurrent.http.integration.test.ts`: fires two `client.chat.completions.create()` calls via `Promise.all` against a real listening Fastify server + real `ClaudeAdapter`; each injects its own fixed UUID code word (`CW_A=c4d5e6f7…`, `CW_B=d5e6f7a8…`, distinct from T1's `a1b2c3d4…` and WS_03's `8f3a1c2d…`) and asserts BOTH own-content (typeof/length/`toContain`) AND no-cross-content (`not.toContain`) per side (D1 — guards a vacuous empty-body pass). `healthCheck()` skip guard (live-Claude), 90s timeout, in-file SC-4 comment (fresh-process rationale + Phase-2 `_mcp_lock` regression-guard). In the BSE run live Claude was available, so the test executed against two real concurrent subprocess spawns and passed (not a skip no-op). Full local 103/103 (+1); CI 91/91 unchanged (CI-excluded). PA-verified green gate; two non-blocking nits, no changes requested.
+- _Milestone:_ **PHASE 1 SIGN-OFF (WS_09 T4, PA APPROVE — 2026-08-24)** — All spec §6 acceptance criteria proven by named passing tests:
+  - No-tools happy path → `e2e.noTools.test.ts` T-2 ✅
+  - Tool-call path (`tool_calls`, fn name, args) + Invariant #1 (no execution side effect) → `e2e.toolCall.test.ts` T-a/T-b ✅
+  - Retry exhaustion (proxy HTTP 500; OpenAI SDK `APIError` surface) → `proxy.test.ts` WS_08 T3-SC1 + `contamination.sequential.http.integration.test.ts` T-2 ✅
+  - Contamination — sequential HTTP path (T1) / concurrent real-subprocess path (T2) / retry-path messages-array isolation (T3, deterministic double, no skip guard) — all three leak-free ✅
+  - Adapter-level sequential guard (WS_03 T-I3) ✅
+- **Gate at sign-off**: full local **104/104** green · `CI=1` subset **91** (unchanged) · typecheck/lint/format clean.
+- _Milestone:_ **WS_09 T3 complete (2026-08-24)** — `tests/integration/contamination.retryPath.integration.test.ts`: single `vi.fn()` double drives A and B (D1); no `healthCheck()` skip (D2 — deterministic). Proves A's CORRECTION_NOTE appears in A's attempt-2 input but in neither B's `complete()` input nor B's response body; exactly 3 adapter calls. No contamination leak found. One structural deviation from the tracker sketch: server built per-test in `beforeEach` (matching `proxy.test.ts`) instead of `beforeAll`.
+- **[WS_09 T2 complete + PA APPROVE — 2026-06-27]** Concurrent contamination over the real HTTP path. New file `tests/integration/contamination.concurrent.http.integration.test.ts`: fires two `client.chat.completions.create()` calls via `Promise.all` against a real listening Fastify server + real `ClaudeAdapter`; each injects its own fixed UUID code word (`CW_A=c4d5e6f7…`, `CW_B=d5e6f7a8…`, distinct from T1's `a1b2c3d4…` and WS_03's `8f3a1c2d…`) and asserts BOTH own-content (typeof/length/`toContain`) AND no-cross-content (`not.toContain`) per side (D1 — guards a vacuous empty-body pass). `healthCheck()` skip guard (live-Claude), 90s timeout, in-file SC-4 comment (fresh-process rationale + Phase-2 `_mcp_lock` regression-guard). In the BSE run live Claude was available, so the test executed against two real concurrent subprocess spawns and passed (not a skip no-op). Full local 103/103 (+1); CI 91/91 unchanged (CI-excluded). PA-verified green gate.
+- _Folded milestones (→ 2026-06-27):_ WS_08 complete (PA-signed off); WS_09 elevated with D1..D4 locked (`docs/plan/workstreams/ws09_contamination_and_signoff.md` §Locked Decisions) and T1 (sequential HTTP-path contamination + retry-exhaustion SDK surface) PA-APPROVE. Details in `docs/archive/tasks/TASK_WS09_T1.md`.
 
 **What is being worked on**:
 
@@ -278,14 +286,15 @@ current task and leaves no constraint behind, it is not a decision.
 
 **Active task trackers**:
 
-- `docs/active/TASK_WS09_T3.md` — Retry-path messages-array isolation (double-driven, no skip) ⬚ Not Started
-- `docs/active/TASK_WS09_T4.md` — Phase-1 sign-off housekeeping + spec §6 coverage map ⬚ Not Started
-- _(T1, T2 archived to `docs/archive/tasks/` — both PA APPROVE.)_
+- None — T3 and T4 archived to `docs/archive/tasks/` (both PA APPROVE, 2026-08-24; the T4 sign-off **is** the Phase-1 sign-off).
 
 **What is next**:
 
-1. **WS_09 T3** — BSE: retry-path messages-array isolation (`contamination.retryPath.integration.test.ts`) — same `vi.fn()` double drives A and B; no `healthCheck()` skip (D2). _(Note: T3 has an OD-1 to resolve first per its tracker.)_
-2. **WS_09 T4** — BSE: Phase-1 sign-off housekeeping — spec §6 coverage map, CI stays 91, status lines flipped. Depends on T3 ✅.
+1. **Phase 2 head: MCP upgrade** — replace the subprocess transport with a persistent MCP session
+   (D-TRANSPORT end-state; D-SEQ-01). Must preserve invariant #10 (stateless per request) and #11
+   (one request in flight per MCP session); the WS_09 contamination suite is the regression guard —
+   a regression there means the upgrade broke context isolation. First step: the deferred MCP-server
+   feasibility investigation.
 
 **Resolved decisions** (settled — ≤2 blocks inline; older ones in `docs/archive/decisions.md`):
 

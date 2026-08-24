@@ -8,7 +8,7 @@
 
 - **Parent Phase**: [Phase 1A — Claude Subprocess Adapter & Constraint](../phases/01a_transport_and_constraint.md)
 - **Timeframe**: ~2 days
-- **Status**: Proposed
+- **Status**: ✅ **Completed** (Phase 1 closed, 2026-08-24 — WS_09 T4 sign-off)
 - **Dependencies**: WS_01 signed off — `src/types.ts`, `src/errors.ts`, and the green gate must be in place before this workstream begins.
 
 ---

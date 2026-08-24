@@ -15,7 +15,7 @@
   fresh-process isolation. The green gate is the formal exit condition, and WS_09 sign-off **is** the
   Phase 1 sign-off.
 - **Target Timeline**: ~1 week (WS_07 → WS_09)
-- **Status**: Proposed
+- **Status**: ✅ **Completed** (Phase 1 closed, 2026-08-24 — WS_09 T4 sign-off)
 - **Depends on**: [Phase 1B — OpenAI Translation Pipeline](./01b_openai_translation_pipeline.md)
   (WS_06 signed off; no-tools end-to-end integration test passing; green gate held)
 

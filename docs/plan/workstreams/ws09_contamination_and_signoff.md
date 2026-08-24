@@ -8,7 +8,7 @@
 
 - **Parent Phase**: [Phase 1C — Tool Calling & Acceptance](../phases/01c_tool_calling_and_acceptance.md)
 - **Timeframe**: ~1 day
-- **Status**: Elevated — implementation-ready (PA, 2026-06-26). OD-1 resolved (option (a) — user, 2026-06-26); all four tasks unblocked.
+- **Status**: ✅ **Completed** (Phase 1 closed, 2026-08-24 — T4 sign-off; OD-1 resolved option (a), all four tasks archived)
 - **Dependencies**: WS_07 signed off (tool-call validator and response builder branches; tool-call integration test; invariant #1 proof) AND WS_08 signed off (retry loop fully exercised at proxy level; `router.ts` integrated; `proxy.ts` migrated). Both must be green-gate-clean before this workstream begins. This workstream is an acceptance/proof workstream, not a development workstream — it writes no new production code.
 
 ---

@@ -8,7 +8,7 @@
 
 - **Parent Phase**: [Phase 1B — OpenAI Translation Pipeline](../phases/01b_openai_translation_pipeline.md)
 - **Timeframe**: ~1 day
-- **Status**: Proposed
+- **Status**: ✅ **Completed** (Phase 1 closed, 2026-08-24 — WS_09 T4 sign-off)
 - **Dependencies**: WS_04 signed off (translation pipeline: `argumentBuilder.ts`, `validator.ts`, `responseBuilder.ts`) AND WS_05 signed off (Fastify proxy, config, `index.ts` entrypoint). Both must be green-gate-clean before this workstream begins. This workstream is an integration/proof workstream, not a development workstream — it writes no new production code.
 
 ---

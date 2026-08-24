@@ -8,7 +8,7 @@
 
 - **Parent Phase**: [Phase 1A — Claude Subprocess Adapter & Constraint](../phases/01a_transport_and_constraint.md)
 - **Timeframe**: ~1 day
-- **Status**: Complete
+- **Status**: ✅ **Completed** (Phase 1 closed, 2026-08-24 — WS_09 T4 sign-off)
 - **Dependencies**: WS_02 signed off — `ClaudeAdapter`, `build_constrained_prompt`, and `sanitised_env()` must be complete and unit-tested before integration tests can run against the real subscription.
 
 ---

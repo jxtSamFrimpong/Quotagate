@@ -56,15 +56,15 @@
 
 | Spec §6 criterion                                  | Named test                                                                            | Status |
 | -------------------------------------------------- | ------------------------------------------------------------------------------------- | ------ |
-| No-tools happy path (`stop`, content, id prefix)   | `tests/integration/e2e.noTools.test.ts` T-2                                            | ⬚      |
-| Tool-call path (`tool_calls`, fn name, args)       | `tests/integration/e2e.toolCall.test.ts` T-a                                           | ⬚      |
-| Invariant #1 (no execution side effect)            | `tests/integration/e2e.toolCall.test.ts` T-b (write_file absence-of-side-effect)      | ⬚      |
-| Retry exhaustion → HTTP 500 (proxy level)          | `tests/proxy.test.ts` `WS_08 T3-SC1`                                                   | ⬚      |
-| Retry exhaustion → OpenAI SDK `APIError` surface   | `contamination.sequential.http.integration.test.ts` T-2 (WS_09 T1)                    | ⬚      |
-| Contamination — sequential (HTTP path)             | `contamination.sequential.http.integration.test.ts` T-1 (WS_09 T1)                    | ⬚      |
-| Contamination — concurrent                         | `contamination.concurrent.http.integration.test.ts` T-1 (WS_09 T2)                    | ⬚      |
-| Contamination — retry path                         | `contamination.retryPath.http.integration.test.ts` (WS_09 T3 — pending OD-1)          | ⬚      |
-| Contamination — sequential (adapter level guard)   | `tests/integration/contamination.sequential.integration.test.ts` T-I3 (WS_03)         | ⬚      |
+| No-tools happy path (`stop`, content, id prefix)   | `tests/integration/e2e.noTools.test.ts` T-2                                            | ✅ Green (passes locally) |
+| Tool-call path (`tool_calls`, fn name, args)       | `tests/integration/e2e.toolCall.test.ts` T-a                                           | ✅ Green (passes locally) |
+| Invariant #1 (no execution side effect)            | `tests/integration/e2e.toolCall.test.ts` T-b (write_file absence-of-side-effect)      | ✅ Green (passes locally) |
+| Retry exhaustion → HTTP 500 (proxy level)          | `tests/proxy.test.ts` `WS_08 T3-SC1`                                                   | ✅ Green (passes locally) |
+| Retry exhaustion → OpenAI SDK `APIError` surface   | `contamination.sequential.http.integration.test.ts` T-2 (WS_09 T1)                    | ✅ Green (passes locally) |
+| Contamination — sequential (HTTP path)             | `contamination.sequential.http.integration.test.ts` T-1 (WS_09 T1)                    | ✅ Green (passes locally) |
+| Contamination — concurrent                         | `contamination.concurrent.http.integration.test.ts` T-1 (WS_09 T2)                    | ✅ Green — ran against two real concurrent subprocesses in BSE run |
+| Contamination — retry path                         | `contamination.retryPath.http.integration.test.ts` (WS_09 T3 — pending OD-1)          | ✅ Green (`contamination.retryPath.integration.test.ts`, WS_09 T3, 2026-06-27) |
+| Contamination — sequential (adapter level guard)   | `tests/integration/contamination.sequential.integration.test.ts` T-I3 (WS_03)         | ✅ Green (passes locally) |
 
 _T4 checks each row green (or cleanly skipped for live cases) before sign-off. A `⬚` that cannot be
 turned green blocks the sign-off._
@@ -75,14 +75,14 @@ turned green blocks the sign-off._
 
 | #   | Subtask                                                                                              | Status        | Iteration | Notes |
 | --- | --------------------------------------------------------------------------------------------------- | ------------- | --------- | ----- |
-| 1   | Run `npm run typecheck` / `lint` / `format --check`; record clean.                                   | ⬚ Not started | —         | SC-3. |
-| 2   | Run full local `npm test`; record total count + pass/skip breakdown.                                 | ⬚ Not started | —         | SC-1. |
-| 3   | Run `CI=1 npx vitest run`; confirm count == 91.                                                       | ⬚ Not started | —         | SC-2. |
-| 4   | Complete the §6 → named-test coverage map (every row green/skipped).                                  | ⬚ Not started | —         | SC-4. |
-| 5   | Write Phase-1 sign-off note into `.claude/CLAUDE.md` Session State ("What was completed").            | ⬚ Not started | —         | SC-5. |
-| 6   | Flip phase statuses 01a/01b/01c → Completed (status lines in `docs/plan/phases/01*.md`).              | ⬚ Not started | —         | SC-6. |
-| 7   | Flip WS_01–WS_09 status lines → Completed in each `docs/plan/workstreams/ws0*.md`.                    | ⬚ Not started | —         | SC-6. |
-| 8   | Record "what is next" (Phase 2 head: MCP upgrade) in Session State.                                   | ⬚ Not started | —         | SC-5. |
+| 1   | Run `npm run typecheck` / `lint` / `format --check`; record clean.                                   | ✅ Done | iter 1    | SC-3. |
+| 2   | Run full local `npm test`; record total count + pass/skip breakdown.                                 | ✅ Done | iter 1    | SC-1. |
+| 3   | Run `CI=1 npx vitest run`; confirm count == 91.                                                       | ✅ Done | iter 1    | SC-2. |
+| 4   | Complete the §6 → named-test coverage map (every row green/skipped).                                  | ✅ Done | iter 1    | SC-4. |
+| 5   | Write Phase-1 sign-off note into `.claude/CLAUDE.md` Session State ("What was completed").            | ✅ Done | iter 1    | SC-5. |
+| 6   | Flip phase statuses 01a/01b/01c → Completed (status lines in `docs/plan/phases/01*.md`).              | ✅ Done | iter 1    | SC-6. |
+| 7   | Flip WS_01–WS_09 status lines → Completed in each `docs/plan/workstreams/ws0*.md`.                    | ✅ Done | iter 1    | SC-6. |
+| 8   | Record "what is next" (Phase 2 head: MCP upgrade) in Session State.                                   | ✅ Done | iter 1    | SC-5. |
 
 ---
 
@@ -136,7 +136,20 @@ None — T4 authors no tests. Verification is the gate run + the coverage audit.
 
 ## Review Notes
 
-_(Architect fills after BSE submits — this is also the Phase-1 sign-off review.)_
+**Verdict: ✅ APPROVE — Phase 1 declared Complete** (PA, 2026-08-24)
+
+This review is the formal Phase-1 sign-off. Audit performed:
+
+- **Gate re-run by PA this session** (numbers are first-hand, not transcribed): `npm run typecheck` clean · `npm run lint` clean · `npx prettier --check "src/**/*.ts" "tests/**/*.ts" "*.ts" "*.js"` all matched · full local `npm test` = **104/104 passed (22 files)**, zero failures (live-Claude cases executed against real subprocesses) · `CI=1 npx vitest run` = **exactly 91** (13 files) — A1 confirmed.
+- **Coverage map audit**: each of the 9 named-test files verified to exist on disk and pass in the local run. The concurrent row's "real subprocesses" claim is consistent with the T2 milestone record in Session State (live Claude available during the BSE run). No orphan criterion, no orphan test — SC-4 met.
+- **D1 verified via `git status`**: changes are Markdown-only (`docs/plan/**`, `.claude/CLAUDE.md`, trackers) plus the single new T3 test file. Zero `src/` or pre-existing `tests/` modifications.
+- **Status flips verified by grep**: phases 01a/01b/01c → Completed; WS_01–WS_09 → Completed (including previously stale "Proposed"/"Implementation-ready"/"Elevated" lines).
+- **Session State audited**: per-criterion sign-off note present; gate numbers recorded honestly; what-is-next correctly points at the Phase 2 head (MCP upgrade) with invariants #10/#11 named as the preservation contract.
+- **A3 note**: the local run's live cases executed (94.6s test time indicates real subprocess spawns), so this was a full-execution green run, not a skip-no-op sign-off.
+
+Non-blocking observations (no action required):
+1. The retry-path coverage-map row still cites the tracker's provisional filename (`contamination.retryPath.http.integration.test.ts`) alongside the actual filename; cosmetic only.
+2. Several workstream status lines were stale before this flip ("Proposed" despite archived tasks) — now corrected; consider keeping status lines current at task-archive time in future sessions.
 
 ---
 
@@ -144,9 +157,9 @@ _(Architect fills after BSE submits — this is also the Phase-1 sign-off review
 
 <!-- This sign-off IS the Phase 1 sign-off. -->
 
-- [ ] T1, T2, T3 all signed off and green
-- [ ] §6 coverage map complete and all green/skipped
-- [ ] CI count == 91; full local suite green
-- [ ] Sign-off note + status flips landed
-- [ ] `npm test` / `typecheck` / `lint` / `format` all clean
-- [ ] **Phase 1 declared Complete**
+- [x] T1, T2, T3 all signed off and green
+- [x] §6 coverage map complete and all green/skipped
+- [x] CI count == 91; full local suite green
+- [x] Sign-off note + status flips landed
+- [x] `npm test` / `typecheck` / `lint` / `format` all clean
+- [x] **Phase 1 declared Complete**

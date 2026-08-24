@@ -8,7 +8,7 @@
 
 - **Parent Phase**: [Phase 1B — OpenAI Translation Pipeline](../phases/01b_openai_translation_pipeline.md)
 - **Timeframe**: ~2 days
-- **Status**: ✅ Implementation-Ready — all open decisions resolved and locked (OD-1/OD-2/OD-3 + DD-1 → WS_05-D5…D8, 2026-06-11)
+- **Status**: ✅ **Completed** (Phase 1 closed, 2026-08-24 — WS_09 T4 sign-off)
 - **Dependencies**: WS_03 signed off — `CLIAdapter`, `ClaudeAdapter`, `AdapterResponse`, and the
   green gate must be in place. WS_04 must also be signed off before T3 is implemented (T3 wires
   `buildAdapterRequest`, `validateWithRetry`, and `buildChatCompletion` — all live in WS_04's

@@ -15,7 +15,7 @@
   passing. This is the walking skeleton on a transport that is known to work — no MCP, no feasibility
   gamble. The MCP upgrade is Phase 2 (see D-SEQ-01).
 - **Target Timeline**: ~1 week (WS_01 → WS_03)
-- **Status**: Proposed
+- **Status**: ✅ **Completed** (Phase 1 closed, 2026-08-24 — WS_09 T4 sign-off)
 - **Depends on**: None (first phase; prerequisite for 1B and 1C)
 
 ---

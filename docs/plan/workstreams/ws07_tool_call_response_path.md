@@ -8,7 +8,7 @@
 
 - **Parent Phase**: [Phase 1C — Tool Calling & Acceptance](../phases/01c_tool_calling_and_acceptance.md)
 - **Timeframe**: ~2 days
-- **Status**: Proposed
+- **Status**: ✅ **Completed** (Phase 1 closed, 2026-08-24 — WS_09 T4 sign-off)
 - **Dependencies**: WS_06 signed off — no-tools end-to-end integration test passing; Phase 1B green gate holding. WS_07 and WS_08 are largely independent and can proceed in parallel once WS_06 is signed off. WS_09 depends on both.
 
 ---
