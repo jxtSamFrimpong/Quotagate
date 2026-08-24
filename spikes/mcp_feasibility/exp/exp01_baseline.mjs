@@ -34,6 +34,7 @@ const logStream = createWriteStream(LOG_PATH, { flags: 'a' });
 
 let activeChild = null;
 let shuttingDown = false;
+const spawnedPids = []; // D3-3: tracked pids so the sweep report is derived, not asserted
 
 function log(line) {
   const stamped = `${new Date().toISOString()} ${line}`;
@@ -79,6 +80,7 @@ function runOnce() {
       env: { ...process.env, CLAUDE_CODE_ENTRYPOINT: 'quotagate-ws10-exp01' },
     });
     activeChild = child;
+    spawnedPids.push(child.pid);
     log(`[pid] child pid=${child.pid}`);
 
     let stdout = '';
@@ -187,9 +189,21 @@ async function main() {
       `machine=${os.platform()}-${os.arch()} cpus=${os.cpus().length} node=${process.version}`
   );
 
-  // D3-3: post-run orphan sweep — recorded PIDs must all be gone; sweep for stragglers.
-  log('[orphan-sweep] verifying no spawned child survived');
-  log('[orphan-sweep] all tracked children exited via close events (no pid retained)');
+  // D3-3: post-run orphan sweep — verify each tracked pid is actually gone, then sweep for stragglers.
+  log('[orphan-sweep] verifying tracked children exited');
+  const trackedSurvivors = spawnedPids.filter((pid) => {
+    try {
+      process.kill(pid, 0); // signal 0 = existence probe only
+      return true;
+    } catch {
+      return false;
+    }
+  });
+  log(
+    trackedSurvivors.length === 0
+      ? `[orphan-sweep] all ${spawnedPids.length} tracked children confirmed exited`
+      : `[orphan-sweep] FINDING — tracked pids still alive: ${trackedSurvivors.join(', ')}`
+  );
   const sweep = spawn('pgrep', ['-f', 'claude.*--print'], { stdio: ['ignore', 'pipe', 'pipe'] });
   let sweepOut = '';
   sweep.stdout.on('data', (d) => (sweepOut += d.toString()));
