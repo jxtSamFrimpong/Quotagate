@@ -178,14 +178,25 @@ None — spike scripts produce artifacts, not assertions (WS_10-D1/D2).
 
 ## Review Notes
 
-_Pending PA review._
+**Verdict: ✅ APPROVE** (PA, 2026-08-24)
+
+Reviewed inline by PA; all evidence verified first-hand this session.
+
+- **Topology reconciliation (subtask 4)**: probe artifact quotes §3.8 verbatim and records the either-direction ambiguity. The `claude mcp serve` finding is decisive: it answers initialize as `claude/tengu` 2.1.240 but exposes ONLY built-in execution tools (Agent/Bash/Read...) — no `quotagate_complete`, no custom-tool registration surface. Direction A is therefore unusable under invariant #1 (it hands the proxy an execution surface); Mechanism-B direction then proven end-to-end by Surfaces A–E. Goal-3 amendment proposal is warranted and recorded.
+- **A1 PROVEN**: all five registration surfaces connected + listed + invoked with distinct fixed markers (`ECHO:SURFACE-{A,B,C-LOCAL,D-USER,E-PROJECT}-MARKER`), each reversible. OD-1 evidence table complete (surface × scriptable/connect/list/invoke/reversible/blast-radius).
+- **A2 PROVEN**: 10/10 turns on ONE persistent headless session via `--input-format stream-json`; per-turn pass criterion is exact-marker containment (would fail loudly on wrong-tool or prose answers); p50 5785ms/turn; exit code 0; tracked pid confirmed gone.
+- **D3 config-mutation protocol executed, not just claimed**: backup taken before first write (sha recorded), JSON validated after every mutation, deep-scan diff shows exactly the two expected registrations added-then-removed with zero unexplained delta (residual drift characterized as CLI churn + user re-auth mid-task after spend-limit OAuth expiry — environmental, documented).
+- **User directive honored**: project-confined registration for Surface E (repo-root `.mcp.json`, removed post-test); global-scope Surface D was proven for evidence then fully deregistered.
+- **Quarantine**: both T2 commits touch only `spikes/**` + tracker. `git diff HEAD~2 --stat -- src/ tests/` empty. Spike deps (`@modelcontextprotocol/sdk`, `zod`) confined to spike-local package.json.
+- **Gate re-run by PA at review time**: typecheck/lint clean · full local **104/104** · `CI=1 npx vitest run` **exactly 91** — live suite fully green again post-reset.
+- **Non-blocking observations** (carry to T5/T7): (1) warm-turn ≈ cold-spawn round-trip latency on this machine — D-TRANSPORT's win must be argued on persistence/structure, not speed; (2) Surface B/E approval-gate bypass via `--allowedTools` should be re-examined for the production installer story (a real installer cannot rely on per-invocation grants alone).
 
 ---
 
 ## Architect Sign-off
 
-- [ ] Implementation reviewed
-- [ ] All success criteria verified (SC-1..SC-8)
-- [ ] All assumptions resolved (A1/A2)
-- [ ] Green gate untouched at execution (104 local / CI 91)
-- [ ] Quarantine honored (nothing under src/ or tests/ touched; product lockfile unchanged; config mutations backed up, validated, restored, diffed)
+- [x] Implementation reviewed
+- [x] All success criteria verified (SC-1..SC-8)
+- [x] All assumptions resolved (A1/A2 — both PROVEN)
+- [x] Green gate untouched at execution (104 local / CI 91)
+- [x] Quarantine honored (nothing under src/ or tests/ touched; product lockfile unchanged; config mutations backed up, validated, restored, diffed)

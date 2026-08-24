@@ -1,7 +1,7 @@
 # CLAUDE.md — Project Knowledge Base
 
 > **Last Updated**: 2026-08-24
-> **Status**: 🟡 **WS_10 T1 done (PA APPROVE); T2 elevated + ready, gated on subscription reset (~9am Accra). Next: execute T2 when live Claude returns.**
+> **Status**: 🟡 **WS_10 T2 done (PA APPROVE): A1+A2 PROVEN, all 5 surfaces pass, Mechanism-B confirmed. Next: elevate+run T3/T4.**
 
 ---
 
@@ -265,7 +265,7 @@ current task and leaves no constraint behind, it is not a decision.
 
 ### Current Session (2026-06-25 → 2026-08-24)
 
-> **Status**: 🟡 **WS_10 T1 done (PA APPROVE); T2 elevated + ready, gated on subscription reset (~9am Accra). Next: execute T2 when live Claude returns.**
+> **Status**: 🟡 **WS_10 T2 done (PA APPROVE): A1+A2 PROVEN, all 5 surfaces pass, Mechanism-B confirmed. Next: elevate+run T3/T4.**
 
 **What was completed**:
 
@@ -286,13 +286,14 @@ current task and leaves no constraint behind, it is not a decision.
 
 **Active task trackers**:
 
-- `docs/active/TASK_WS10_T2.md` — Hello-world tool server across registration surfaces + persistent headless drive ⬚ Not Started (**⚠️ execution precondition: subscription spend-limited until ~9am Accra reset; confirm with one throwaway `claude --print "Reply OK"` before executing**).
+- None — T2 archived to `docs/archive/tasks/` (PA APPROVE, 2026-08-24).
 
 **What is next**:
 
-1. **WS_10 T2** — BSE executes per tracker once live Claude is back (precondition above). Settles IQ-1 topology reconciliation FIRST (spec §3.8 quoted verbatim, time-boxed `claude mcp serve` probe), then the surface ladder (`--mcp-config` → spike-dir `.mcp.json` → `claude mcp add` scopes under full D3 config-mutation protocol); ≥10-turn headless drive proves A2. Produces OD-1's evidence base.
-2. **T3–T7** — elevate from plan as T2 closes, folding SPE suggested findings per plan §Review amendments.
-3. **OD-3** (user) — adjudicate when IQ-4 lands: does verified-reset qualify for GO if structural fresh-context doesn't exist? OD-2 only if NO-GO-WITH-ALTERNATIVE occurs.
+1. **WS_10 T3** — elevate + execute: `quotagate_complete` fixture constraint-quality probes (A3 validity rate n=30–40 incl. Mechanism-A baseline check; A4 execution-suppression — the hard NO-GO edge).
+2. **WS_10 T4** — statefulness & serialization probes (A5/A6; code-word plant/probe with positive-control arm; server-side invocation journaling) → feeds **OD-3** user adjudication.
+3. **T5–T7** — benchmark / failure injection / findings report; OD-1 evidence complete as of T2 (project `.mcp.json` vs `--mcp-config` vs global scopes — see archived T2 artifacts).
+4. Spec amendment proposal queued for T7: §3.1/§4.1 literal topology unusable (`claude mcp serve` exposes only built-in tools); Mechanism-B direction proven.
 
 **Key WS_10 T1 evidence**: CLI 2.1.240; `claude mcp serve` exists (no literal `--mcp-server` — spec §3.1/§4.1 amendment material); headless flags `--input-format stream-json`, `--fork-session`, `--session-id`, `--no-session-persistence` are IQ-2/IQ-4 candidates; cold-spawn baseline p50 ≈ 4.9s / p95 ≈ 7.7s full round-trip (boot-cost-only vs spec's ~50–200ms — T5 must separate them). Artifacts: `spikes/mcp_feasibility/artifacts/`.
 
