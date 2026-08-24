@@ -1,7 +1,7 @@
 # CLAUDE.md — Project Knowledge Base
 
 > **Last Updated**: 2026-08-24
-> **Status**: 🟢 **PHASE 1 COMPLETE — WS_09 T3+T4 done, Phase-1 sign-off recorded. Next: Phase 2 head (MCP upgrade).**
+> **Status**: 🟢 **PHASE 1 COMPLETE. Phase 2 head opened: WS_10 (MCP feasibility investigation) planned + SPE-reviewed; T1 elevated and ready for BSE.**
 
 ---
 
@@ -265,7 +265,7 @@ current task and leaves no constraint behind, it is not a decision.
 
 ### Current Session (2026-06-25 → 2026-08-24)
 
-> **Status**: 🟢 **PHASE 1 COMPLETE — WS_09 T3+T4 done, Phase-1 sign-off recorded. Next: Phase 2 head (MCP upgrade).**
+> **Status**: 🟢 **PHASE 1 COMPLETE. Phase 2 head opened: WS_10 (MCP feasibility investigation) planned + SPE-reviewed; T1 elevated and ready for BSE.**
 
 **What was completed**:
 
@@ -286,15 +286,14 @@ current task and leaves no constraint behind, it is not a decision.
 
 **Active task trackers**:
 
-- None — T3 and T4 archived to `docs/archive/tasks/` (both PA APPROVE, 2026-08-24; the T4 sign-off **is** the Phase-1 sign-off).
+- `docs/active/TASK_WS10_T1.md` — Recon & baseline (CLI inventory + spike scaffold + cold-spawn harness) ⬚ Not Started
+- Plan: `docs/plan/workstreams/ws10_mcp_feasibility_investigation.md` — ✅ reviewed (SPE APPROVE WITH SUGGESTIONS; blocking items folded into D3, suggested items logged in-plan for T2–T6 elevation).
 
 **What is next**:
 
-1. **Phase 2 head: MCP upgrade** — replace the subprocess transport with a persistent MCP session
-   (D-TRANSPORT end-state; D-SEQ-01). Must preserve invariant #10 (stateless per request) and #11
-   (one request in flight per MCP session); the WS_09 contamination suite is the regression guard —
-   a regression there means the upgrade broke context isolation. First step: the deferred MCP-server
-   feasibility investigation.
+1. **WS_10 T1** — BSE: recon & baseline per tracker (SC-1..SC-5). Read-only + quarantined scaffolding; no OD blockers.
+2. **WS_10 T2–T7** — elevate trackers from the plan as T1 closes, folding the SPE's suggested findings into each (see plan §Review amendments).
+3. **OD-3** (user) — adjudicate when IQ-4 lands: does verified-reset qualify for GO if structural fresh-context doesn't exist? OD-2 only if NO-GO-WITH-ALTERNATIVE occurs.
 
 **Resolved decisions** (settled — ≤2 blocks inline; older ones in `docs/archive/decisions.md`):
 
