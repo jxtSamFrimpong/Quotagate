@@ -1,7 +1,7 @@
 # CLAUDE.md — Project Knowledge Base
 
 > **Last Updated**: 2026-08-24
-> **Status**: 🟡 **WS_10 T1 done (PA APPROVE). ⚠️ Subscription spend-limited — live tests fail until reset (~9am Accra). Next: elevate T2.**
+> **Status**: 🟡 **WS_10 T1 done (PA APPROVE); T2 elevated + ready, gated on subscription reset (~9am Accra). Next: execute T2 when live Claude returns.**
 
 ---
 
@@ -265,7 +265,7 @@ current task and leaves no constraint behind, it is not a decision.
 
 ### Current Session (2026-06-25 → 2026-08-24)
 
-> **Status**: 🟡 **WS_10 T1 done (PA APPROVE). ⚠️ Subscription spend-limited — live tests fail until reset (~9am Accra). Next: elevate T2.**
+> **Status**: 🟡 **WS_10 T1 done (PA APPROVE); T2 elevated + ready, gated on subscription reset (~9am Accra). Next: execute T2 when live Claude returns.**
 
 **What was completed**:
 
@@ -286,14 +286,13 @@ current task and leaves no constraint behind, it is not a decision.
 
 **Active task trackers**:
 
-- None — T1 archived to `docs/archive/tasks/` (PA APPROVE, 2026-08-24). T2 elevation next.
+- `docs/active/TASK_WS10_T2.md` — Hello-world tool server across registration surfaces + persistent headless drive ⬚ Not Started (**⚠️ execution precondition: subscription spend-limited until ~9am Accra reset; confirm with one throwaway `claude --print "Reply OK"` before executing**).
 
 **What is next**:
 
-1. **WS_10 T2** — elevate tracker from the plan (hello-world MCP tool server across registration surfaces + persistent headless session drive; feeds OD-1), folding the SPE's suggested findings for T2 (quote §3.8 verbatim in topology findings; spike-local `package.json` deps — already scaffolded in T1).
-2. **⚠️ Live-gate caveat**: the subscription hit its monthly spend limit on 2026-08-24 (~9am Africa/Accra reset). The live-Claude integration subset will fail until then — environmental, not a regression (root-caused in `docs/archive/tasks/TASK_WS10_T1.md` Review Notes). Re-verify 104/104 after reset before any task that claims the full gate.
-3. **T3–T7** — elevate from plan as T2 closes, folding SPE suggested findings per plan §Review amendments.
-4. **OD-3** (user) — adjudicate when IQ-4 lands: does verified-reset qualify for GO if structural fresh-context doesn't exist? OD-2 only if NO-GO-WITH-ALTERNATIVE occurs.
+1. **WS_10 T2** — BSE executes per tracker once live Claude is back (precondition above). Settles IQ-1 topology reconciliation FIRST (spec §3.8 quoted verbatim, time-boxed `claude mcp serve` probe), then the surface ladder (`--mcp-config` → spike-dir `.mcp.json` → `claude mcp add` scopes under full D3 config-mutation protocol); ≥10-turn headless drive proves A2. Produces OD-1's evidence base.
+2. **T3–T7** — elevate from plan as T2 closes, folding SPE suggested findings per plan §Review amendments.
+3. **OD-3** (user) — adjudicate when IQ-4 lands: does verified-reset qualify for GO if structural fresh-context doesn't exist? OD-2 only if NO-GO-WITH-ALTERNATIVE occurs.
 
 **Key WS_10 T1 evidence**: CLI 2.1.240; `claude mcp serve` exists (no literal `--mcp-server` — spec §3.1/§4.1 amendment material); headless flags `--input-format stream-json`, `--fork-session`, `--session-id`, `--no-session-persistence` are IQ-2/IQ-4 candidates; cold-spawn baseline p50 ≈ 4.9s / p95 ≈ 7.7s full round-trip (boot-cost-only vs spec's ~50–200ms — T5 must separate them). Artifacts: `spikes/mcp_feasibility/artifacts/`.
 
