@@ -1,0 +1,10 @@
+{
+  "name": "quotagate-mcp-feasibility-spike",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "WS_10 MCP feasibility spike — quarantined per docs/plan/workstreams/ws10_mcp_feasibility_investigation.md §WS_10-D3. Own package.json (SPE finding): spike-only deps install here, never the product lockfile.",
+  "scripts": {
+    "exp01": "node exp/exp01_baseline.mjs"
+  }
+}
