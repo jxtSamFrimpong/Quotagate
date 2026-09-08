@@ -16,6 +16,9 @@ coverage/
 # --- Runtime / logs ---
 .quotagate/
 *.log
+# WS_10-D3 evidence exception (S-R6, PA-verified 2026-09-08): the exp05 logs are
+# the primary A4/A5 record — keep them committed. All other *.log stay ignored.
+!spikes/mcp_feasibility/artifacts/exp05-*.log
 
 # --- OS ---
 .DS_Store
