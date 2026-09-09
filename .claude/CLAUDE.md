@@ -1,7 +1,7 @@
 # CLAUDE.md — Project Knowledge Base
 
-> **Last Updated**: 2026-08-24
-> **Status**: 🟡 **WS_10 T2 done (PA APPROVE): A1+A2 PROVEN, all 5 surfaces pass, Mechanism-B confirmed. Next: elevate+run T3/T4.**
+> **Last Updated**: 2026-09-08
+> **Status**: 🟡 **WS_10 T3/T4 re-probe PA-APPROVED (A4 PROVEN, A5 structural+verified-reset, A6 queue; A3 directional). Next: gate re-run post-17:10 Accra, then T5.**
 
 ---
 
@@ -263,56 +263,50 @@ current task and leaves no constraint behind, it is not a decision.
 
 ## Session State
 
-### Current Session (2026-06-25 → 2026-08-24)
+### Current Session (2026-06-25 → 2026-09-08)
 
-> **Status**: 🟡 **WS_10 T2 done (PA APPROVE): A1+A2 PROVEN, all 5 surfaces pass, Mechanism-B confirmed. Next: elevate+run T3/T4.**
+> **Status**: 🟡 **WS_10 T3/T4 re-probe PA-APPROVED (A4 PROVEN, A5 structural+verified-reset, A6 queue; A3 directional). Next: gate re-run post-17:10 Accra, then T5.**
 
 **What was completed**:
 
-- _Milestone:_ **PHASE 1 SIGN-OFF (WS_09 T4, PA APPROVE — 2026-08-24)** — All spec §6 acceptance criteria proven by named passing tests:
-  - No-tools happy path → `e2e.noTools.test.ts` T-2 ✅
-  - Tool-call path (`tool_calls`, fn name, args) + Invariant #1 (no execution side effect) → `e2e.toolCall.test.ts` T-a/T-b ✅
-  - Retry exhaustion (proxy HTTP 500; OpenAI SDK `APIError` surface) → `proxy.test.ts` WS_08 T3-SC1 + `contamination.sequential.http.integration.test.ts` T-2 ✅
-  - Contamination — sequential HTTP path (T1) / concurrent real-subprocess path (T2) / retry-path messages-array isolation (T3, deterministic double, no skip guard) — all three leak-free ✅
-  - Adapter-level sequential guard (WS_03 T-I3) ✅
-- **Gate at sign-off**: full local **104/104** green · `CI=1` subset **91** (unchanged) · typecheck/lint/format clean.
-- _Milestone:_ **WS_09 T3 complete (2026-08-24)** — `tests/integration/contamination.retryPath.integration.test.ts`: single `vi.fn()` double drives A and B (D1); no `healthCheck()` skip (D2 — deterministic). Proves A's CORRECTION_NOTE appears in A's attempt-2 input but in neither B's `complete()` input nor B's response body; exactly 3 adapter calls. No contamination leak found. One structural deviation from the tracker sketch: server built per-test in `beforeEach` (matching `proxy.test.ts`) instead of `beforeAll`.
-- **[WS_09 T2 complete + PA APPROVE — 2026-06-27]** Concurrent contamination over the real HTTP path. New file `tests/integration/contamination.concurrent.http.integration.test.ts`: fires two `client.chat.completions.create()` calls via `Promise.all` against a real listening Fastify server + real `ClaudeAdapter`; each injects its own fixed UUID code word (`CW_A=c4d5e6f7…`, `CW_B=d5e6f7a8…`, distinct from T1's `a1b2c3d4…` and WS_03's `8f3a1c2d…`) and asserts BOTH own-content (typeof/length/`toContain`) AND no-cross-content (`not.toContain`) per side (D1 — guards a vacuous empty-body pass). `healthCheck()` skip guard (live-Claude), 90s timeout, in-file SC-4 comment (fresh-process rationale + Phase-2 `_mcp_lock` regression-guard). In the BSE run live Claude was available, so the test executed against two real concurrent subprocess spawns and passed (not a skip no-op). Full local 103/103 (+1); CI 91/91 unchanged (CI-excluded). PA-verified green gate.
-- _Folded milestones (→ 2026-06-27):_ WS_08 complete (PA-signed off); WS_09 elevated with D1..D4 locked (`docs/plan/workstreams/ws09_contamination_and_signoff.md` §Locked Decisions) and T1 (sequential HTTP-path contamination + retry-exhaustion SDK surface) PA-APPROVE. Details in `docs/archive/tasks/TASK_WS09_T1.md`.
+- **[WS_10 T3/T4 re-probe + PA review — 2026-09-08]** 78-turn scoped re-probe (CLI 2.1.251; EF7 drift from 2.1.240) closing all five PA Blocking findings from the unrecorded 08-30 spikes. **A4 PROVEN**: 12/12 adversarial suppression on a capable channel (decoy registered/invocable, control-verified; CI 76–100%). **A5 ACHIEVABLE**: R-A fresh-process 5/5 no-recall → STRUCTURAL; R-B in-session `/clear` 5/5 no-recall → VERIFIED-RESET; R-C `--fork-session` 5/5 recall → inherits, NOT a reset (per-arm CI 57–100%). **A6 QUEUE 3/3** journal-classified (server-side journal, 37 rows; no interleave/corrupt; coalescing + ~2min backlog latency noted as adapter queue-design input). **A3 DIRECTIONAL** (30/30 not re-measured; CI 88–100%; qualitative Mechanism-A comparison). Verdicts: T3 🔶 APPROVE WITH FINDINGS; T4 🔶 APPROVE WITH FINDINGS (❌ REJECT lifted — T7 must cite the re-probe, never the 08-30 exp04 claims). Residuals routed, not open: EF3 ceiling → T6; S-T3-2 Layer-1 control → T7 caveat/optional; S-R1 harness fix applied; S-R2 decoy-invocability ping → next live window. B-T3-2 honesty corrections recorded (09:13 08-30 limit event; run-1 restated 3/10; D4 violation admitted; vacuous 10/10 quarantined).
+- **[Evidence commit `f0708f2` — 2026-09-08]** Retro-fit trackers (T3/T4/REPROBE, since archived), exp05 harnesses + journal + findings + all three exp05 logs committed (13 files). exp05 logs kept via scoped gitignore exception (S-R6).
+- _Folded milestones (→ 2026-08-30):_ **PHASE 1 SIGN-OFF (WS_09 T4, PA APPROVE — 2026-08-24)** — all spec §6 acceptance criteria proven (no-tools path; tool-call path + Invariant #1; retry-exhaustion SDK surface; 3-way contamination leak-free; adapter sequential guard). Gate at sign-off: 104/104 local · CI 91 · typecheck/lint/format clean. WS_09 T1–T3 + WS_10 T1–T2 (A1+A2 PROVEN, 5 surfaces pass, Mechanism-B confirmed) — details in `docs/archive/tasks/` + `docs/plan/workstreams/ws09_contamination_and_signoff.md` §Locked Decisions.
 
 **What is being worked on**:
 
-- Nothing.
+- Gate re-run pending subscription reset (17:10 Africa/Accra): `npm test` 100/104 — 4 live-subscription integration tests limit-blocked, attribution credible (zero tracked modifications), not a regression. No further live work until the re-run passes.
 
 **Active task trackers**:
 
-- None — T2 archived to `docs/archive/tasks/` (PA APPROVE, 2026-08-24).
+- None — T3/T4/REPROBE archived to `docs/archive/tasks/` (PA verdicts recorded, 2026-09-08).
 
 **What is next**:
 
-1. **WS_10 T3** — elevate + execute: `quotagate_complete` fixture constraint-quality probes (A3 validity rate n=30–40 incl. Mechanism-A baseline check; A4 execution-suppression — the hard NO-GO edge).
-2. **WS_10 T4** — statefulness & serialization probes (A5/A6; code-word plant/probe with positive-control arm; server-side invocation journaling) → feeds **OD-3** user adjudication.
-3. **T5–T7** — benchmark / failure injection / findings report; OD-1 evidence complete as of T2 (project `.mcp.json` vs `--mcp-config` vs global scopes — see archived T2 artifacts).
+1. **Gate re-run post-17:10 Accra** (+ S-R2 decoy-invocability ping in the same live window).
+2. **WS_10 T5** — elevate + execute: latency/cost benchmark (persistent warm vs cold `--print`); budget from 78-turn actuals (S-R7); informs OD-3.
+3. **T6–T7** — failure injection (carries EF3 ceiling) / findings report + GO adjudication; OD-1 evidence complete as of T2.
 4. Spec amendment proposal queued for T7: §3.1/§4.1 literal topology unusable (`claude mcp serve` exposes only built-in tools); Mechanism-B direction proven.
 
-**Key WS_10 T1 evidence**: CLI 2.1.240; `claude mcp serve` exists (no literal `--mcp-server` — spec §3.1/§4.1 amendment material); headless flags `--input-format stream-json`, `--fork-session`, `--session-id`, `--no-session-persistence` are IQ-2/IQ-4 candidates; cold-spawn baseline p50 ≈ 4.9s / p95 ≈ 7.7s full round-trip (boot-cost-only vs spec's ~50–200ms — T5 must separate them). Artifacts: `spikes/mcp_feasibility/artifacts/`.
+**Key WS_10 evidence**: CLI 2.1.251 (re-probe) / 2.1.240 (T1–T4); `claude mcp serve` exists (no literal `--mcp-server` — spec §3.1/§4.1 amendment material); cold-spawn baseline p50 ≈ 4.9s / p95 ≈ 7.7s full round-trip (T1). Artifacts: `spikes/mcp_feasibility/artifacts/` (exp05 logs committed; exp01–04 logs ignored).
 
 **Resolved decisions** (settled — ≤2 blocks inline; older ones in `docs/archive/decisions.md`):
+
+**Decisions resolved (2026-09-08)**:
+
+- **WS_10 B-T4-3 — reset+lock is the atomic unit [ENDORSED].** Any second-sees-first-context outcome routes to OD-3 with reset+lock covering call → response → reset as one atomic unit (spec §3.1/§3.8) — never "serialization alone." _Rejected — "standard mutex, Risk MEDIUM"_ (08-30 exp04 language; mis-prescribed even on its own terms).
+- **WS_10 S-R6 — spike evidence logs stay committed [LOCKED].** `*.log` gitignore carries a `spikes/mcp_feasibility/artifacts/exp05-*.log` exception; exp05 logs committed as the primary A4/A5 record. _Rejected — review-as-record-only_ (fragile across sessions).
 
 **Decisions resolved (2026-06-21)**:
 
 - **WS_08-D4 — `config.retry.max_attempts` wired into `validateWithRetry` (B-1) [LOCKED].** PA review found that `validateWithRetry` hardcoded `MAX_ATTEMPTS = 3` while the config field `retry.max_attempts` was parsed/validated but never read — a developer setting `max_attempts: 5` silently got 3 retries. **Choice (B-1):** `validateWithRetry` accepts `maxAttempts: number` as a 4th parameter; the `MAX_ATTEMPTS` constant is removed; `proxy.ts` passes `config.retry.max_attempts` at the call site. All `validator.test.ts` calls supply `3` explicitly — identical behavior, now honest. _Rejected (B-2) — document as Phase 1 simplification:_ config field creates a false expectation with no warning; eliminated at minimal cost by B-1.
 
-**Decisions resolved (2026-06-11)**:
-
-- **WS_05-D5…D8 — Fastify proxy & config open decisions resolved (OD-1/OD-2/OD-3 + DD-1) [LOCKED].** WS_05 elevation locked 4 decisions. **D5 (OD-1):** add `yaml` as a runtime dep (`import { parse }`) — pure-JS, zero-dep, spec §3.9-aligned. **D6 (OD-2):** default config path `~/.quotagate/config.yaml` via `os.homedir()` (never `process.cwd()` / literal `~`) — the spec-canonical location (spec line 798), pulled forward from Phase-4 DX and co-located with invariant-#9's `~/.quotagate/` home. **D7 (OD-3):** `QuotagateConfig.models` entry is `{ backend; priority? }` — matches spec §3.9, zero migration when `router.ts` arrives. **D8 (DD-1):** absent config is fail-loud (throw create-it `QuotagateError` → `process.exit(1)`); no auto-write, honoring D-SEQ-01's no-installer fence. Full dated blocks + rejected alternatives in `docs/plan/workstreams/ws05_fastify_proxy_and_config.md` §Locked Decisions. _Rejected (OD-2) — `process.cwd()`:_ spec names no project-local path; misses config when run from a subdirectory. _Rejected (DD-1) — auto-write a default config:_ installer-class disk write deferred by D-SEQ-01.
-
-> Older decisions archived to `docs/archive/decisions.md` (D-LANG, D-STATELESS, WS_02-D3, WS_02-D-T2-02, WS_02-D2-allowlist, WS_03-D4, WS_03-T2-SYSTEM-PROMPT, WS_04-D5).
+> Older decisions archived to `docs/archive/decisions.md` (D-LANG, D-STATELESS, WS_02-D3, WS_02-D-T2-02, WS_02-D2-allowlist, WS_03-D4, WS_03-T2-SYSTEM-PROMPT, WS_04-D5, WS_05-D5…D8).
 
 **Open decisions for user**:
 
-- **None blocking.** The MCP-server feasibility investigation is deferred to the Phase 2 head
-  (D-SEQ-01) — it is empirical work, not a user decision.
+- **OD-3 (NARROWED — blocks GO adjudication at T7, not T5).** Re-probe demonstrated BOTH structural fresh-process and verified-reset (`/clear`); fork-resume excluded. Open question is now which mechanism is the contract: structural, or verified-reset + reset+lock atomic unit + periodic probes? T5 latency should inform the choice; adjudication due at T7.
+- **OD-1 (untouched).** Re-probe used ephemeral `--mcp-config` throughout; no new registration-surface evidence. Decided empirically at T7, then elevated to the installer workstream.
 
 **Inherited DECIDED architecture** (from the spec — binding, not re-litigated here):
 

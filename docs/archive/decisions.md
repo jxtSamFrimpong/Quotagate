@@ -136,3 +136,35 @@ _(Decision ID WS_03-T2-SYSTEM-PROMPT. Locked 2026-06-10. Archived from `.claude/
 **Rejected (OD-1)**: inject `"auto"` at the builder — duplicates the default and binds all future backends to it.
 
 _(Locked 2026-06-10. Archived from `.claude/CLAUDE.md` Session State by /house-keeping, 2026-06-21.)_
+
+---
+
+## 2026-06-11
+
+### WS_05-D5…D8 — Fastify proxy & config open decisions resolved (OD-1/OD-2/OD-3 + DD-1) [LOCKED]
+
+**Choice**: WS_05 elevation locked 4 decisions. **D5 (OD-1):** add `yaml` as a runtime dep (`import { parse }`) — pure-JS, zero-dep, spec §3.9-aligned. **D6 (OD-2):** default config path `~/.quotagate/config.yaml` via `os.homedir()` (never `process.cwd()` / literal `~`) — the spec-canonical location (spec line 798), pulled forward from Phase-4 DX and co-located with invariant-#9's `~/.quotagate/` home. **D7 (OD-3):** `QuotagateConfig.models` entry is `{ backend; priority? }` — matches spec §3.9, zero migration when `router.ts` arrives. **D8 (DD-1):** absent config is fail-loud (throw create-it `QuotagateError` → `process.exit(1)`); no auto-write, honoring D-SEQ-01's no-installer fence. Full dated blocks + rejected alternatives in `docs/plan/workstreams/ws05_fastify_proxy_and_config.md` §Locked Decisions.
+
+**Rejected (OD-2) — `process.cwd()`:** spec names no project-local path; misses config when run from a subdirectory. **Rejected (DD-1) — auto-write a default config:** installer-class disk write deferred by D-SEQ-01.
+
+_(Locked 2026-06-11. Archived from `.claude/CLAUDE.md` Session State by /house-keeping, 2026-09-08.)_
+
+---
+
+## 2026-09-08
+
+### WS_10 B-T4-3 — reset+lock is the atomic unit for shared-context outcomes [ENDORSED]
+
+**Choice**: any second-sees-first-context outcome routes to OD-3 with reset+lock covering call → response → reset as one atomic unit (spec §3.1/§3.8) — never "serialization alone." Endorsed by the user when authorizing the T3/T4 re-probe.
+
+**Rationale**: a lock alone serializes access but does not clear shared history; the observed T4-concurrent pattern (had it been real) would have required the reset half, not just the mutex half.
+
+**Rejected — "standard mutex, Risk MEDIUM"** (the 08-30 exp04 verdict language): mis-prescribed even on its own terms; superseded.
+
+### WS_10 S-R6 — spike evidence logs stay committed via scoped gitignore exception [LOCKED]
+
+**Choice**: `*.log` gitignore carries a `spikes/mcp_feasibility/artifacts/exp05-*.log` exception; the three exp05 logs are committed as the primary A4/A5 record (PA first-hand verified 2026-09-08).
+
+**Rationale**: the record T7 adjudicates on must survive in the repo; a review-as-record-only convention is fragile across sessions.
+
+**Rejected — accept the PA review as the sole record**: leaves the evidence one lost file away from anecdote.
