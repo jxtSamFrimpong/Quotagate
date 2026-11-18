@@ -3,6 +3,26 @@
   "version": "0.1.0",
   "description": "Local OpenAI-compatible proxy that routes requests through Claude Code, Gemini CLI, and Codex CLI",
   "type": "module",
+  "license": "MIT",
+  "author": "jxtSamFrimpong (https://github.com/jxtSamFrimpong)",
+  "homepage": "https://github.com/jxtSamFrimpong/Quotagate#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jxtSamFrimpong/Quotagate.git"
+  },
+  "bugs": {
+    "url": "https://github.com/jxtSamFrimpong/Quotagate/issues"
+  },
+  "keywords": [
+    "openai",
+    "proxy",
+    "claude-code",
+    "gemini-cli",
+    "codex-cli",
+    "mcp",
+    "llm",
+    "openai-compatible"
+  ],
   "engines": {
     "node": ">=20"
   },
